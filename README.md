@@ -141,6 +141,7 @@ Dead code elimination will be added.
 * [Runtime Types](https://github.com/ozanh/ugo/blob/main/docs/runtime-types.md)
 * [Builtins](https://github.com/ozanh/ugo/blob/main/docs/builtins.md)
 * [Operators](https://github.com/ozanh/ugo/blob/main/docs/operators.md)
+* [Error Handling](https://github.com/ozanh/ugo/blob/main/docs/error-handling.md)
 
 ## LICENSE
 
