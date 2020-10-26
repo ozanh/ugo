@@ -57,6 +57,8 @@ uGO has a REPL application to learn and test uGO language thanks to
 
 `./ugo`
 
+![repl-gif](https://github.com/ozanh/ugo/blob/main/docs/repl.gif)
+
 This example is to show some features of uGO.
 
 ```go
@@ -135,10 +137,10 @@ Dead code elimination will be added.
 
 ## Documentation
 
-* [Tutorial](https://github.com/ozanh/ugo/blob/master/tutorial.md)
-* [Runtime Types](https://github.com/ozanh/ugo/blob/master/runtime-types.md)
-* [Builtins](https://github.com/ozanh/ugo/blob/master/builtins.md)
-* [Operators](https://github.com/ozanh/ugo/blob/master/operators.md)
+* [Tutorial](https://github.com/ozanh/ugo/blob/main/docs/tutorial.md)
+* [Runtime Types](https://github.com/ozanh/ugo/blob/main/docs/runtime-types.md)
+* [Builtins](https://github.com/ozanh/ugo/blob/main/docs/builtins.md)
+* [Operators](https://github.com/ozanh/ugo/blob/main/docs/operators.md)
 
 ## LICENSE
 
