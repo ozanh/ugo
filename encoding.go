@@ -362,7 +362,7 @@ func DecodeObject(r io.Reader) (Object, error) {
 		}
 		return nil, fmt.Errorf("decode error: unknown type '%T'", x)
 	}
-	return nil, fmt.Errorf("decode error: unkown encoding type:%d", typ)
+	return nil, fmt.Errorf("decode error: unknown encoding type:%d", typ)
 }
 
 // MarshalBinary implements encoding.BinaryMarshaler

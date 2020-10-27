@@ -888,7 +888,7 @@ func (c *Compiler) Compile(node parser.Node) error {
 				c.emit(node, OpLoadModule,
 					moduleIndexes.ConstantIndex, moduleIndexes.ModuleIndex)
 				jumpPos := c.emit(node, OpJumpFalsy, 0)
-				// modules should not accept parameters, to supress the wrong number of arguments error
+				// modules should not accept parameters, to suppress the wrong number of arguments error
 				// set all params to undefined
 				for i := 0; i < numParams; i++ {
 					c.emit(node, OpNull)
