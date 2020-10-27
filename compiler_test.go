@@ -2,7 +2,6 @@ package ugo_test
 
 import (
 	"bytes"
-	"os"
 	"reflect"
 	"strconv"
 	"testing"
@@ -12,45 +11,6 @@ import (
 
 	. "github.com/ozanh/ugo"
 )
-
-func TestCompilerPrint(t *testing.T) {
-	modA := []byte(`
-	modB := import("modB")
-	_ := import("xyz")
-	return {
-		a: undefined,
-		b: modB,
-		in: true,
-		for: false
-	}
-	`)
-	modB := []byte(`
-	return 10+3
-	`)
-	script := `
-	f := func(){
-		return 10
-	}
-	try {
-		
-	} catch err {
-
-	} finally {
-		return {err: err}
-	}
-	var a = 1
-	`
-	opts := TraceCompilerOptions
-	opts.ModuleMap = NewModuleMap()
-	opts.ModuleMap.AddSourceModule("modA", modA)
-	opts.ModuleMap.AddSourceModule("modB", modB)
-	opts.ModuleMap.AddBuiltinModule("xyz", map[string]Object{
-		"abc": &Function{},
-	})
-	c, err := Compile([]byte(script), opts)
-	require.NoError(t, err)
-	c.Fprint(os.Stdout)
-}
 
 func makeInst(op Opcode, args ...int) []byte {
 	b, err := MakeInstruction(op, args...)
