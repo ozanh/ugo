@@ -27,10 +27,8 @@ const (
 	BytecodeMaxVersion uint16 = 3
 )
 
-type binObjectVersion byte
-
 const (
-	binUndefinedV1 binObjectVersion = iota
+	binUndefinedV1 byte = iota
 	binTrueV1
 	binFalseV1
 	binIntV1
@@ -46,7 +44,7 @@ const (
 	binFunctionV1
 	binBuiltinFunctionV1
 
-	binUnkownType binObjectVersion = 255
+	binUnkownType byte = 255
 )
 
 type (
@@ -225,8 +223,7 @@ func DecodeObject(r io.Reader) (Object, error) {
 	if err != nil {
 		return nil, err
 	}
-	typ := binObjectVersion(btype)
-	switch typ {
+	switch btype {
 	case binUndefinedV1:
 		return Undefined, nil
 	case binTrueV1:
@@ -250,7 +247,7 @@ func DecodeObject(r io.Reader) (Object, error) {
 				return nil, err
 			}
 		}
-		switch typ {
+		switch btype {
 		case binIntV1:
 			var v Int
 			if err = v.UnmarshalBinary(buf); err != nil {
@@ -302,7 +299,7 @@ func DecodeObject(r io.Reader) (Object, error) {
 				return nil, err
 			}
 		}
-		switch typ {
+		switch btype {
 		case binCompiledFunctionV1:
 			var v CompiledFunction
 			if err := v.UnmarshalBinary(buf); err != nil {
@@ -362,17 +359,17 @@ func DecodeObject(r io.Reader) (Object, error) {
 		}
 		return nil, fmt.Errorf("decode error: unknown type '%T'", x)
 	}
-	return nil, fmt.Errorf("decode error: unknown encoding type:%d", typ)
+	return nil, fmt.Errorf("decode error: unknown encoding type:%d", btype)
 }
 
 // MarshalBinary implements encoding.BinaryMarshaler
 func (o undefined) MarshalBinary() ([]byte, error) {
-	return []byte{byte(binUndefinedV1)}, nil
+	return []byte{binUndefinedV1}, nil
 }
 
 // UnmarshalBinary implements encoding.BinaryUnmarshaler
 func (o undefined) UnmarshalBinary(data []byte) error {
-	if len(data) < 1 || data[0] != byte(binUndefinedV1) {
+	if len(data) < 1 || data[0] != binUndefinedV1 {
 		return errors.New("invalid undefined data")
 	}
 	return nil
@@ -381,9 +378,9 @@ func (o undefined) UnmarshalBinary(data []byte) error {
 // MarshalBinary implements encoding.BinaryMarshaler
 func (o Bool) MarshalBinary() ([]byte, error) {
 	if o {
-		return []byte{byte(binTrueV1)}, nil
+		return []byte{binTrueV1}, nil
 	}
-	return []byte{byte(binFalseV1)}, nil
+	return []byte{binFalseV1}, nil
 }
 
 // UnmarshalBinary implements encoding.BinaryUnmarshaler
@@ -391,11 +388,11 @@ func (o *Bool) UnmarshalBinary(data []byte) error {
 	if len(data) < 1 {
 		return errors.New("invalid Bool data")
 	}
-	if data[0] == byte(binTrueV1) {
+	if data[0] == binTrueV1 {
 		*o = True
 		return nil
 	}
-	if data[0] == byte(binFalseV1) {
+	if data[0] == binFalseV1 {
 		*o = False
 		return nil
 	}
@@ -405,7 +402,7 @@ func (o *Bool) UnmarshalBinary(data []byte) error {
 // MarshalBinary implements encoding.BinaryMarshaler
 func (o Int) MarshalBinary() ([]byte, error) {
 	buf := make([]byte, 2+binary.MaxVarintLen64)
-	buf[0] = byte(binIntV1)
+	buf[0] = binIntV1
 	if o == 0 {
 		buf[1] = 0
 		return buf[:2], nil
@@ -417,7 +414,7 @@ func (o Int) MarshalBinary() ([]byte, error) {
 
 // UnmarshalBinary implements encoding.BinaryUnmarshaler
 func (o *Int) UnmarshalBinary(data []byte) error {
-	if len(data) < 2 || data[0] != byte(binIntV1) {
+	if len(data) < 2 || data[0] != binIntV1 {
 		return errors.New("invalid Int data")
 	}
 	size := int(data[1])
@@ -441,7 +438,7 @@ func (o *Int) UnmarshalBinary(data []byte) error {
 // MarshalBinary implements encoding.BinaryMarshaler
 func (o Uint) MarshalBinary() ([]byte, error) {
 	buf := make([]byte, 2+binary.MaxVarintLen64)
-	buf[0] = byte(binUintV1)
+	buf[0] = binUintV1
 	if o == 0 {
 		buf[1] = 0
 		return buf[:2], nil
@@ -453,7 +450,7 @@ func (o Uint) MarshalBinary() ([]byte, error) {
 
 // UnmarshalBinary implements encoding.BinaryUnmarshaler
 func (o *Uint) UnmarshalBinary(data []byte) error {
-	if len(data) < 2 || data[0] != byte(binUintV1) {
+	if len(data) < 2 || data[0] != binUintV1 {
 		return errors.New("invalid Uint data")
 	}
 	size := int(data[1])
@@ -477,7 +474,7 @@ func (o *Uint) UnmarshalBinary(data []byte) error {
 // MarshalBinary implements encoding.BinaryMarshaler
 func (o Char) MarshalBinary() ([]byte, error) {
 	buf := make([]byte, 2+binary.MaxVarintLen32)
-	buf[0] = byte(binCharV1)
+	buf[0] = binCharV1
 	if o == 0 {
 		buf[1] = 0
 		return buf[:2], nil
@@ -489,7 +486,7 @@ func (o Char) MarshalBinary() ([]byte, error) {
 
 // UnmarshalBinary implements encoding.BinaryUnmarshaler
 func (o *Char) UnmarshalBinary(data []byte) error {
-	if len(data) < 2 || data[0] != byte(binCharV1) {
+	if len(data) < 2 || data[0] != binCharV1 {
 		return errors.New("invalid Char data")
 	}
 	size := int(data[1])
@@ -516,7 +513,7 @@ func (o *Char) UnmarshalBinary(data []byte) error {
 // MarshalBinary implements encoding.BinaryMarshaler
 func (o Float) MarshalBinary() ([]byte, error) {
 	buf := make([]byte, 2+binary.MaxVarintLen64)
-	buf[0] = byte(binFloatV1)
+	buf[0] = binFloatV1
 	if o == 0 {
 		buf[1] = 0
 		return buf[:2], nil
@@ -528,7 +525,7 @@ func (o Float) MarshalBinary() ([]byte, error) {
 
 // UnmarshalBinary implements encoding.BinaryUnmarshaler
 func (o *Float) UnmarshalBinary(data []byte) error {
-	if len(data) < 2 || data[0] != byte(binFloatV1) {
+	if len(data) < 2 || data[0] != binFloatV1 {
 		return errors.New("invalid Float data")
 	}
 	size := int(data[1])
@@ -552,7 +549,7 @@ func (o *Float) UnmarshalBinary(data []byte) error {
 // MarshalBinary implements encoding.BinaryMarshaler
 func (o String) MarshalBinary() ([]byte, error) {
 	var buf bytes.Buffer
-	buf.WriteByte(byte(binStringV1))
+	buf.WriteByte(binStringV1)
 	size := int64(len(o))
 	if size == 0 {
 		buf.WriteByte(0)
@@ -567,7 +564,7 @@ func (o String) MarshalBinary() ([]byte, error) {
 
 // UnmarshalBinary implements encoding.BinaryUnmarshaler
 func (o *String) UnmarshalBinary(data []byte) error {
-	if len(data) < 2 || data[0] != byte(binStringV1) {
+	if len(data) < 2 || data[0] != binStringV1 {
 		return errors.New("invalid String data")
 	}
 	size, offset, err := toVarint(data[1:])
@@ -588,7 +585,7 @@ func (o *String) UnmarshalBinary(data []byte) error {
 // MarshalBinary implements encoding.BinaryMarshaler
 func (o Bytes) MarshalBinary() ([]byte, error) {
 	var buf bytes.Buffer
-	buf.WriteByte(byte(binBytesV1))
+	buf.WriteByte(binBytesV1)
 	size := int64(len(o))
 	if size == 0 {
 		buf.WriteByte(0)
@@ -603,7 +600,7 @@ func (o Bytes) MarshalBinary() ([]byte, error) {
 
 // UnmarshalBinary implements encoding.BinaryUnmarshaler
 func (o *Bytes) UnmarshalBinary(data []byte) error {
-	if len(data) < 2 || data[0] != byte(binBytesV1) {
+	if len(data) < 2 || data[0] != binBytesV1 {
 		return errors.New("invalid Bytes data")
 	}
 	size, offset, err := toVarint(data[1:])
@@ -624,7 +621,7 @@ func (o *Bytes) UnmarshalBinary(data []byte) error {
 // MarshalBinary implements encoding.BinaryMarshaler
 func (o Array) MarshalBinary() ([]byte, error) {
 	var buf bytes.Buffer
-	buf.WriteByte(byte(binArrayV1))
+	buf.WriteByte(binArrayV1)
 	if len(o) == 0 {
 		buf.WriteByte(0)
 		return buf.Bytes(), nil
@@ -636,7 +633,7 @@ func (o Array) MarshalBinary() ([]byte, error) {
 	tmpBuf.Write(b)
 	for _, v := range o {
 		if !isEncSupported(v) {
-			tmpBuf.WriteByte(byte(binUnkownType))
+			tmpBuf.WriteByte(binUnkownType)
 			if err := gob.NewEncoder(&tmpBuf).Encode(v); err != nil {
 				return nil, err
 			}
@@ -656,7 +653,7 @@ func (o Array) MarshalBinary() ([]byte, error) {
 
 // UnmarshalBinary implements encoding.BinaryUnmarshaler
 func (o *Array) UnmarshalBinary(data []byte) error {
-	if len(data) < 2 || data[0] != byte(binArrayV1) {
+	if len(data) < 2 || data[0] != binArrayV1 {
 		return errors.New("invalid Array data")
 	}
 	size, offset, err := toVarint(data[1:])
@@ -692,7 +689,7 @@ func (o *Array) UnmarshalBinary(data []byte) error {
 // MarshalBinary implements encoding.BinaryMarshaler
 func (o Map) MarshalBinary() ([]byte, error) {
 	var buf bytes.Buffer
-	buf.WriteByte(byte(binMapV1))
+	buf.WriteByte(binMapV1)
 
 	var tmpBuf bytes.Buffer
 	var vi varintConv
@@ -701,7 +698,7 @@ func (o Map) MarshalBinary() ([]byte, error) {
 		tmpBuf.Write(b)
 		tmpBuf.WriteString(k)
 		if !isEncSupported(v) {
-			tmpBuf.WriteByte(byte(binUnkownType))
+			tmpBuf.WriteByte(binUnkownType)
 			if err := gob.NewEncoder(&tmpBuf).Encode(v); err != nil {
 				return nil, err
 			}
@@ -722,7 +719,7 @@ func (o Map) MarshalBinary() ([]byte, error) {
 
 // UnmarshalBinary implements encoding.BinaryUnmarshaler
 func (o *Map) UnmarshalBinary(data []byte) error {
-	if len(data) < 2 || data[0] != byte(binMapV1) {
+	if len(data) < 2 || data[0] != binMapV1 {
 		return errors.New("invalid Map data")
 	}
 	size, offset, err := toVarint(data[1:])
@@ -766,7 +763,7 @@ func (o *Map) UnmarshalBinary(data []byte) error {
 func (o *SyncMap) MarshalBinary() ([]byte, error) {
 	var buf bytes.Buffer
 	if o.Map == nil {
-		buf.WriteByte(byte(binSyncMapV1))
+		buf.WriteByte(binSyncMapV1)
 		buf.WriteByte(0)
 		return buf.Bytes(), nil
 	}
@@ -775,26 +772,26 @@ func (o *SyncMap) MarshalBinary() ([]byte, error) {
 		return nil, err
 	}
 	if len(b) > 0 {
-		b[0] = byte(binSyncMapV1)
+		b[0] = binSyncMapV1
 	}
 	return b, nil
 }
 
 // UnmarshalBinary implements encoding.BinaryUnmarshaler
 func (o *SyncMap) UnmarshalBinary(data []byte) error {
-	if len(data) < 2 || data[0] != byte(binSyncMapV1) {
+	if len(data) < 2 || data[0] != binSyncMapV1 {
 		return errors.New("invalid SyncMap data")
 	}
 	if data[1] == 0 {
 		return nil
 	}
-	data[0] = byte(binMapV1)
+	data[0] = binMapV1
 	m := Map{}
 	if err := m.UnmarshalBinary(data); err != nil {
-		data[0] = byte(binSyncMapV1)
+		data[0] = binSyncMapV1
 		return err
 	}
-	data[0] = byte(binSyncMapV1)
+	data[0] = binSyncMapV1
 	o.Map = m
 	return nil
 }
@@ -843,7 +840,7 @@ func (o *CompiledFunction) MarshalBinary() ([]byte, error) {
 	}
 	var buf bytes.Buffer
 	size := vi.toBytes(int64(tmpBuf.Len()))
-	buf.WriteByte(byte(binCompiledFunctionV1))
+	buf.WriteByte(binCompiledFunctionV1)
 	buf.Write(size)
 	buf.Write(tmpBuf.Bytes())
 	return buf.Bytes(), nil
@@ -851,7 +848,7 @@ func (o *CompiledFunction) MarshalBinary() ([]byte, error) {
 
 // UnmarshalBinary implements encoding.BinaryUnmarshaler
 func (o *CompiledFunction) UnmarshalBinary(data []byte) error {
-	if len(data) < 2 || data[0] != byte(binCompiledFunctionV1) {
+	if len(data) < 2 || data[0] != binCompiledFunctionV1 {
 		return errors.New("invalid CompiledFunction data")
 	}
 	size, offset, err := toVarint(data[1:])
@@ -928,7 +925,7 @@ func (o *BuiltinFunction) MarshalBinary() ([]byte, error) {
 	var vi varintConv
 	b := vi.toBytes(int64(len(s)))
 	data := make([]byte, 0, 1+len(b)+len(s))
-	data = append(data, byte(binBuiltinFunctionV1))
+	data = append(data, binBuiltinFunctionV1)
 	data = append(data, b...)
 	data = append(data, s...)
 	return data, nil
@@ -936,7 +933,7 @@ func (o *BuiltinFunction) MarshalBinary() ([]byte, error) {
 
 // UnmarshalBinary implements encoding.BinaryUnmarshaler
 func (o *BuiltinFunction) UnmarshalBinary(data []byte) error {
-	if len(data) < 2 || data[0] != byte(binBuiltinFunctionV1) {
+	if len(data) < 2 || data[0] != binBuiltinFunctionV1 {
 		return errors.New("invalid BuiltinFunction data")
 	}
 	size, offset, err := toVarint(data[1:])
@@ -972,7 +969,7 @@ func (o *Function) MarshalBinary() ([]byte, error) {
 	var vi varintConv
 	b := vi.toBytes(int64(len(s)))
 	data := make([]byte, 0, 1+len(b)+len(s))
-	data = append(data, byte(binFunctionV1))
+	data = append(data, binFunctionV1)
 	data = append(data, b...)
 	data = append(data, s...)
 	return data, nil
@@ -980,7 +977,7 @@ func (o *Function) MarshalBinary() ([]byte, error) {
 
 // UnmarshalBinary implements encoding.BinaryUnmarshaler
 func (o *Function) UnmarshalBinary(data []byte) error {
-	if len(data) < 2 || data[0] != byte(binFunctionV1) {
+	if len(data) < 2 || data[0] != binFunctionV1 {
 		return errors.New("invalid Function data")
 	}
 	size, offset, err := toVarint(data[1:])
