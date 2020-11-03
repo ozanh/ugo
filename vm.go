@@ -732,9 +732,7 @@ func (vm *VM) initLocals(args []Object) {
 	// copy args to stack
 	if numParams > 0 {
 		if sz := len(args); sz < numParams {
-			for i := range args {
-				locals[i] = args[i]
-			}
+			copy(locals, args)
 		} else if sz >= numParams {
 			for i := range args[:numParams-1] {
 				locals[i] = args[i]

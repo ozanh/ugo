@@ -254,9 +254,7 @@ func (c *Compiler) Bytecode() *Bytecode {
 			lastOp == OpAndJump || lastOp == OpOrJump {
 			jumpPos[operands[0]] = struct{}{}
 		}
-		if _, ok := jumpPos[i]; ok {
-			delete(jumpPos, i)
-		}
+		delete(jumpPos, i)
 		i += offset + 1
 	}
 	if lastOp != OpReturn || len(jumpPos) > 0 {

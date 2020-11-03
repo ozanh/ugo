@@ -727,16 +727,6 @@ func (opt *SimpleOptimizer) error(node parser.Node, err error) error {
 	}
 }
 
-func (opt *SimpleOptimizer) errorf(node parser.Node,
-	format string, args ...interface{}) error {
-
-	return &OptimizerError{
-		FileSet: opt.file.InputFile.Set(),
-		Node:    node,
-		Err:     fmt.Errorf(format, args...),
-	}
-}
-
 func (opt *SimpleOptimizer) printTrace(a ...interface{}) {
 	const (
 		dots = ". . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . "

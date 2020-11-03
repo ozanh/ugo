@@ -829,7 +829,7 @@ func builtinPrintfFunc(args ...Object) (Object, error) {
 	}
 	switch len(args) {
 	case 1:
-		if _, err := fmt.Fprintf(PrintWriter, args[0].String()); err != nil {
+		if _, err := fmt.Fprint(PrintWriter, args[0].String()); err != nil {
 			return nil, err
 		}
 	default:

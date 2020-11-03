@@ -949,7 +949,7 @@ func (o *BuiltinFunction) UnmarshalBinary(data []byte) error {
 	}
 	index, ok := BuiltinsMap[string(s)]
 	if !ok {
-		return fmt.Errorf("Builtin '%s' not found", s)
+		return fmt.Errorf("builtin '%s' not found", s)
 	}
 	obj := BuiltinObjects[index]
 	f, ok := obj.(*BuiltinFunction)
@@ -957,7 +957,7 @@ func (o *BuiltinFunction) UnmarshalBinary(data []byte) error {
 		*o = *f
 		return nil
 	}
-	return fmt.Errorf("Builtin '%s' not a BuiltinFunction type", s)
+	return fmt.Errorf("builtin '%s' not a BuiltinFunction type", s)
 }
 
 // MarshalBinary implements encoding.BinaryMarshaler

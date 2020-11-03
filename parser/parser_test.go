@@ -9,7 +9,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/ozanh/ugo/parser"
 	. "github.com/ozanh/ugo/parser"
 	"github.com/ozanh/ugo/token"
 )
@@ -111,7 +110,7 @@ b)`, func(p pfn) []Stmt {
 			declStmt(
 				genDecl(token.Var, p(1, 1), 0, 0,
 					valueSpec(
-						[]*parser.Ident{ident("a", p(1, 5))},
+						[]*Ident{ident("a", p(1, 5))},
 						[]Expr{&UndefinedLit{TokenPos: p(1, 5)}}),
 				),
 			),
@@ -122,7 +121,7 @@ b)`, func(p pfn) []Stmt {
 			declStmt(
 				genDecl(token.Var, p(1, 1), 0, 0,
 					valueSpec(
-						[]*parser.Ident{ident("a", p(1, 5))},
+						[]*Ident{ident("a", p(1, 5))},
 						[]Expr{intLit(1, p(1, 7))}),
 				),
 			),
@@ -133,14 +132,14 @@ b)`, func(p pfn) []Stmt {
 			declStmt(
 				genDecl(token.Var, p(1, 1), 0, 0,
 					valueSpec(
-						[]*parser.Ident{ident("a", p(1, 5))},
+						[]*Ident{ident("a", p(1, 5))},
 						[]Expr{&UndefinedLit{TokenPos: p(1, 5)}}),
 				),
 			),
 			declStmt(
 				genDecl(token.Var, p(1, 7), 0, 0,
 					valueSpec(
-						[]*parser.Ident{ident("b", p(1, 11))},
+						[]*Ident{ident("b", p(1, 11))},
 						[]Expr{&UndefinedLit{TokenPos: p(1, 11)}}),
 				),
 			),
@@ -151,14 +150,14 @@ b)`, func(p pfn) []Stmt {
 			declStmt(
 				genDecl(token.Var, p(1, 1), 0, 0,
 					valueSpec(
-						[]*parser.Ident{ident("a", p(1, 5))},
+						[]*Ident{ident("a", p(1, 5))},
 						[]Expr{stringLit("x", p(1, 7))}),
 				),
 			),
 			declStmt(
 				genDecl(token.Var, p(1, 11), 0, 0,
 					valueSpec(
-						[]*parser.Ident{ident("b", p(1, 15))},
+						[]*Ident{ident("b", p(1, 15))},
 						[]Expr{&UndefinedLit{TokenPos: p(1, 15)}}),
 				),
 			),
@@ -172,14 +171,14 @@ var b
 			declStmt(
 				genDecl(token.Var, p(2, 1), 0, 0,
 					valueSpec(
-						[]*parser.Ident{ident("a", p(2, 5))},
+						[]*Ident{ident("a", p(2, 5))},
 						[]Expr{&UndefinedLit{TokenPos: p(2, 5)}}),
 				),
 			),
 			declStmt(
 				genDecl(token.Var, p(3, 1), 0, 0,
 					valueSpec(
-						[]*parser.Ident{ident("b", p(3, 5))},
+						[]*Ident{ident("b", p(3, 5))},
 						[]Expr{&UndefinedLit{TokenPos: p(3, 5)}}),
 				),
 			),
@@ -193,14 +192,14 @@ var b=2
 			declStmt(
 				genDecl(token.Var, p(2, 1), 0, 0,
 					valueSpec(
-						[]*parser.Ident{ident("a", p(2, 5))},
+						[]*Ident{ident("a", p(2, 5))},
 						[]Expr{&UndefinedLit{TokenPos: p(2, 5)}}),
 				),
 			),
 			declStmt(
 				genDecl(token.Var, p(3, 1), 0, 0,
 					valueSpec(
-						[]*parser.Ident{ident("b", p(3, 5))},
+						[]*Ident{ident("b", p(3, 5))},
 						[]Expr{intLit(2, p(3, 7))}),
 				),
 			),
@@ -211,10 +210,10 @@ var b=2
 			declStmt(
 				genDecl(token.Var, p(1, 1), p(1, 5), p(1, 12),
 					valueSpec(
-						[]*parser.Ident{ident("a", p(1, 6))},
+						[]*Ident{ident("a", p(1, 6))},
 						[]Expr{&UndefinedLit{TokenPos: p(1, 6)}}),
 					valueSpec(
-						[]*parser.Ident{ident("b", p(1, 9))},
+						[]*Ident{ident("b", p(1, 9))},
 						[]Expr{intLit(2, p(1, 11))}),
 				),
 			),
@@ -225,10 +224,10 @@ var b=2
 			declStmt(
 				genDecl(token.Var, p(1, 1), p(1, 5), p(1, 14),
 					valueSpec(
-						[]*parser.Ident{ident("a", p(1, 6))},
+						[]*Ident{ident("a", p(1, 6))},
 						[]Expr{intLit(1, p(1, 8))}),
 					valueSpec(
-						[]*parser.Ident{ident("b", p(1, 11))},
+						[]*Ident{ident("b", p(1, 11))},
 						[]Expr{intLit(2, p(1, 13))}),
 				),
 			),
@@ -240,10 +239,10 @@ b=2)`, func(p pfn) []Stmt {
 			declStmt(
 				genDecl(token.Var, p(1, 1), p(1, 5), p(2, 4),
 					valueSpec(
-						[]*parser.Ident{ident("a", p(1, 6))},
+						[]*Ident{ident("a", p(1, 6))},
 						[]Expr{intLit(1, p(1, 8))}),
 					valueSpec(
-						[]*parser.Ident{ident("b", p(2, 1))},
+						[]*Ident{ident("b", p(2, 1))},
 						[]Expr{intLit(2, p(2, 3))}),
 				),
 			),

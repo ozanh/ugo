@@ -71,7 +71,7 @@ func (s *ValueSpec) String() string {
 		if s.Values[i] != nil {
 			vals = append(vals, fmt.Sprintf("%s = %v", s.Idents[i], s.Values[i]))
 		} else {
-			vals = append(vals, fmt.Sprintf("%s", s.Idents[i]))
+			vals = append(vals, s.Idents[i].String())
 		}
 	}
 	return strings.Join(vals, ", ")
