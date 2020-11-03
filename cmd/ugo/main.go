@@ -1,3 +1,7 @@
+// Copyright (c) 2020 Ozan Hacıbekiroğlu.
+// Use of this source code is governed by a MIT License
+// that can be found in the LICENSE file.
+
 package main
 
 import (
@@ -13,6 +17,7 @@ import (
 	"github.com/c-bata/go-prompt"
 
 	"github.com/ozanh/ugo"
+	"github.com/ozanh/ugo/stdlib/time"
 	"github.com/ozanh/ugo/token"
 )
 
@@ -79,6 +84,7 @@ type repl struct {
 
 func newREPL(ctx context.Context) *repl {
 	moduleMap := ugo.NewModuleMap()
+	moduleMap.AddBuiltinModule("time", time.Module)
 	opts := ugo.CompilerOptions{
 		ModulePath:        "(repl)",
 		ModuleMap:         moduleMap,
@@ -119,78 +125,57 @@ func (r *repl) executor(line string) {
 	case line == "":
 		return
 	case line[0] == '.' && len(line) > 1:
-		switch line[1] {
-		case 'b':
-			switch line {
-			case ".bytecode":
-				fmt.Printf("%s\n", r.lastBytecode)
-				return
-			case ".builtins":
-				builtins := make([]string, len(ugo.BuiltinsMap))
-				for k, v := range ugo.BuiltinsMap {
-					builtins[v] = fmt.Sprint(ugo.BuiltinObjects[v].TypeName(), ":", k)
-				}
-				fmt.Print(strings.Join(builtins, "\n"), "\n")
-				return
+		switch line {
+		case ".bytecode":
+			fmt.Printf("%s\n", r.lastBytecode)
+			return
+		case ".builtins":
+			builtins := make([]string, len(ugo.BuiltinsMap))
+			for k, v := range ugo.BuiltinsMap {
+				builtins[v] = fmt.Sprint(ugo.BuiltinObjects[v].TypeName(), ":", k)
 			}
-		case 'g':
-			switch line {
-			case ".gc":
-				runtime.GC()
-				return
-			case ".globals":
-				fmt.Printf("%+v\n", r.eval.Globals)
-				return
-			case ".globals+":
-				fmt.Printf("%#v\n", r.eval.Globals)
-				return
+			fmt.Print(strings.Join(builtins, "\n"), "\n")
+			return
+		case ".gc":
+			runtime.GC()
+			return
+		case ".globals":
+			fmt.Printf("%+v\n", r.eval.Globals)
+			return
+		case ".globals+":
+			fmt.Printf("%#v\n", r.eval.Globals)
+			return
+		case ".locals":
+			fmt.Printf("%+v\n", r.eval.Locals)
+			return
+		case ".locals+":
+			fmt.Printf("%#v\n", r.eval.Locals)
+			return
+		case ".return":
+			fmt.Printf("%#v\n", r.lastReturn)
+			return
+		case ".return+":
+			if r.lastReturn != nil {
+				fmt.Printf("GoType:%[1]T, TypeName:%[2]s, Value:%#[1]v\n",
+					r.lastReturn, r.lastReturn.TypeName())
+			} else {
+				fmt.Println("<nil>")
 			}
-		case 'l':
-			switch line {
-			case ".locals":
-				fmt.Printf("%+v\n", r.eval.Locals)
-				return
-			case ".locals+":
-				fmt.Printf("%#v\n", r.eval.Locals)
-				return
-			}
-		case 'r':
-			switch line {
-			case ".return":
-				fmt.Printf("%#v\n", r.lastReturn)
-				return
-			case ".return+":
-				if r.lastReturn != nil {
-					fmt.Printf("GoType:%[1]T, TypeName:%[2]s, Value:%#[1]v\n",
-						r.lastReturn, r.lastReturn.TypeName())
-				} else {
-					fmt.Println("<nil>")
-				}
-				return
-			case ".reset":
-				*r = *newREPL(r.ctx)
-				return
-			}
-		case 's':
-			switch line {
-			case ".symbols":
-				fmt.Printf("%v\n", r.eval.Opts.SymbolTable.Symbols())
-				return
-			}
-		case 'm':
-			switch line {
-			case ".memory_stats":
-				writeMemStats(os.Stdout)
-				return
-			case ".modules_cache":
-				fmt.Printf("%v\n", r.eval.ModulesCache)
-				return
-			}
-		case 'e':
-			switch line {
-			case ".exit":
-				os.Exit(0)
-			}
+			return
+		case ".reset":
+			*r = *newREPL(r.ctx)
+			return
+		case ".symbols":
+			fmt.Printf("%v\n", r.eval.Opts.SymbolTable.Symbols())
+			return
+		case ".memory_stats":
+			writeMemStats(os.Stdout)
+			return
+		case ".modules_cache":
+			fmt.Printf("%v\n", r.eval.ModulesCache)
+			return
+		case ".exit":
+			os.Exit(0)
 		}
 	case strings.HasSuffix(line, "\\"):
 		isMultiline = true
@@ -260,7 +245,7 @@ func humanFriendlySize(b uint64) string {
 
 func completer(in prompt.Document) []prompt.Suggest {
 	w := in.GetWordBeforeCursorWithSpace()
-	return prompt.FilterContains(suggestions, w, true)
+	return prompt.FilterHasPrefix(suggestions, w, true)
 }
 
 var suggestions = []prompt.Suggest{
