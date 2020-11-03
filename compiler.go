@@ -131,7 +131,11 @@ func NewCompiler(file *parser.SourceFile, opts CompilerOptions) *Compiler {
 	if opts.constsCache == nil {
 		opts.constsCache = make(map[Object]int)
 		for i := range opts.Constants {
-			opts.constsCache[opts.Constants[i]] = i
+			switch opts.Constants[i].(type) {
+			case Int, Uint, String, Bool, Float, Char, undefined,
+				*CompiledFunction:
+				opts.constsCache[opts.Constants[i]] = i
+			}
 		}
 	}
 	if opts.ModuleMap == nil {
