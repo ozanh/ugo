@@ -100,19 +100,21 @@ func (*SimpleOptimizer) canOptimizeInsts(constants []Object, insts []byte) bool 
 	}
 	allowedOps := [...]bool{
 		OpConstant: true, OpNull: true, OpBinaryOp: true, OpUnary: true,
-		OpNoOp: true, OpAndJump: true, OpOrJump: true, OpArray: true, OpReturn: true,
-		OpEqual: true, OpNotEqual: true, OpPop: true, OpGetBuiltin: true,
-		OpCall: true, OpSetLocal: true,
+		OpNoOp: true, OpAndJump: true, OpOrJump: true, OpArray: true,
+		OpReturn: true, OpEqual: true, OpNotEqual: true, OpPop: true,
+		OpGetBuiltin: true, OpCall: true, OpSetLocal: true,
 		^byte(0): false,
 	}
 	allowedBuiltins := [...]bool{
-		BuiltinContains: true, BuiltinBool: true, BuiltinInt: true, BuiltinUint: true,
-		BuiltinChar: true, BuiltinFloat: true, BuiltinString: true, BuiltinChars: true,
-		BuiltinLen: true, BuiltinTypeName: true, BuiltinBytes: true, BuiltinError: true,
+		BuiltinContains: true, BuiltinBool: true, BuiltinInt: true,
+		BuiltinUint: true, BuiltinChar: true, BuiltinFloat: true,
+		BuiltinString: true, BuiltinChars: true, BuiltinLen: true,
+		BuiltinTypeName: true, BuiltinBytes: true, BuiltinError: true,
 		BuiltinSprintf: true,
-		BuiltinIsError: true, BuiltinIsInt: true, BuiltinIsUint: true, BuiltinIsFloat: true,
-		BuiltinIsChar: true, BuiltinIsBool: true, BuiltinIsString: true, BuiltinIsBytes: true,
-		BuiltinIsMap: true, BuiltinIsArray: true, BuiltinIsUndefined: true, BuiltinIsIterable: true,
+		BuiltinIsError: true, BuiltinIsInt: true, BuiltinIsUint: true,
+		BuiltinIsFloat: true, BuiltinIsChar: true, BuiltinIsBool: true,
+		BuiltinIsString: true, BuiltinIsBytes: true, BuiltinIsMap: true,
+		BuiltinIsArray: true, BuiltinIsUndefined: true, BuiltinIsIterable: true,
 		^byte(0): false,
 	}
 	canOptimize := true
@@ -274,7 +276,7 @@ func (opt *SimpleOptimizer) Optimize() error {
 		defer func() {
 			opt.printTraceMsg(fmt.Sprintf("File: %s", opt.file))
 			opt.printTraceMsg(fmt.Sprintf("Duration: %s", opt.duration))
-			opt.printTraceMsg("Exit Optimize")
+			opt.printTraceMsg("Exit Optimizer")
 			opt.printTraceMsg("----------------------")
 		}()
 	}
@@ -383,7 +385,11 @@ func (opt *SimpleOptimizer) binaryopFloats(left, right *parser.FloatLit,
 result:
 	opt.count++
 	l := strconv.FormatFloat(val, 'f', -1, 64)
-	return &parser.FloatLit{Value: val, Literal: l, ValuePos: left.ValuePos}, true
+	return &parser.FloatLit{
+		Value:    val,
+		Literal:  l,
+		ValuePos: left.ValuePos,
+	}, true
 }
 
 func (opt *SimpleOptimizer) binaryop(left parser.Expr,
@@ -416,7 +422,9 @@ func (opt *SimpleOptimizer) binaryop(left parser.Expr,
 	return nil, false
 }
 
-func (opt *SimpleOptimizer) unaryop(expr parser.Expr, op token.Token) (parser.Expr, bool) {
+func (opt *SimpleOptimizer) unaryop(expr parser.Expr,
+	op token.Token) (parser.Expr, bool) {
+
 	if !opt.optimConsts {
 		return nil, false
 	}
@@ -474,6 +482,18 @@ func (opt *SimpleOptimizer) unaryop(expr parser.Expr, op token.Token) (parser.Ex
 			v := ^expr.Value
 			l := strconv.FormatUint(v, 10)
 			return &parser.UintLit{
+				Value:    v,
+				Literal:  l,
+				ValuePos: expr.ValuePos,
+			}, true
+		}
+	case *parser.FloatLit:
+		switch op {
+		case token.Sub:
+			opt.count++
+			v := -expr.Value
+			l := strconv.FormatFloat(v, 'f', -1, 64)
+			return &parser.FloatLit{
 				Value:    v,
 				Literal:  l,
 				ValuePos: expr.ValuePos,
@@ -569,6 +589,9 @@ func (opt *SimpleOptimizer) optimize(node parser.Node) (parser.Expr, bool) {
 			if expr, ok := opt.optimize(node.Expr); ok {
 				node.Expr = expr
 			}
+			if expr, ok := opt.evalExpr(node.Expr); ok {
+				node.Expr = expr
+			}
 		}
 	case *parser.ForStmt:
 		if node.Init != nil {
@@ -620,28 +643,38 @@ func (opt *SimpleOptimizer) optimize(node parser.Node) (parser.Expr, bool) {
 						v = spec.Values[i]
 						if expr, ok := opt.optimize(v); ok {
 							spec.Values[i] = expr
+							v = expr
+						}
+						if expr, ok := opt.evalExpr(v); ok {
+							spec.Values[i] = expr
 						}
 					}
 				}
 			}
 		}
 	case *parser.ArrayLit:
-		for i, elem := range node.Elements {
-			expr, ok := opt.optimize(elem)
-			if ok {
+		for i := range node.Elements {
+			if expr, ok := opt.optimize(node.Elements[i]); ok {
+				node.Elements[i] = expr
+			}
+			if expr, ok := opt.evalExpr(node.Elements[i]); ok {
 				node.Elements[i] = expr
 			}
 		}
 	case *parser.MapLit:
 		for i := range node.Elements {
-			expr, ok := opt.optimize(node.Elements[i].Value)
-			if ok {
+			if expr, ok := opt.optimize(node.Elements[i].Value); ok {
+				node.Elements[i].Value = expr
+			}
+			if expr, ok := opt.evalExpr(node.Elements[i].Value); ok {
 				node.Elements[i].Value = expr
 			}
 		}
 	case *parser.IndexExpr:
-		expr, ok := opt.optimize(node.Index)
-		if ok {
+		if expr, ok := opt.optimize(node.Index); ok {
+			node.Index = expr
+		}
+		if expr, ok := opt.evalExpr(node.Index); ok {
 			node.Index = expr
 		}
 	case *parser.SliceExpr:
@@ -667,9 +700,15 @@ func (opt *SimpleOptimizer) optimize(node parser.Node) (parser.Expr, bool) {
 		if expr, ok := opt.optimize(node.Result); ok {
 			node.Result = expr
 		}
+		if expr, ok := opt.evalExpr(node.Result); ok {
+			node.Result = expr
+		}
 	case *parser.CallExpr:
-		for i, arg := range node.Args {
-			if expr, ok := opt.optimize(arg); ok {
+		if node.Func != nil {
+			opt.optimize(node.Func)
+		}
+		for i := range node.Args {
+			if expr, ok := opt.optimize(node.Args[i]); ok {
 				node.Args[i] = expr
 			}
 			if expr, ok := opt.evalExpr(node.Args[i]); ok {
