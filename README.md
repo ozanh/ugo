@@ -147,6 +147,7 @@ Dead code elimination will be added.
 * [Builtins](https://github.com/ozanh/ugo/blob/main/docs/builtins.md)
 * [Operators](https://github.com/ozanh/ugo/blob/main/docs/operators.md)
 * [Error Handling](https://github.com/ozanh/ugo/blob/main/docs/error-handling.md)
+* [Standard Library](https://github.com/ozanh/ugo/blob/main/docs/stdlib.md)
 
 ## LICENSE
 
