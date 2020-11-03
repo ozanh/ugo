@@ -26,6 +26,9 @@ jobs:
 
     - name: Install golint
       run: go get -u golang.org/x/lint/golint
+    
+    - name: Install staticcheck
+      run: go get -u honnef.co/go/tools/cmd/staticcheck
 
     - name: Test
       run: make test
