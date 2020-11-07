@@ -1077,15 +1077,13 @@ func (vm *VM) execOpCall() error {
 		if expand > 0 {
 			switch obj := vm.stack[vm.sp-1].(type) {
 			case Array:
-				if len(obj) > 0 {
-					args = append(args[:k], obj...)
-				}
+				args = append(args[:k], obj...)
 			default:
 				return NewArgumentTypeError("last", "array",
 					vm.stack[vm.sp-1].TypeName())
 			}
 		}
-		for i := 0; i < numArgs+1-expand; i++ {
+		for i := 0; i < numArgs+1; i++ {
 			vm.sp--
 			vm.stack[vm.sp] = nil
 		}

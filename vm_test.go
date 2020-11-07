@@ -3069,6 +3069,11 @@ func TestVMCall(t *testing.T) {
 	}
 	b(a, c)
 	`, nil, ErrNotCallable)
+
+	expectRun(t, `return {a: string(...[0])}`, nil, Map{"a": String("0")})
+	expectRun(t, `return {a: string([0])}`, nil, Map{"a": String("[0]")})
+	expectRun(t, `return {a: bytes(...repeat([0], 4096))}`,
+		nil, Map{"a": make(Bytes, 4096)})
 }
 
 func TestVMCallCompiledFunction(t *testing.T) {
