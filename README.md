@@ -19,6 +19,10 @@ a similar Object interface.
 
 **_uGO is currently in beta phase, use it at your own risk_**
 
+> Play with uGO via [Playground](https://play.verigraf.com) built for
+WebAssembly, thanks to Go's __experimental__
+[WebAssembly](https://github.com/golang/go/wiki/WebAssembly) support.
+
 **Fibonacci Example**
 
 ```go
