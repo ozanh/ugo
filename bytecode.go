@@ -160,18 +160,31 @@ func (o *CompiledFunction) String() string {
 
 // Copy implements the Copier interface.
 func (o *CompiledFunction) Copy() Object {
-	sourceMap := make(map[int]int)
-	for k, v := range o.SourceMap {
-		sourceMap[k] = v
+	var insts []byte
+	if o.Instructions != nil {
+		insts = make([]byte, len(o.Instructions))
+		copy(insts, o.Instructions)
+	}
+	var free []*ObjectPtr
+	if o.Free != nil {
+		// DO NOT Copy() elements; these are variable pointers
+		free = make([]*ObjectPtr, len(o.Free))
+		copy(free, o.Free)
+	}
+	var sourceMap map[int]int
+	if o.SourceMap != nil {
+		sourceMap = make(map[int]int, len(o.SourceMap))
+		for k, v := range o.SourceMap {
+			sourceMap[k] = v
+		}
 	}
 	return &CompiledFunction{
 		NumParams:    o.NumParams,
 		NumLocals:    o.NumLocals,
-		Instructions: append([]byte{}, o.Instructions...),
+		Instructions: insts,
 		Variadic:     o.Variadic,
-		// DO NOT Copy() elements; these are variable pointers
-		Free:      append([]*ObjectPtr{}, o.Free...),
-		SourceMap: sourceMap,
+		Free:         free,
+		SourceMap:    sourceMap,
 	}
 }
 
@@ -245,6 +258,9 @@ func (o *CompiledFunction) Fprint(w io.Writer) {
 		}
 		_, _ = fmt.Fprintln(w)
 		i += offset + 1
+	}
+	if o.Free != nil {
+		_, _ = fmt.Fprintf(w, "Free:%v\n", o.Free)
 	}
 	_, _ = fmt.Fprintf(w, "SourceMap:%v\n", o.SourceMap)
 }
