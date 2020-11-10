@@ -3359,30 +3359,36 @@ func expectRun(t *testing.T, script string, opts *testopts, expect Object) {
 		t.Run(tC.name, func(t *testing.T) {
 			t.Helper()
 			tC.opts.Trace = &tC.tracer
-			compiled, err := Compile([]byte(script), tC.opts)
+			gotBc, err := Compile([]byte(script), tC.opts)
 			require.NoError(t, err)
-			vm := NewVM(compiled)
+			// create a copy of the bytecode before execution to test bytecode
+			// change after execution
+			expectBc := *gotBc
+			expectBc.Main = gotBc.Main.Copy().(*CompiledFunction)
+			expectBc.Constants = Array(gotBc.Constants).Copy().(Array)
+			vm := NewVM(gotBc)
 			defer func() {
 				if r := recover(); r != nil {
-					// debug.PrintStack()
-					// fmt.Fprintf(os.Stderr, "ip         :%d\n", vm.ip)
-					// fmt.Fprintf(os.Stderr, "stack[0:64]:%v\n", vm.stack[:64])
 					fmt.Fprintf(os.Stderr, "------- Start Trace -------\n%s"+
 						"\n------- End Trace -------\n", tC.tracer.String())
-					compiled.Fprint(os.Stderr)
+					gotBc.Fprint(os.Stderr)
 					panic(r)
 				}
 			}()
-			got, err := vm.SetRecover(opts.noPanic).Run(opts.globals, opts.args...)
+			got, err := vm.SetRecover(opts.noPanic).Run(
+				opts.globals,
+				opts.args...,
+			)
 			if !assert.NoErrorf(t, err, "Code:\n%s\n", script) {
-				compiled.Fprint(os.Stderr)
+				gotBc.Fprint(os.Stderr)
 			}
 			if !reflect.DeepEqual(expect, got) {
 				var buf bytes.Buffer
-				compiled.Fprint(&buf)
+				gotBc.Fprint(&buf)
 				t.Fatalf("Objects not equal:\nExpected:\n%s\nGot:\n%s\nScript:\n%s\n%s\n",
 					sdump(expect), sdump(got), script, buf.String())
 			}
+			testBytecodesEqual(t, &expectBc, gotBc, true)
 		})
 	}
 }

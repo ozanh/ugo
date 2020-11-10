@@ -3,7 +3,6 @@ package ugo_test
 import (
 	"bytes"
 	"reflect"
-	"strconv"
 	"testing"
 
 	"github.com/ozanh/ugo/token"
@@ -28,7 +27,9 @@ func withModules(numOfModules int) bytecodeOption {
 	}
 }
 
-func bytecode(consts []Object, cf *CompiledFunction, opts ...bytecodeOption) *Bytecode {
+func bytecode(consts []Object,
+	cf *CompiledFunction, opts ...bytecodeOption) *Bytecode {
+
 	bc := &Bytecode{
 		Constants: consts,
 		Main:      cf,
@@ -1643,7 +1644,9 @@ func expectCompileError(t *testing.T, script string, errStr string) {
 	expectCompileErrorWithOpts(t, script, CompilerOptions{}, errStr)
 }
 
-func expectCompileErrorWithOpts(t *testing.T, script string, opts CompilerOptions, errStr string) {
+func expectCompileErrorWithOpts(t *testing.T,
+	script string, opts CompilerOptions, errStr string) {
+
 	t.Helper()
 	_, err := Compile([]byte(script), opts)
 	require.Error(t, err)
@@ -1656,66 +1659,95 @@ func expectCompile(t *testing.T, script string, expected *Bytecode) {
 }
 
 // SourceMap comparison is ignored if it is nil.
-func expectCompileWithOpts(t *testing.T, script string, opts CompilerOptions, expected *Bytecode) {
+func expectCompileWithOpts(t *testing.T,
+	script string, opts CompilerOptions, expected *Bytecode) {
+
 	t.Helper()
-	bytecode, err := Compile([]byte(script), opts)
+	got, err := Compile([]byte(script), opts)
 	require.NoError(t, err)
-	if string(bytecode.Main.Instructions) != string(expected.Main.Instructions) {
+	testBytecodesEqual(t, expected, got, expected.Main.SourceMap != nil)
+}
+
+func testBytecodesEqual(t *testing.T,
+	expected, got *Bytecode, checkSourceMap bool) {
+
+	t.Helper()
+	if expected.NumModules != got.NumModules {
+		t.Fatalf("NumModules not equal expected %d, got %d\n",
+			expected.NumModules, got.NumModules)
+	}
+	if len(expected.Constants) != len(got.Constants) {
+		var buf bytes.Buffer
+		got.Fprint(&buf)
+		t.Fatalf("Constants not equal\nDump:\n%s\n"+
+			"Expected Constants:\n%s\nGot Constants:\n%s\n",
+			buf.String(), sdump(expected.Constants), sdump(got.Constants))
+	}
+	if !assertCompiledFunctionsEqual(t,
+		expected.Main, got.Main, checkSourceMap) {
+		t.Fatal("Main functions not equal")
+	}
+	for i, gotObj := range got.Constants {
+		expectObj := expected.Constants[i]
+
+		switch g := gotObj.(type) {
+		case *CompiledFunction:
+			ex, ok := expectObj.(*CompiledFunction)
+			if !ok {
+				t.Fatalf("%T expected at index %d but got %T",
+					expectObj, i, gotObj)
+			}
+			if !assertCompiledFunctionsEqual(t, ex, g, checkSourceMap) {
+				t.Fatalf("CompiledFunctions not equal at %d\nExpected:\n"+
+					"%s\nGot:\n%s\n", i, ex, g)
+			}
+			continue
+		}
+		if !reflect.DeepEqual(expectObj, gotObj) {
+			t.Fatalf("Constants not equal at %d\nExpected:\n%s\nGot:\n%s\n",
+				i, expectObj, gotObj)
+		}
+	}
+}
+
+func assertCompiledFunctionsEqual(t *testing.T,
+	expected, got *CompiledFunction, checkSourceMap bool) bool {
+	t.Helper()
+	if expected.NumParams != got.NumParams {
+		t.Errorf("NumParams not equal expected %d, got %d\n",
+			expected.NumParams, got.NumParams)
+		return false
+	}
+	if expected.Variadic != got.Variadic {
+		t.Errorf("Variadic not equal expected %t, got %t\n",
+			expected.Variadic, got.Variadic)
+		return false
+	}
+	if expected.NumLocals != got.NumLocals {
+		t.Errorf("NumLocals not equal expected %d, got %d\n",
+			expected.NumLocals, got.NumLocals)
+		return false
+	}
+	if string(expected.Instructions) != string(got.Instructions) {
 		var buf bytes.Buffer
 		buf.WriteString("Expected:\n")
 		expected.Fprint(&buf)
 		buf.WriteString("\nGot:\n")
-		bytecode.Fprint(&buf)
-		t.Fatalf("instructions not equal\n%s", buf.String())
+		got.Fprint(&buf)
+		t.Fatalf("Instructions not equal\n%s", buf.String())
 	}
-	if bytecode.NumModules != expected.NumModules {
-		t.Fatalf("NumModules not equal expected %d, got %d\n",
-			expected.NumModules, bytecode.NumModules)
+	if len(expected.Free) != len(got.Free) {
+		t.Errorf("Free not equal expected %d, got %d\n",
+			len(expected.Free), len(got.Free))
+		return false
 	}
-	if bytecode.Main.NumParams != expected.Main.NumParams {
-		t.Fatalf("NumParams not equal expected %d, got %d\n",
-			expected.Main.NumParams, bytecode.Main.NumParams)
+	if checkSourceMap &&
+		!reflect.DeepEqual(got.SourceMap, expected.SourceMap) {
+		t.Errorf("sourceMaps not equal\n"+
+			"Expected:\n%s\nGot:\n%s\n"+
+			"Bytecode dump:\n%s\n",
+			sdump(expected.SourceMap), sdump(got.SourceMap), got)
+		return false
 	}
-	if bytecode.Main.Variadic != expected.Main.Variadic {
-		t.Fatalf("Variadic not equal expected %t, got %t\n",
-			expected.Main.Variadic, bytecode.Main.Variadic)
-	}
-	if bytecode.Main.NumLocals != expected.Main.NumLocals {
-		t.Fatalf("NumLocals not equal expected %d, got %d\n",
-			expected.Main.NumLocals, bytecode.Main.NumLocals)
-	}
-	if expected.Main.SourceMap != nil &&
-		!reflect.DeepEqual(bytecode.Main.SourceMap, expected.Main.SourceMap) {
-		t.Fatalf("sourceMaps not equal\n"+
-			"Expected sourceMap:\n%s\nGot sourceMap:\n%s\n"+
-			"Dump program:\n%s\n",
-			sdump(expected.Main.SourceMap), sdump(bytecode.Main.SourceMap), bytecode)
-	}
-	if len(bytecode.Constants) != len(expected.Constants) {
-		var buf bytes.Buffer
-		bytecode.Fprint(&buf)
-		t.Fatalf("constants are not equal\nDump:\n%s\nExpected Constants:\n%s\nGot Constants:\n%s\n",
-			buf.String(), sdump(expected.Constants), sdump(bytecode.Constants))
-	}
-	for i, obj1 := range bytecode.Constants {
-		obj2 := expected.Constants[i]
-		t1 := reflect.TypeOf(obj1)
-		t2 := reflect.TypeOf(obj2)
-		if cf, ok := obj2.(*CompiledFunction); ok && cf.SourceMap == nil {
-			if cf, ok := obj1.(*CompiledFunction); ok {
-				cf.SourceMap = nil
-			}
-		}
-		if t1 != t2 || !reflect.DeepEqual(obj1, obj2) {
-			var buf bytes.Buffer
-			if cf, ok := obj1.(*CompiledFunction); ok {
-				buf.WriteString("Compiled function in constants at ")
-				buf.WriteString(strconv.Itoa(i))
-				buf.WriteString("\n")
-				cf.Fprint(&buf)
-			}
-			t.Fatalf("constants are not equal at %d\nExpected Constants:\n%s\nGot Constants:\n%s\n%s",
-				i, sdump(expected.Constants), sdump(bytecode.Constants), buf.String())
-		}
-	}
+	return true
 }
