@@ -140,8 +140,7 @@ will be developed gradually.
 
 More tests will be added.
 
-Optimizer will be improved to handle constant propagation after introducing
-`const` keyword.
+Optimizer will be improved to handle constant propagation.
 
 Dead code elimination will be added.
 
@@ -153,6 +152,7 @@ Dead code elimination will be added.
 * [Operators](https://github.com/ozanh/ugo/blob/main/docs/operators.md)
 * [Error Handling](https://github.com/ozanh/ugo/blob/main/docs/error-handling.md)
 * [Standard Library](https://github.com/ozanh/ugo/blob/main/docs/stdlib.md)
+* [Optimizer](https://github.com/ozanh/ugo/blob/main/docs/optimizer.md)
 
 ## LICENSE
 
