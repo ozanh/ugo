@@ -4,6 +4,7 @@
 [![GoDoc](https://godoc.org/github.com/ozanh/ugo?status.svg)](https://godoc.org/github.com/ozanh/ugo)
 [![Go Report Card](https://goreportcard.com/badge/github.com/ozanh/ugo)](https://goreportcard.com/report/github.com/ozanh/ugo)
 ![uGO Test](https://github.com/ozanh/ugo/workflows/test/badge.svg)
+![uGO Dev Test](https://github.com/ozanh/ugodev/workflows/ugodev-test/badge.svg)
 
 uGO is a fast, dynamic scripting language to embed in Go applications.
 uGO is compiled and executed as bytecode on stack-based VM that's written
