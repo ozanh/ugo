@@ -78,7 +78,7 @@ type repl struct {
 	ctx          context.Context
 	eval         *ugo.Eval
 	lastBytecode *ugo.Bytecode
-	lastReturn   ugo.Object
+	lastResult   ugo.Object
 	multiline    string
 	werr         prompt.ConsoleWriter
 	wout         prompt.ConsoleWriter
@@ -126,7 +126,7 @@ func (r *repl) executor(line string) {
 	switch {
 	case line == "":
 		return
-	case line[0] == '.' && len(line) > 1:
+	case line[0] == '.':
 		switch line {
 		case ".bytecode":
 			fmt.Printf("%s\n", r.lastBytecode)
@@ -154,12 +154,12 @@ func (r *repl) executor(line string) {
 			fmt.Printf("%#v\n", r.eval.Locals)
 			return
 		case ".return":
-			fmt.Printf("%#v\n", r.lastReturn)
+			fmt.Printf("%#v\n", r.lastResult)
 			return
 		case ".return+":
-			if r.lastReturn != nil {
+			if r.lastResult != nil {
 				fmt.Printf("GoType:%[1]T, TypeName:%[2]s, Value:%#[1]v\n",
-					r.lastReturn, r.lastReturn.TypeName())
+					r.lastResult, r.lastResult.TypeName())
 			} else {
 				fmt.Println("<nil>")
 			}
@@ -184,12 +184,16 @@ func (r *repl) executor(line string) {
 		r.multiline += line[:len(line)-1] + "\n"
 		return
 	}
+	r.execute(line)
+}
+
+func (r *repl) execute(line string) {
 	defer func() {
 		isMultiline = false
 		r.multiline = ""
 	}()
 	var err error
-	r.lastReturn, r.lastBytecode, err = r.eval.Run(r.ctx, []byte(r.multiline+line))
+	r.lastResult, r.lastBytecode, err = r.eval.Run(r.ctx, []byte(r.multiline+line))
 	if err != nil {
 		r.writeErrorStr(fmt.Sprintf("\n%+v\n", err))
 		return
@@ -198,7 +202,7 @@ func (r *repl) executor(line string) {
 		r.writeErrorStr(fmt.Sprintf("VM:\n     %+v\n", err))
 		return
 	}
-	switch v := r.lastReturn.(type) {
+	switch v := r.lastResult.(type) {
 	case ugo.String:
 		r.writeStr(fmt.Sprintf("%q\n", string(v)))
 	case ugo.Char:
@@ -206,7 +210,7 @@ func (r *repl) executor(line string) {
 	case ugo.Bytes:
 		r.writeStr(fmt.Sprintf("%v\n", []byte(v)))
 	default:
-		r.writeStr(fmt.Sprintf("%v\n", r.lastReturn))
+		r.writeStr(fmt.Sprintf("%v\n", r.lastResult))
 	}
 
 	symbols := r.eval.Opts.SymbolTable.Symbols()
@@ -259,8 +263,8 @@ var suggestions = []prompt.Suggest{
 	{Text: ".locals+", Description: "Print Locals (verbose)"},
 	{Text: ".globals", Description: "Print Globals"},
 	{Text: ".globals+", Description: "Print Globals (verbose)"},
-	{Text: ".return", Description: "Print Last Return"},
-	{Text: ".return+", Description: "Print Last Return (verbose)"},
+	{Text: ".return", Description: "Print Last Return Result"},
+	{Text: ".return+", Description: "Print Last Return Result (verbose)"},
 	{Text: ".modules_cache", Description: "Print Modules Cache"},
 	{Text: ".memory_stats", Description: "Print Memory Stats"},
 	{Text: ".gc", Description: "Run Go GC"},
