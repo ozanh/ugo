@@ -616,58 +616,34 @@ func date(args ...ugo.Object) (ugo.Object, error) {
 		return nil, ugo.ErrWrongNumArguments.NewError(
 			"want=3..8 got=" + strconv.Itoa(len(args)))
 	}
-	year, ok := args[0].(ugo.Int)
-	if !ok {
-		return nil, ugo.NewArgumentTypeError("first", "int",
-			args[0].TypeName())
-	}
-	month, ok := args[1].(ugo.Int)
-	if !ok {
-		return nil, ugo.NewArgumentTypeError("second", "int",
-			args[1].TypeName())
-	}
-	day, ok := args[2].(ugo.Int)
-	if !ok {
-		return nil, ugo.NewArgumentTypeError("third", "int",
-			args[2].TypeName())
-	}
-	var hour, minute, second, nanosecond ugo.Int
-	var loc *Location
-	if len(args) > 3 {
-		if hour, ok = args[3].(ugo.Int); !ok {
-			return nil, ugo.NewArgumentTypeError("fourth", "int",
-				args[3].TypeName())
+	ymdHmsn := [7]int{}
+	var loc = &Location{Location: time.Local}
+	var ok bool
+	for i := 0; i < len(args); i++ {
+		if i < 7 {
+			v, ok := args[i].(ugo.Int)
+			if !ok {
+				return nil, ugo.NewArgumentTypeError(
+					strconv.Itoa(i+1),
+					"int",
+					args[i].TypeName(),
+				)
+			}
+			ymdHmsn[i] = int(v)
+			continue
+		}
+		loc, ok = args[i].(*Location)
+		if !ok {
+			return nil, ugo.NewArgumentTypeError(
+				strconv.Itoa(i+1),
+				"location",
+				args[i].TypeName(),
+			)
 		}
 	}
-	if len(args) > 4 {
-		if minute, ok = args[4].(ugo.Int); !ok {
-			return nil, ugo.NewArgumentTypeError("fifth", "int",
-				args[4].TypeName())
-		}
-	}
-	if len(args) > 5 {
-		if second, ok = args[5].(ugo.Int); !ok {
-			return nil, ugo.NewArgumentTypeError("sixth", "int",
-				args[5].TypeName())
-		}
-	}
-	if len(args) > 6 {
-		if nanosecond, ok = args[6].(ugo.Int); !ok {
-			return nil, ugo.NewArgumentTypeError("seventh", "int",
-				args[6].TypeName())
-		}
-	}
-	if len(args) > 7 {
-		if loc, ok = args[7].(*Location); !ok {
-			return nil, ugo.NewArgumentTypeError("eighth", "int",
-				args[7].TypeName())
-		}
-	}
-	if loc == nil {
-		loc = &Location{Location: time.Local}
-	}
-	tm := time.Date(int(year), time.Month(month), int(day),
-		int(hour), int(minute), int(second), int(nanosecond), loc.Location)
+
+	tm := time.Date(ymdHmsn[0], time.Month(ymdHmsn[1]), ymdHmsn[2],
+		ymdHmsn[3], ymdHmsn[4], ymdHmsn[5], ymdHmsn[6], loc.Location)
 	return Time(tm), nil
 }
 
