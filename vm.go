@@ -1099,96 +1099,76 @@ func (vm *VM) execOpCall() error {
 }
 
 func (vm *VM) execOpUnary() error {
-	opType := token.Token(vm.curInsts[vm.ip+1])
+	tok := token.Token(vm.curInsts[vm.ip+1])
 	right := vm.stack[vm.sp-1]
-	if opType == token.Not {
-		if b, ok := right.(Bool); ok {
-			vm.stack[vm.sp-1] = !b
-		} else {
-			vm.stack[vm.sp-1] = Bool(right.IsFalsy())
-		}
+	var value Object
+	switch tok {
+	case token.Not:
+		vm.stack[vm.sp-1] = Bool(right.IsFalsy())
 		vm.ip++
 		return nil
-	}
-	var value Object = Undefined
-	switch o := right.(type) {
-	case Int:
-		switch opType {
-		case token.Sub:
+	case token.Sub:
+		switch o := right.(type) {
+		case Int:
 			value = -o
-		case token.Xor:
-			value = ^o
-		case token.Add:
-			value = o
-		default:
-			goto invalidUnaryOp
-		}
-	case Uint:
-		switch opType {
-		case token.Xor:
-			value = ^o
-		case token.Add:
-			value = o
-		case token.Sub:
+		case Float:
 			value = -o
-		default:
-			goto invalidUnaryOp
-		}
-	case Char:
-		switch opType {
-		case token.Xor:
-			value = ^Int(o)
-		case token.Add:
-			value = o
-		case token.Sub:
+		case Char:
 			value = Int(-o)
-		default:
-			goto invalidUnaryOp
-		}
-	case Bool:
-		switch opType {
-		case token.Sub:
+		case Uint:
+			value = -o
+		case Bool:
 			if o {
 				value = Int(-1)
 			} else {
 				value = Int(0)
 			}
-		case token.Xor:
+		default:
+			goto invalidType
+		}
+	case token.Xor:
+		switch o := right.(type) {
+		case Int:
+			value = ^o
+		case Uint:
+			value = ^o
+		case Char:
+			value = ^Int(o)
+		case Bool:
 			if o {
 				value = ^Int(1)
 			} else {
 				value = ^Int(0)
 			}
-		case token.Add:
+		default:
+			goto invalidType
+		}
+	case token.Add:
+		switch o := right.(type) {
+		case Int, Uint, Float, Char:
+			value = right
+		case Bool:
 			if o {
 				value = Int(1)
 			} else {
 				value = Int(0)
 			}
 		default:
-			goto invalidUnaryOp
-		}
-	case Float:
-		switch opType {
-		case token.Add:
-			value = o
-		case token.Sub:
-			value = Float(-o)
-		default:
-			goto invalidUnaryOp
+			goto invalidType
 		}
 	default:
-		return ErrType.NewError(
-			fmt.Sprintf("invalid type for unary '%s': '%s'",
-				opType.String(), o.TypeName()))
+		return ErrInvalidOperator.NewError(
+			fmt.Sprintf("invalid for '%s': '%s'",
+				tok.String(), right.TypeName()))
 	}
+
 	vm.stack[vm.sp-1] = value
 	vm.ip++
 	return nil
-invalidUnaryOp:
-	return ErrInvalidOperator.NewError(
-		fmt.Sprintf("invalid for '%s': '%s'",
-			opType.String(), right.TypeName()))
+invalidType:
+	return ErrType.NewError(
+		fmt.Sprintf("invalid type for unary '%s': '%s'",
+			tok.String(), right.TypeName()))
 }
 
 func (vm *VM) execOpSliceIndex() error {

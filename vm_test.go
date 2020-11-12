@@ -2470,8 +2470,8 @@ func TestVMUnary(t *testing.T) {
 	expectRun(t, `return -0.0`, nil, Float(0.0))
 	expectRun(t, `return +0.0`, nil, Float(0.0))
 
-	expectErrIs(t, `return ^1.0`, nil, ErrInvalidOperator)
-	expectErrHas(t, `return ^1.0`, nil, `InvalidOperatorError: invalid for '^': 'float'`)
+	expectErrIs(t, `return ^1.0`, nil, ErrType)
+	expectErrHas(t, `return ^1.0`, nil, `TypeError: invalid type for unary '^': 'float'`)
 }
 
 func TestVMScopes(t *testing.T) {
