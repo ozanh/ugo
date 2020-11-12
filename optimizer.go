@@ -52,8 +52,14 @@ type SimpleOptimizer struct {
 }
 
 // NewOptimizer creates an Optimizer object.
-func NewOptimizer(ctx context.Context, file *parser.File,
-	optimConst, optimExpr bool, maxCycle int, trace io.Writer) *SimpleOptimizer {
+func NewOptimizer(
+	ctx context.Context,
+	file *parser.File,
+	optimConst bool,
+	optimExpr bool,
+	maxCycle int,
+	trace io.Writer,
+) *SimpleOptimizer {
 
 	return &SimpleOptimizer{
 		ctx:         ctx,
@@ -98,6 +104,7 @@ func (*SimpleOptimizer) canOptimizeInsts(constants []Object, insts []byte) bool 
 	if len(insts) == 0 {
 		return false
 	}
+	// using array here instead of map or slice is faster to look up opcode
 	allowedOps := [...]bool{
 		OpConstant: true, OpNull: true, OpBinaryOp: true, OpUnary: true,
 		OpNoOp: true, OpAndJump: true, OpOrJump: true, OpArray: true,
@@ -152,13 +159,10 @@ func (opt *SimpleOptimizer) evalExpr(expr parser.Expr) (parser.Expr, bool) {
 		}
 		return nil, false
 	}
-	f := &parser.File{
-		Stmts: []parser.Stmt{
-			&parser.ReturnStmt{
-				Result: expr,
-			},
-		},
-	}
+	return opt.slowEvalExpr(expr)
+}
+
+func (opt *SimpleOptimizer) slowEvalExpr(expr parser.Expr) (parser.Expr, bool) {
 	var trace io.Writer
 	if opt.trace != nil {
 		trace = opt.trace
@@ -166,24 +170,36 @@ func (opt *SimpleOptimizer) evalExpr(expr parser.Expr) (parser.Expr, bool) {
 	st := NewSymbolTable().
 		EnableParams(false).
 		DisableBuiltin(opt.disabledBuiltins...)
-	c := NewCompiler(opt.file.InputFile, CompilerOptions{
-		SymbolTable: st,
-		Trace:       trace,
-	})
-	c.indent = opt.indent
-	err := c.Compile(f)
-	if err != nil {
+
+	compiler := NewCompiler(
+		opt.file.InputFile,
+		CompilerOptions{
+			SymbolTable: st,
+			Trace:       trace,
+		},
+	)
+
+	compiler.indent = opt.indent
+
+	f := &parser.File{
+		Stmts: []parser.Stmt{
+			&parser.ReturnStmt{
+				Result: expr,
+			},
+		},
+	}
+
+	if err := compiler.Compile(f); err != nil {
 		return nil, false
 	}
-	bytecode := c.Bytecode()
+	bytecode := compiler.Bytecode()
 	if !opt.canOptimizeInsts(bytecode.Constants, bytecode.Main.Instructions) {
 		if opt.trace != nil {
 			opt.printTraceMsg("cannot optimize instructions")
 		}
 		return nil, false
 	}
-	obj, err := opt.vm.SetBytecode(bytecode).Clear().Run(nil, nil)
-	opt.vm.bytecode = nil
+	obj, err := opt.vm.SetBytecode(bytecode).Clear().Run(nil)
 	if err != nil {
 		if opt.trace != nil {
 			opt.printTraceMsg(fmt.Sprintf("eval error: %s", err))
@@ -251,24 +267,10 @@ func (opt *SimpleOptimizer) evalExpr(expr parser.Expr) (parser.Expr, bool) {
 
 // Optimize optimizes ast tree by simple constant folding and evaluating simple expressions.
 func (opt *SimpleOptimizer) Optimize() error {
-	start := time.Now()
 	opt.errors = nil
 	opt.duration = 0
 	if opt.ctx != nil {
-		done := make(chan struct{})
-		defer close(done)
-		go func() {
-			select {
-			case <-opt.ctx.Done():
-				goto abort
-			case <-done:
-				goto abort
-			}
-		abort:
-			if opt.vm != nil {
-				opt.vm.Abort()
-			}
-		}()
+		defer close(opt.abortVM())
 	}
 
 	if opt.trace != nil {
@@ -280,9 +282,7 @@ func (opt *SimpleOptimizer) Optimize() error {
 			opt.printTraceMsg("----------------------")
 		}()
 	}
-	defer func() {
-		opt.duration = time.Since(start)
-	}()
+	start := time.Now()
 	i := 1
 	for i <= opt.maxCycle {
 		opt.count = 0
@@ -299,6 +299,7 @@ func (opt *SimpleOptimizer) Optimize() error {
 		opt.total += opt.count
 		i++
 	}
+	opt.duration = time.Since(start)
 	if opt.trace != nil {
 		if opt.total > 0 {
 			opt.printTraceMsg(fmt.Sprintf("Total: %d", opt.total))
@@ -312,8 +313,25 @@ func (opt *SimpleOptimizer) Optimize() error {
 	return opt.errors
 }
 
-func (opt *SimpleOptimizer) binaryopInts(left, right *parser.IntLit,
-	op token.Token) (parser.Expr, bool) {
+func (opt *SimpleOptimizer) abortVM() chan struct{} {
+	done := make(chan struct{})
+	go func() {
+		select {
+		case <-opt.ctx.Done():
+			goto abort
+		case <-done:
+			goto abort
+		}
+	abort:
+		if opt.vm != nil {
+			opt.vm.Abort()
+		}
+	}()
+	return done
+}
+
+func (opt *SimpleOptimizer) binaryopInts(op token.Token,
+	left, right *parser.IntLit) (parser.Expr, bool) {
 
 	var val int64
 	switch op {
@@ -358,12 +376,10 @@ result:
 	return &parser.IntLit{Value: val, Literal: l, ValuePos: left.ValuePos}, true
 }
 
-func (opt *SimpleOptimizer) binaryopFloats(left, right *parser.FloatLit,
-	op token.Token) (parser.Expr, bool) {
+func (opt *SimpleOptimizer) binaryopFloats(op token.Token,
+	left, right *parser.FloatLit) (parser.Expr, bool) {
 
-	var (
-		val float64
-	)
+	var val float64
 	switch op {
 	case token.Add:
 		val = left.Value + right.Value
@@ -392,8 +408,8 @@ result:
 	}, true
 }
 
-func (opt *SimpleOptimizer) binaryop(left parser.Expr,
-	right parser.Expr, op token.Token) (parser.Expr, bool) {
+func (opt *SimpleOptimizer) binaryop(op token.Token,
+	left, right parser.Expr) (parser.Expr, bool) {
 
 	if !opt.optimConsts {
 		return nil, false
@@ -401,11 +417,11 @@ func (opt *SimpleOptimizer) binaryop(left parser.Expr,
 	switch left := left.(type) {
 	case *parser.IntLit:
 		if right, ok := right.(*parser.IntLit); ok {
-			return opt.binaryopInts(left, right, op)
+			return opt.binaryopInts(op, left, right)
 		}
 	case *parser.FloatLit:
 		if right, ok := right.(*parser.FloatLit); ok {
-			return opt.binaryopFloats(left, right, op)
+			return opt.binaryopFloats(op, left, right)
 		}
 	case *parser.StringLit:
 		right, ok := right.(*parser.StringLit)
@@ -422,8 +438,8 @@ func (opt *SimpleOptimizer) binaryop(left parser.Expr,
 	return nil, false
 }
 
-func (opt *SimpleOptimizer) unaryop(expr parser.Expr,
-	op token.Token) (parser.Expr, bool) {
+func (opt *SimpleOptimizer) unaryop(op token.Token,
+	expr parser.Expr) (parser.Expr, bool) {
 
 	if !opt.optimConsts {
 		return nil, false
@@ -512,51 +528,51 @@ func (opt *SimpleOptimizer) optimize(node parser.Node) (parser.Expr, bool) {
 			defer untraceoptim(traceoptim(opt, "<nil>"))
 		}
 	}
-
+	var (
+		expr parser.Expr
+		ok   bool
+	)
 	switch node := node.(type) {
 	case *parser.File:
 		for _, stmt := range node.Stmts {
-			opt.optimize(stmt)
+			_, _ = opt.optimize(stmt)
 		}
 	case *parser.ExprStmt:
-		if expr, ok := opt.optimize(node.Expr); ok {
+		if expr, ok = opt.optimize(node.Expr); ok {
 			node.Expr = expr
 		}
-		if expr, ok := opt.evalExpr(node.Expr); ok {
+		if expr, ok = opt.evalExpr(node.Expr); ok {
 			node.Expr = expr
 		}
 	case *parser.ParenExpr:
 		return opt.optimize(node.Expr)
 	case *parser.BinaryExpr:
-		if left, ok := opt.optimize(node.LHS); ok {
-			node.LHS = left
-		}
-		if expr, ok := opt.evalExpr(node.LHS); ok {
+		if expr, ok = opt.optimize(node.LHS); ok {
 			node.LHS = expr
 		}
-		if right, ok := opt.optimize(node.RHS); ok {
-			node.RHS = right
-		}
-		if expr, ok := opt.evalExpr(node.RHS); ok {
+		if expr, ok = opt.optimize(node.RHS); ok {
 			node.RHS = expr
 		}
-		return opt.binaryop(node.LHS, node.RHS, node.Token)
+		if expr, ok = opt.binaryop(node.Token, node.LHS, node.RHS); ok {
+			return expr, ok
+		}
+		return opt.evalExpr(node)
 	case *parser.UnaryExpr:
-		if expr, ok := opt.optimize(node.Expr); ok {
+		if expr, ok = opt.optimize(node.Expr); ok {
 			node.Expr = expr
 		}
-		if expr, ok := opt.evalExpr(node.Expr); ok {
-			node.Expr = expr
+		if expr, ok = opt.unaryop(node.Token, node.Expr); ok {
+			return expr, ok
 		}
-		return opt.unaryop(node.Expr, node.Token)
+		return opt.evalExpr(node)
 	case *parser.IfStmt:
 		if node.Init != nil {
-			opt.optimize(node.Init)
+			_, _ = opt.optimize(node.Init)
 		}
-		if expr, ok := opt.optimize(node.Cond); ok {
+		if expr, ok = opt.optimize(node.Cond); ok {
 			node.Cond = expr
 		}
-		if expr, ok := opt.evalExpr(node.Cond); ok {
+		if expr, ok = opt.evalExpr(node.Cond); ok {
 			node.Cond = expr
 		}
 		falsy, ok := isLitFalsy(node.Cond)
@@ -569,59 +585,69 @@ func (opt *SimpleOptimizer) optimize(node parser.Node) (parser.Expr, bool) {
 			}
 		}
 		if node.Body != nil {
-			opt.optimize(node.Body)
+			_, _ = opt.optimize(node.Body)
 		}
 		if node.Else != nil {
-			opt.optimize(node.Else)
+			_, _ = opt.optimize(node.Else)
 		}
 	case *parser.TryStmt:
 		if node.Body != nil {
-			opt.optimize(node.Body)
+			_, _ = opt.optimize(node.Body)
 		}
 		if node.Catch != nil {
-			opt.optimize(node.Catch)
+			_, _ = opt.optimize(node.Catch)
 		}
 		if node.Finally != nil {
-			opt.optimize(node.Finally)
+			_, _ = opt.optimize(node.Finally)
+		}
+	case *parser.CatchStmt:
+		if node.Body != nil {
+			_, _ = opt.optimize(node.Body)
+		}
+	case *parser.FinallyStmt:
+		if node.Body != nil {
+			_, _ = opt.optimize(node.Body)
 		}
 	case *parser.ThrowStmt:
 		if node.Expr != nil {
-			if expr, ok := opt.optimize(node.Expr); ok {
+			if expr, ok = opt.optimize(node.Expr); ok {
 				node.Expr = expr
 			}
-			if expr, ok := opt.evalExpr(node.Expr); ok {
+			if expr, ok = opt.evalExpr(node.Expr); ok {
 				node.Expr = expr
 			}
 		}
 	case *parser.ForStmt:
 		if node.Init != nil {
-			opt.optimize(node.Init)
+			_, _ = opt.optimize(node.Init)
 		}
 		if node.Cond != nil {
-			opt.optimize(node.Cond)
+			if expr, ok = opt.optimize(node.Cond); ok {
+				node.Cond = expr
+			}
 		}
 		if node.Post != nil {
-			opt.optimize(node.Post)
+			_, _ = opt.optimize(node.Post)
 		}
 		if node.Body != nil {
-			opt.optimize(node.Body)
+			_, _ = opt.optimize(node.Body)
 		}
 	case *parser.ForInStmt:
 		if node.Body != nil {
-			opt.optimize(node.Body)
+			_, _ = opt.optimize(node.Body)
 		}
 	case *parser.BlockStmt:
 		for _, stmt := range node.Stmts {
-			opt.optimize(stmt)
+			_, _ = opt.optimize(stmt)
 		}
 	case *parser.AssignStmt:
 		for i, rhs := range node.RHS {
-			if expr, ok := opt.optimize(rhs); ok {
+			if expr, ok = opt.optimize(rhs); ok {
 				node.RHS[i] = expr
 			}
 		}
 		for i, rhs := range node.RHS {
-			if expr, ok := opt.evalExpr(rhs); ok {
+			if expr, ok = opt.evalExpr(rhs); ok {
 				node.RHS[i] = expr
 			}
 		}
@@ -641,11 +667,11 @@ func (opt *SimpleOptimizer) optimize(node parser.Node) (parser.Expr, bool) {
 					var v parser.Expr
 					if i < len(spec.Values) {
 						v = spec.Values[i]
-						if expr, ok := opt.optimize(v); ok {
+						if expr, ok = opt.optimize(v); ok {
 							spec.Values[i] = expr
 							v = expr
 						}
-						if expr, ok := opt.evalExpr(v); ok {
+						if expr, ok = opt.evalExpr(v); ok {
 							spec.Values[i] = expr
 						}
 					}
@@ -654,72 +680,72 @@ func (opt *SimpleOptimizer) optimize(node parser.Node) (parser.Expr, bool) {
 		}
 	case *parser.ArrayLit:
 		for i := range node.Elements {
-			if expr, ok := opt.optimize(node.Elements[i]); ok {
+			if expr, ok = opt.optimize(node.Elements[i]); ok {
 				node.Elements[i] = expr
 			}
-			if expr, ok := opt.evalExpr(node.Elements[i]); ok {
+			if expr, ok = opt.evalExpr(node.Elements[i]); ok {
 				node.Elements[i] = expr
 			}
 		}
 	case *parser.MapLit:
 		for i := range node.Elements {
-			if expr, ok := opt.optimize(node.Elements[i].Value); ok {
+			if expr, ok = opt.optimize(node.Elements[i].Value); ok {
 				node.Elements[i].Value = expr
 			}
-			if expr, ok := opt.evalExpr(node.Elements[i].Value); ok {
+			if expr, ok = opt.evalExpr(node.Elements[i].Value); ok {
 				node.Elements[i].Value = expr
 			}
 		}
 	case *parser.IndexExpr:
-		if expr, ok := opt.optimize(node.Index); ok {
+		if expr, ok = opt.optimize(node.Index); ok {
 			node.Index = expr
 		}
-		if expr, ok := opt.evalExpr(node.Index); ok {
+		if expr, ok = opt.evalExpr(node.Index); ok {
 			node.Index = expr
 		}
 	case *parser.SliceExpr:
 		if node.Low != nil {
-			if expr, ok := opt.optimize(node.Low); ok {
+			if expr, ok = opt.optimize(node.Low); ok {
 				node.Low = expr
 			}
-			if expr, ok := opt.evalExpr(node.Low); ok {
+			if expr, ok = opt.evalExpr(node.Low); ok {
 				node.Low = expr
 			}
 		}
 		if node.High != nil {
-			if expr, ok := opt.optimize(node.High); ok {
+			if expr, ok = opt.optimize(node.High); ok {
 				node.High = expr
 			}
-			if expr, ok := opt.evalExpr(node.High); ok {
+			if expr, ok = opt.evalExpr(node.High); ok {
 				node.High = expr
 			}
 		}
 	case *parser.FuncLit:
-		opt.optimize(node.Body)
+		_, _ = opt.optimize(node.Body)
 	case *parser.ReturnStmt:
-		if expr, ok := opt.optimize(node.Result); ok {
+		if expr, ok = opt.optimize(node.Result); ok {
 			node.Result = expr
 		}
-		if expr, ok := opt.evalExpr(node.Result); ok {
+		if expr, ok = opt.evalExpr(node.Result); ok {
 			node.Result = expr
 		}
 	case *parser.CallExpr:
 		if node.Func != nil {
-			opt.optimize(node.Func)
+			_, _ = opt.optimize(node.Func)
 		}
 		for i := range node.Args {
-			if expr, ok := opt.optimize(node.Args[i]); ok {
+			if expr, ok = opt.optimize(node.Args[i]); ok {
 				node.Args[i] = expr
 			}
-			if expr, ok := opt.evalExpr(node.Args[i]); ok {
+			if expr, ok = opt.evalExpr(node.Args[i]); ok {
 				node.Args[i] = expr
 			}
 		}
 	case *parser.CondExpr:
-		if expr, ok := opt.optimize(node.Cond); ok {
+		if expr, ok = opt.optimize(node.Cond); ok {
 			node.Cond = expr
 		}
-		if expr, ok := opt.evalExpr(node.Cond); ok {
+		if expr, ok = opt.evalExpr(node.Cond); ok {
 			node.Cond = expr
 		}
 		falsy, ok := isLitFalsy(node.Cond)
@@ -732,16 +758,16 @@ func (opt *SimpleOptimizer) optimize(node parser.Node) (parser.Expr, bool) {
 			}
 		}
 
-		if expr, ok := opt.optimize(node.True); ok {
+		if expr, ok = opt.optimize(node.True); ok {
 			node.True = expr
 		}
-		if expr, ok := opt.evalExpr(node.True); ok {
+		if expr, ok = opt.evalExpr(node.True); ok {
 			node.True = expr
 		}
-		if expr, ok := opt.optimize(node.False); ok {
+		if expr, ok = opt.optimize(node.False); ok {
 			node.False = expr
 		}
-		if expr, ok := opt.evalExpr(node.False); ok {
+		if expr, ok = opt.evalExpr(node.False); ok {
 			node.False = expr
 		}
 	}
