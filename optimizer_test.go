@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	. "github.com/ozanh/ugo"
+	"github.com/ozanh/ugo/token"
 )
 
 func TestOptimizer(t *testing.T) {
@@ -44,6 +45,13 @@ func TestOptimizer(t *testing.T) {
 		{s: `!1`, c: False, cf: f},
 		{s: `-1`, c: Int(-1), cf: f},
 		{s: `+1`, c: Int(1), cf: f},
+		{s: `(1 + 2)`, c: Int(3), cf: f},
+		{s: `1 + 2 + 3`, c: Int(6), cf: f},
+		{s: `1 + (2 + 3)`, c: Int(6), cf: f},
+		{s: `(1 + 2 + 3)`, c: Int(6), cf: f},
+		{s: `1 + (2 + 3 + 4)`, c: Int(10), cf: f},
+		{s: `(1 + 2) + (3 + 4)`, c: Int(10), cf: f},
+		{s: `!(1 << 2)`, c: False, cf: f},
 
 		{s: `1u + 2u`, c: Uint(3), cf: f},
 		{s: `1u - 2u`, c: Uint(^uint64(0)), cf: f},
@@ -87,21 +95,21 @@ func TestOptimizer(t *testing.T) {
 		{s: `1 - false`, c: Int(1), cf: f},
 		{s: `false - 1`, c: Int(-1), cf: f},
 		{s: `2 * false`, c: Int(0), cf: f},
-		{s: `2 / (true+true)`, c: Int(1), cf: f},
-		{s: `2 / (true+false)`, c: Int(2), cf: f},
+		{s: `2 / (true + true)`, c: Int(1), cf: f},
+		{s: `2 / (true + false)`, c: Int(2), cf: f},
 		{s: `false / true`, c: Int(0), cf: f},
-		{s: `1 << (true+1)`, c: Int(4), cf: f},
+		{s: `1 << (true + 1)`, c: Int(4), cf: f},
 		{s: `true << 2`, c: Int(4), cf: f},
-		{s: `4 >> (1+true)`, c: Int(1), cf: f},
+		{s: `4 >> (1 + true)`, c: Int(1), cf: f},
 		{s: `4 % true`, c: Int(0), cf: f},
 		{s: `true & 2`, c: Int(0), cf: f},
 		{s: `2 & true`, c: Int(0), cf: f},
 		{s: `true | 2`, c: Int(3), cf: f},
 		{s: `2 | true`, c: Int(3), cf: f},
-		{s: `1 ^ (true+true)`, c: Int(3), cf: f},
-		{s: `(true+true) ^ 1`, c: Int(3), cf: f},
-		{s: `(2*true) &^ 3`, c: Int(0), cf: f},
-		{s: `1 == true*2`, c: False, cf: f},
+		{s: `1 ^ (true + true)`, c: Int(3), cf: f},
+		{s: `(true + true) ^ 1`, c: Int(3), cf: f},
+		{s: `(2 * true) &^ 3`, c: Int(0), cf: f},
+		{s: `1 == true * 2`, c: False, cf: f},
 		{s: `true != 2`, c: True, cf: f},
 		{s: `2 != true`, c: True, cf: f},
 		{s: `true < 2`, c: True, cf: f},
@@ -116,6 +124,8 @@ func TestOptimizer(t *testing.T) {
 		{s: `!true`, c: False, cf: f},
 		{s: `-true`, c: Int(-1), cf: f},
 		{s: `+true`, c: Int(1), cf: f},
+		{s: `bool(0)`, c: False, cf: f},
+		{s: `bool(1)`, c: True, cf: f},
 
 		{s: `"a" + "b"`, c: String("ab"), cf: f},
 		{s: `"a" + 1`, c: String("a1"), cf: f},
@@ -125,6 +135,10 @@ func TestOptimizer(t *testing.T) {
 		{s: `"a" + "b" + "c"`, c: String("abc"), cf: f},
 		{s: `"a" + 'b' + "c"`, c: String("abc"), cf: f},
 		{s: `"a" + 1 + "c"`, c: String("a1c"), cf: f},
+		{s: `char(0)`, c: Char(0), cf: f},
+
+		{s: `!undefined`, c: True, cf: f},
+		{s: `!!undefined`, c: False, cf: f},
 	}
 
 	for _, tC := range testCases {
@@ -256,6 +270,81 @@ func TestOptimizerIf(t *testing.T) {
 				makeInst(OpReturn, 0),
 			)),
 		))
+}
+
+func TestOptimizerFor(t *testing.T) {
+	expectEval(t, `for 1+2 {}`,
+		bytecode(
+			Array{Int(3)},
+			compFunc(concatInsts(
+				makeInst(OpConstant, 0),
+				makeInst(OpJumpFalsy, 9),
+				makeInst(OpJump, 0),
+				makeInst(OpReturn, 0),
+			)),
+		))
+
+	expectEval(t, `for { 1 + 2 }`,
+		bytecode(
+			Array{Int(3)},
+			compFunc(concatInsts(
+				makeInst(OpConstant, 0),
+				makeInst(OpPop),
+				makeInst(OpJump, 0),
+				makeInst(OpReturn, 0),
+			)),
+		))
+
+	expectEval(t, `for i:=2*3; i<10+4; i+=2*2 {}`,
+		bytecode(
+			Array{Int(6), Int(14), Int(4)},
+			compFunc(concatInsts(
+				makeInst(OpConstant, 0),
+				makeInst(OpSetLocal, 0),
+				makeInst(OpGetLocal, 0),
+				makeInst(OpConstant, 1),
+				makeInst(OpBinaryOp, int(token.Less)),
+				makeInst(OpJumpFalsy, 27),
+				makeInst(OpGetLocal, 0),
+				makeInst(OpConstant, 2),
+				makeInst(OpBinaryOp, int(token.Add)),
+				makeInst(OpSetLocal, 0),
+				makeInst(OpJump, 5),
+				makeInst(OpNull),
+				makeInst(OpSetLocal, 0),
+				makeInst(OpReturn, 0),
+			),
+				withLocals(1),
+			),
+		))
+}
+
+func TestOptimizerTryThrow(t *testing.T) {
+	expectEval(t, `
+		try {
+			1 + 2 
+		} catch { 
+			3.0 + 4.0 
+		} finally { throw "a" + string(1) + "b" }`,
+		bytecode(
+			Array{Int(3), Float(7), String("a1b")},
+			compFunc(concatInsts(
+				makeInst(OpSetupTry, 12, 18),
+				makeInst(OpConstant, 0),
+				makeInst(OpPop),
+				makeInst(OpJump, 18),
+				makeInst(OpSetupCatch),
+				makeInst(OpPop),
+				makeInst(OpConstant, 1),
+				makeInst(OpPop),
+				makeInst(OpSetupFinally),
+				makeInst(OpConstant, 2),
+				makeInst(OpThrow, 1),
+				makeInst(OpThrow, 0),
+				makeInst(OpReturn, 0),
+			)),
+		))
+
 }
 
 func TestOptimizerMapSliceExpr(t *testing.T) {
