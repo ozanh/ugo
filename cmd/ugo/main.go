@@ -10,7 +10,6 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"io"
 	"os"
 	"runtime"
 	"strconv"
@@ -51,8 +50,10 @@ var (
 )
 
 var (
-	initialSugLen int
+	initialSuggLen int
 )
+
+var grepl *repl
 
 func init() {
 	var trace string
@@ -82,6 +83,7 @@ type repl struct {
 	multiline    string
 	werr         prompt.ConsoleWriter
 	wout         prompt.ConsoleWriter
+	commands     map[string]func()
 }
 
 func newREPL(ctx context.Context) *repl {
@@ -107,7 +109,95 @@ func newREPL(ctx context.Context) *repl {
 		werr: prompt.NewStdoutWriter(),
 		wout: prompt.NewStdoutWriter(),
 	}
+	r.commands = map[string]func(){
+		".bytecode":      r.cmdBytecode,
+		".builtins":      r.cmdBuiltins,
+		".gc":            r.cmdGC,
+		".globals":       r.cmdGlobals,
+		".globals+":      r.cmdGlobalsVerbose,
+		".locals":        r.cmdLocals,
+		".locals+":       r.cmdLocalsVerbose,
+		".return":        r.cmdReturn,
+		".return+":       r.cmdReturnVerbose,
+		".reset":         r.cmdReset,
+		".symbols":       r.cmdSymbols,
+		".memory_stats":  r.cmdMemoryStats,
+		".modules_cache": r.cmdModulesCache,
+		".exit":          r.cmdExit,
+	}
 	return r
+}
+
+func (r *repl) cmdBytecode() {
+	fmt.Printf("%s\n", r.lastBytecode)
+}
+
+func (r *repl) cmdBuiltins() {
+	builtins := make([]string, len(ugo.BuiltinsMap))
+	for k, v := range ugo.BuiltinsMap {
+		builtins[v] = fmt.Sprint(ugo.BuiltinObjects[v].TypeName(), ":", k)
+	}
+	fmt.Println(strings.Join(builtins, "\n"))
+}
+
+func (*repl) cmdGC() { runtime.GC() }
+
+func (r *repl) cmdGlobals() {
+	fmt.Printf("%+v\n", r.eval.Globals)
+}
+
+func (r *repl) cmdGlobalsVerbose() {
+	fmt.Printf("%#v\n", r.eval.Globals)
+}
+
+func (r *repl) cmdLocals() {
+	fmt.Printf("%+v\n", r.eval.Locals)
+}
+
+func (r *repl) cmdLocalsVerbose() {
+	fmt.Printf("%#v\n", r.eval.Locals)
+}
+
+func (r *repl) cmdReturn() {
+	fmt.Printf("%#v\n", r.lastResult)
+}
+
+func (r *repl) cmdReturnVerbose() {
+	if r.lastResult != nil {
+		fmt.Printf("GoType:%[1]T, TypeName:%[2]s, Value:%#[1]v\n",
+			r.lastResult, r.lastResult.TypeName())
+	} else {
+		fmt.Println("<nil>")
+	}
+}
+
+func (r *repl) cmdReset() {
+	grepl = newREPL(r.ctx)
+}
+
+func (r *repl) cmdSymbols() {
+	fmt.Printf("%v\n", r.eval.Opts.SymbolTable.Symbols())
+}
+
+func (r *repl) cmdMemoryStats() {
+	// writeMemStats writes the formatted current, total and OS memory
+	// being used. As well as the number of garbage collection cycles completed.
+	var m runtime.MemStats
+	runtime.ReadMemStats(&m)
+	_, _ = fmt.Fprintf(os.Stdout, "Go Memory Stats see: "+
+		"https://golang.org/pkg/runtime/#MemStats\n\n")
+	_, _ = fmt.Fprintf(os.Stdout, "HeapAlloc = %s", humanFriendlySize(m.HeapAlloc))
+	_, _ = fmt.Fprintf(os.Stdout, "\tHeapObjects = %v", m.HeapObjects)
+	_, _ = fmt.Fprintf(os.Stdout, "\tSys = %s", humanFriendlySize(m.Sys))
+	_, _ = fmt.Fprintf(os.Stdout, "\tNumGC = %v\n", m.NumGC)
+}
+
+func (r *repl) cmdModulesCache() {
+	fmt.Printf("%v\n", r.eval.ModulesCache)
+}
+
+func (r *repl) cmdExit() {
+	os.Exit(0)
 }
 
 func (r *repl) writeErrorStr(msg string) {
@@ -125,69 +215,23 @@ func (r *repl) writeStr(msg string) {
 func (r *repl) executor(line string) {
 	switch {
 	case line == "":
-		return
+		if !isMultiline {
+			return
+		}
 	case line[0] == '.':
-		switch line {
-		case ".bytecode":
-			fmt.Printf("%s\n", r.lastBytecode)
+		if f, ok := r.commands[line]; ok {
+			f()
 			return
-		case ".builtins":
-			builtins := make([]string, len(ugo.BuiltinsMap))
-			for k, v := range ugo.BuiltinsMap {
-				builtins[v] = fmt.Sprint(ugo.BuiltinObjects[v].TypeName(), ":", k)
-			}
-			fmt.Print(strings.Join(builtins, "\n"), "\n")
-			return
-		case ".gc":
-			runtime.GC()
-			return
-		case ".globals":
-			fmt.Printf("%+v\n", r.eval.Globals)
-			return
-		case ".globals+":
-			fmt.Printf("%#v\n", r.eval.Globals)
-			return
-		case ".locals":
-			fmt.Printf("%+v\n", r.eval.Locals)
-			return
-		case ".locals+":
-			fmt.Printf("%#v\n", r.eval.Locals)
-			return
-		case ".return":
-			fmt.Printf("%#v\n", r.lastResult)
-			return
-		case ".return+":
-			if r.lastResult != nil {
-				fmt.Printf("GoType:%[1]T, TypeName:%[2]s, Value:%#[1]v\n",
-					r.lastResult, r.lastResult.TypeName())
-			} else {
-				fmt.Println("<nil>")
-			}
-			return
-		case ".reset":
-			*r = *newREPL(r.ctx)
-			return
-		case ".symbols":
-			fmt.Printf("%v\n", r.eval.Opts.SymbolTable.Symbols())
-			return
-		case ".memory_stats":
-			writeMemStats(os.Stdout)
-			return
-		case ".modules_cache":
-			fmt.Printf("%v\n", r.eval.ModulesCache)
-			return
-		case ".exit":
-			os.Exit(0)
 		}
 	case strings.HasSuffix(line, "\\"):
 		isMultiline = true
 		r.multiline += line[:len(line)-1] + "\n"
 		return
 	}
-	r.execute(line)
+	r.executeScript(line)
 }
 
-func (r *repl) execute(line string) {
+func (r *repl) executeScript(line string) {
 	defer func() {
 		isMultiline = false
 		r.multiline = ""
@@ -214,7 +258,7 @@ func (r *repl) execute(line string) {
 	}
 
 	symbols := r.eval.Opts.SymbolTable.Symbols()
-	suggestions = suggestions[:initialSugLen]
+	suggestions = suggestions[:initialSuggLen]
 	for _, s := range symbols {
 		if s.Scope != ugo.ScopeBuiltin {
 			suggestions = append(suggestions,
@@ -227,26 +271,16 @@ func (r *repl) execute(line string) {
 	}
 }
 
-// writeMemStats writes the formatted current, total and OS memory being used. As well as the number
-// of garbage collection cycles completed.
-func writeMemStats(w io.Writer) {
-	var m runtime.MemStats
-	runtime.ReadMemStats(&m)
-	_, _ = fmt.Fprintf(w, "Go Memory Stats see: https://golang.org/pkg/runtime/#MemStats\n\n")
-	_, _ = fmt.Fprintf(w, "HeapAlloc = %s", humanFriendlySize(m.HeapAlloc))
-	_, _ = fmt.Fprintf(w, "\tHeapObjects = %v", m.HeapObjects)
-	_, _ = fmt.Fprintf(w, "\tSys = %s", humanFriendlySize(m.Sys))
-	_, _ = fmt.Fprintf(w, "\tNumGC = %v\n", m.NumGC)
-}
-
 func humanFriendlySize(b uint64) string {
 	if b < 1024 {
 		return fmt.Sprint(strconv.FormatUint(b, 10), " bytes")
 	}
 	if b >= 1024 && b < 1024*1024 {
-		return fmt.Sprint(strconv.FormatFloat(float64(b)/1024, 'f', 1, 64), " KiB")
+		return fmt.Sprint(strconv.FormatFloat(
+			float64(b)/1024, 'f', 1, 64), " KiB")
 	}
-	return fmt.Sprint(strconv.FormatFloat(float64(b)/1024/1024, 'f', 1, 64), " MiB")
+	return fmt.Sprint(strconv.FormatFloat(
+		float64(b)/1024/1024, 'f', 1, 64), " MiB")
 }
 
 func completer(in prompt.Document) []prompt.Suggest {
@@ -289,7 +323,7 @@ func init() {
 			Description: "keyword " + s,
 		})
 	}
-	initialSugLen = len(suggestions)
+	initialSuggLen = len(suggestions)
 }
 
 func livePrefix() (string, bool) {
@@ -306,9 +340,9 @@ func main() {
 	fmt.Println(logo)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	r := newREPL(ctx)
+	grepl = newREPL(ctx)
 	p := prompt.New(
-		r.executor,
+		func(s string) { grepl.executor(s) },
 		completer,
 		prompt.OptionPrefix(promptPrefix),
 		prompt.OptionHistory([]string{
