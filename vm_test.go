@@ -534,17 +534,30 @@ func TestVMUndefined(t *testing.T) {
 	expectRun(t, `return undefined == undefined`, nil, True)
 	expectRun(t, `return undefined == (undefined ? 1 : undefined)`,
 		nil, True)
-	expectRun(t, `return undefined == 1`, nil, False)
-	expectRun(t, `return 1 == undefined`, nil, False)
-	expectRun(t, `return 1 < undefined`, nil, False)
-	expectRun(t, `return 1 <= undefined`, nil, False)
-	expectRun(t, `return undefined < 1`, nil, True)
-	expectRun(t, `return undefined <= 1`, nil, True)
-	expectRun(t, `return undefined > 1`, nil, False)
-	expectRun(t, `return undefined >= 1`, nil, False)
-	expectRun(t, `return undefined == 0`, nil, False)
 	expectRun(t, `return copy(undefined)`, nil, Undefined)
 	expectRun(t, `return len(undefined)`, nil, Int(0))
+
+	testCases := []string{
+		"true", "false", "0", "1", "1u", `""`, `"a"`, `bytes(0)`, "[]", "{}",
+		"[1]", "{a:1}", `'a'`, "1.1", "0.0",
+	}
+	for _, tC := range testCases {
+		t.Run(tC, func(t *testing.T) {
+			expectRun(t, fmt.Sprintf(`return undefined == %s`, tC), nil, False)
+			expectRun(t, fmt.Sprintf(`return undefined != %s`, tC), nil, True)
+			expectRun(t, fmt.Sprintf(`return undefined < %s`, tC), nil, True)
+			expectRun(t, fmt.Sprintf(`return undefined <= %s`, tC), nil, True)
+			expectRun(t, fmt.Sprintf(`return undefined > %s`, tC), nil, False)
+			expectRun(t, fmt.Sprintf(`return undefined >= %s`, tC), nil, False)
+
+			expectRun(t, fmt.Sprintf(`return %s == undefined`, tC), nil, False)
+			expectRun(t, fmt.Sprintf(`return %s != undefined`, tC), nil, True)
+			expectRun(t, fmt.Sprintf(`return %s > undefined`, tC), nil, True)
+			expectRun(t, fmt.Sprintf(`return %s >= undefined`, tC), nil, True)
+			expectRun(t, fmt.Sprintf(`return %s < undefined`, tC), nil, False)
+			expectRun(t, fmt.Sprintf(`return %s <= undefined`, tC), nil, False)
+		})
+	}
 }
 
 func TestVMBuiltinFunction(t *testing.T) {

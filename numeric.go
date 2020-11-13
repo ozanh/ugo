@@ -196,13 +196,9 @@ switchpos:
 		goto switchpos
 	case undefined:
 		switch tok {
-		case token.Less:
+		case token.Less, token.LessEq:
 			return False, nil
-		case token.LessEq:
-			return False, nil
-		case token.Greater:
-			return True, nil
-		case token.GreaterEq:
+		case token.Greater, token.GreaterEq:
 			return True, nil
 		}
 	}
@@ -362,13 +358,9 @@ switchpos:
 		goto switchpos
 	case undefined:
 		switch tok {
-		case token.Less:
+		case token.Less, token.LessEq:
 			return False, nil
-		case token.LessEq:
-			return False, nil
-		case token.Greater:
-			return True, nil
-		case token.GreaterEq:
+		case token.Greater, token.GreaterEq:
 			return True, nil
 		}
 	}
@@ -517,13 +509,9 @@ switchpos:
 		goto switchpos
 	case undefined:
 		switch tok {
-		case token.Less:
+		case token.Less, token.LessEq:
 			return False, nil
-		case token.LessEq:
-			return False, nil
-		case token.Greater:
-			return True, nil
-		case token.GreaterEq:
+		case token.Greater, token.GreaterEq:
 			return True, nil
 		}
 	}
@@ -680,13 +668,9 @@ switchpos:
 		}
 	case undefined:
 		switch tok {
-		case token.Less:
+		case token.Less, token.LessEq:
 			return False, nil
-		case token.LessEq:
-			return False, nil
-		case token.Greater:
-			return True, nil
-		case token.GreaterEq:
+		case token.Greater, token.GreaterEq:
 			return True, nil
 		}
 	}

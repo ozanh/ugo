@@ -168,24 +168,16 @@ func (o undefined) BinaryOp(tok token.Token, right Object) (Object, error) {
 	switch right.(type) {
 	case undefined:
 		switch tok {
-		case token.Less:
+		case token.Less, token.Greater:
 			return False, nil
-		case token.LessEq:
-			return True, nil
-		case token.Greater:
-			return False, nil
-		case token.GreaterEq:
+		case token.LessEq, token.GreaterEq:
 			return True, nil
 		}
 	default:
 		switch tok {
-		case token.Less:
+		case token.Less, token.LessEq:
 			return True, nil
-		case token.LessEq:
-			return True, nil
-		case token.Greater:
-			return False, nil
-		case token.GreaterEq:
+		case token.Greater, token.GreaterEq:
 			return False, nil
 		}
 	}
@@ -350,13 +342,9 @@ switchpos:
 		goto switchpos
 	case undefined:
 		switch tok {
-		case token.Less:
+		case token.Less, token.LessEq:
 			return False, nil
-		case token.LessEq:
-			return False, nil
-		case token.Greater:
-			return True, nil
-		case token.GreaterEq:
+		case token.Greater, token.GreaterEq:
 			return True, nil
 		}
 	}
@@ -466,13 +454,9 @@ func (o String) BinaryOp(tok token.Token, right Object) (Object, error) {
 		}
 	case undefined:
 		switch tok {
-		case token.Less:
+		case token.Less, token.LessEq:
 			return False, nil
-		case token.LessEq:
-			return False, nil
-		case token.Greater:
-			return True, nil
-		case token.GreaterEq:
+		case token.Greater, token.GreaterEq:
 			return True, nil
 		}
 	}
@@ -611,13 +595,9 @@ func (o Bytes) BinaryOp(tok token.Token, right Object) (Object, error) {
 		}
 	case undefined:
 		switch tok {
-		case token.Less:
+		case token.Less, token.LessEq:
 			return False, nil
-		case token.LessEq:
-			return False, nil
-		case token.Greater:
-			return True, nil
-		case token.GreaterEq:
+		case token.Greater, token.GreaterEq:
 			return True, nil
 		}
 	}
@@ -851,6 +831,14 @@ func (o Array) BinaryOp(tok token.Token, right Object) (Object, error) {
 		arr = append(arr, right)
 		return arr, nil
 	}
+	if right == Undefined {
+		switch tok {
+		case token.Less, token.LessEq:
+			return False, nil
+		case token.Greater, token.GreaterEq:
+			return True, nil
+		}
+	}
 	return nil, NewOperandTypeError(
 		tok.String(),
 		o.TypeName(),
@@ -1026,7 +1014,18 @@ func (Map) Call(...Object) (Object, error) {
 
 // BinaryOp implements Object interface.
 func (o Map) BinaryOp(tok token.Token, right Object) (Object, error) {
-	return nil, ErrInvalidOperator
+	if right == Undefined {
+		switch tok {
+		case token.Less, token.LessEq:
+			return False, nil
+		case token.Greater, token.GreaterEq:
+			return True, nil
+		}
+	}
+	return nil, NewOperandTypeError(
+		tok.String(),
+		o.TypeName(),
+		right.TypeName())
 }
 
 // CanIterate implements Object interface.
