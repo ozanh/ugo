@@ -464,14 +464,6 @@ func (o String) BinaryOp(tok token.Token, right Object) (Object, error) {
 		case token.GreaterEq:
 			return Bool(string(o) >= string(v)), nil
 		}
-	case Array:
-		switch tok {
-		case token.Add:
-			var sb strings.Builder
-			sb.WriteString(string(o))
-			sb.WriteString(string(v.String()))
-			return String(sb.String()), nil
-		}
 	case undefined:
 		switch tok {
 		case token.Less:
