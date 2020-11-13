@@ -105,13 +105,9 @@ func (o Time) BinaryOp(tok token.Token,
 	}
 	if right == ugo.Undefined {
 		switch tok {
-		case token.Less:
+		case token.Less, token.LessEq:
 			return ugo.False, nil
-		case token.LessEq:
-			return ugo.False, nil
-		case token.Greater:
-			return ugo.True, nil
-		case token.GreaterEq:
+		case token.Greater, token.GreaterEq:
 			return ugo.True, nil
 		}
 	}
