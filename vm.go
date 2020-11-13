@@ -280,18 +280,18 @@ VMLoop:
 			vm.stack[vm.sp] = nil
 			vm.ip++
 		case OpBinaryOp:
-			opType := token.Token(vm.curInsts[vm.ip+1])
+			tok := token.Token(vm.curInsts[vm.ip+1])
 			left, right := vm.stack[vm.sp-2], vm.stack[vm.sp-1]
 			var value Object
 			var err error
 			if v, ok := left.(Int); ok {
-				value, err = v.BinaryOp(opType, right)
+				value, err = v.BinaryOp(tok, right)
 			} else {
-				value, err = left.BinaryOp(opType, right)
+				value, err = left.BinaryOp(tok, right)
 			}
 			if err != nil {
 				if err == ErrInvalidOperator {
-					e := ErrInvalidOperator.NewError(opType.String())
+					e := ErrInvalidOperator.NewError(tok.String())
 					if err := vm.throwGenErr(e); err != nil {
 						vm.err = err
 						return
