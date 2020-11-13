@@ -10,6 +10,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"io"
 	"os"
 	"runtime"
 	"strconv"
@@ -55,26 +56,6 @@ var (
 
 var grepl *repl
 
-func init() {
-	var trace string
-	flag.StringVar(&trace, "trace", "", `comma separated units: -trace parser,optimizer,compiler`)
-	flag.BoolVar(&noOptimizer, "no-optimizer", false, `disable optimization`)
-	flag.Parse()
-	if trace != "" {
-		traceEnabled = true
-		trace = "," + trace + ","
-		if strings.Contains(trace, ",parser,") {
-			traceParser = true
-		}
-		if strings.Contains(trace, ",optimizer,") {
-			traceOptimizer = true
-		}
-		if strings.Contains(trace, ",compiler,") {
-			traceCompiler = true
-		}
-	}
-}
-
 type repl struct {
 	ctx          context.Context
 	eval         *ugo.Eval
@@ -83,10 +64,11 @@ type repl struct {
 	multiline    string
 	werr         prompt.ConsoleWriter
 	wout         prompt.ConsoleWriter
+	stdout       io.Writer
 	commands     map[string]func()
 }
 
-func newREPL(ctx context.Context) *repl {
+func newREPL(ctx context.Context, stdout io.Writer, cw prompt.ConsoleWriter) *repl {
 	moduleMap := ugo.NewModuleMap()
 	moduleMap.AddBuiltinModule("time", time.Module)
 	opts := ugo.CompilerOptions{
@@ -100,14 +82,18 @@ func newREPL(ctx context.Context) *repl {
 		OptimizeConst:     !noOptimizer,
 		OptimizeExpr:      !noOptimizer,
 	}
+	if stdout == nil {
+		stdout = os.Stdout
+	}
 	if traceEnabled {
-		opts.Trace = os.Stdout
+		opts.Trace = stdout
 	}
 	r := &repl{
-		ctx:  ctx,
-		eval: ugo.NewEval(opts, nil),
-		werr: prompt.NewStdoutWriter(),
-		wout: prompt.NewStdoutWriter(),
+		ctx:    ctx,
+		eval:   ugo.NewEval(opts, nil),
+		werr:   cw,
+		wout:   cw,
+		stdout: stdout,
 	}
 	r.commands = map[string]func(){
 		".bytecode":      r.cmdBytecode,
@@ -119,17 +105,17 @@ func newREPL(ctx context.Context) *repl {
 		".locals+":       r.cmdLocalsVerbose,
 		".return":        r.cmdReturn,
 		".return+":       r.cmdReturnVerbose,
-		".reset":         r.cmdReset,
 		".symbols":       r.cmdSymbols,
-		".memory_stats":  r.cmdMemoryStats,
 		".modules_cache": r.cmdModulesCache,
-		".exit":          r.cmdExit,
+		".memory_stats":  r.cmdMemoryStats,
+		".reset":         r.cmdReset,
+		".exit":          func() { os.Exit(0) },
 	}
 	return r
 }
 
 func (r *repl) cmdBytecode() {
-	fmt.Printf("%s\n", r.lastBytecode)
+	_, _ = fmt.Fprintf(r.stdout, "%s\n", r.lastBytecode)
 }
 
 func (r *repl) cmdBuiltins() {
@@ -137,46 +123,47 @@ func (r *repl) cmdBuiltins() {
 	for k, v := range ugo.BuiltinsMap {
 		builtins[v] = fmt.Sprint(ugo.BuiltinObjects[v].TypeName(), ":", k)
 	}
-	fmt.Println(strings.Join(builtins, "\n"))
+	_, _ = fmt.Fprintln(r.stdout, strings.Join(builtins, "\n"))
 }
 
 func (*repl) cmdGC() { runtime.GC() }
 
 func (r *repl) cmdGlobals() {
-	fmt.Printf("%+v\n", r.eval.Globals)
+	_, _ = fmt.Fprintf(r.stdout, "%+v\n", r.eval.Globals)
 }
 
 func (r *repl) cmdGlobalsVerbose() {
-	fmt.Printf("%#v\n", r.eval.Globals)
+	_, _ = fmt.Fprintf(r.stdout, "%#v\n", r.eval.Globals)
 }
 
 func (r *repl) cmdLocals() {
-	fmt.Printf("%+v\n", r.eval.Locals)
+	_, _ = fmt.Fprintf(r.stdout, "%+v\n", r.eval.Locals)
 }
 
 func (r *repl) cmdLocalsVerbose() {
-	fmt.Printf("%#v\n", r.eval.Locals)
+	fmt.Fprintf(r.stdout, "%#v\n", r.eval.Locals)
 }
 
 func (r *repl) cmdReturn() {
-	fmt.Printf("%#v\n", r.lastResult)
+	_, _ = fmt.Fprintf(r.stdout, "%#v\n", r.lastResult)
 }
 
 func (r *repl) cmdReturnVerbose() {
 	if r.lastResult != nil {
-		fmt.Printf("GoType:%[1]T, TypeName:%[2]s, Value:%#[1]v\n",
+		_, _ = fmt.Fprintf(r.stdout,
+			"GoType:%[1]T, TypeName:%[2]s, Value:%#[1]v\n",
 			r.lastResult, r.lastResult.TypeName())
 	} else {
-		fmt.Println("<nil>")
+		_, _ = fmt.Fprintln(r.stdout, "<nil>")
 	}
 }
 
 func (r *repl) cmdReset() {
-	grepl = newREPL(r.ctx)
+	grepl = newREPL(r.ctx, r.stdout, r.wout)
 }
 
 func (r *repl) cmdSymbols() {
-	fmt.Printf("%v\n", r.eval.Opts.SymbolTable.Symbols())
+	_, _ = fmt.Fprintf(r.stdout, "%v\n", r.eval.Opts.SymbolTable.Symbols())
 }
 
 func (r *repl) cmdMemoryStats() {
@@ -184,32 +171,28 @@ func (r *repl) cmdMemoryStats() {
 	// being used. As well as the number of garbage collection cycles completed.
 	var m runtime.MemStats
 	runtime.ReadMemStats(&m)
-	_, _ = fmt.Fprintf(os.Stdout, "Go Memory Stats see: "+
+	_, _ = fmt.Fprintf(r.stdout, "Go Memory Stats see: "+
 		"https://golang.org/pkg/runtime/#MemStats\n\n")
-	_, _ = fmt.Fprintf(os.Stdout, "HeapAlloc = %s", humanFriendlySize(m.HeapAlloc))
-	_, _ = fmt.Fprintf(os.Stdout, "\tHeapObjects = %v", m.HeapObjects)
-	_, _ = fmt.Fprintf(os.Stdout, "\tSys = %s", humanFriendlySize(m.Sys))
-	_, _ = fmt.Fprintf(os.Stdout, "\tNumGC = %v\n", m.NumGC)
+	_, _ = fmt.Fprintf(r.stdout, "HeapAlloc = %s", humanFriendlySize(m.HeapAlloc))
+	_, _ = fmt.Fprintf(r.stdout, "\tHeapObjects = %v", m.HeapObjects)
+	_, _ = fmt.Fprintf(r.stdout, "\tSys = %s", humanFriendlySize(m.Sys))
+	_, _ = fmt.Fprintf(r.stdout, "\tNumGC = %v\n", m.NumGC)
 }
 
 func (r *repl) cmdModulesCache() {
-	fmt.Printf("%v\n", r.eval.ModulesCache)
-}
-
-func (r *repl) cmdExit() {
-	os.Exit(0)
+	_, _ = fmt.Fprintf(r.stdout, "%v\n", r.eval.ModulesCache)
 }
 
 func (r *repl) writeErrorStr(msg string) {
 	r.werr.SetColor(prompt.Red, prompt.DefaultColor, true)
 	r.werr.WriteStr(msg)
-	r.werr.Flush()
+	_ = r.werr.Flush()
 }
 
 func (r *repl) writeStr(msg string) {
 	r.wout.SetColor(prompt.Green, prompt.DefaultColor, false)
 	r.wout.WriteStr(msg)
-	r.wout.Flush()
+	_ = r.wout.Flush()
 }
 
 func (r *repl) executor(line string) {
@@ -219,8 +202,8 @@ func (r *repl) executor(line string) {
 			return
 		}
 	case line[0] == '.':
-		if f, ok := r.commands[line]; ok {
-			f()
+		if fn, ok := r.commands[line]; ok {
+			fn()
 			return
 		}
 	case strings.HasSuffix(line, "\\"):
@@ -326,28 +309,21 @@ func init() {
 	initialSuggLen = len(suggestions)
 }
 
-func livePrefix() (string, bool) {
-	if isMultiline {
-		return promptPrefix2, true
-	}
-	return "", false
-}
+func newPrompt(
+	executor func(s string),
+	w io.Writer,
+	poptions ...prompt.Option,
+) *prompt.Prompt {
+	_, _ = fmt.Fprintln(w, "Copyright (c) 2020 Ozan Hacıbekiroğlu")
+	_, _ = fmt.Fprintln(w, "License: MIT")
+	_, _ = fmt.Fprintln(w, "Press Ctrl+D to exit or use .exit command")
+	_, _ = fmt.Fprintln(w, logo)
 
-func main() {
-	fmt.Println("Copyright (c) 2020 Ozan Hacıbekiroğlu")
-	fmt.Println("License: MIT")
-	fmt.Println("Press Ctrl+D to exit or use .exit command")
-	fmt.Println(logo)
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	grepl = newREPL(ctx)
-	p := prompt.New(
-		func(s string) { grepl.executor(s) },
-		completer,
+	options := []prompt.Option{
 		prompt.OptionPrefix(promptPrefix),
 		prompt.OptionHistory([]string{
 			"a := 1",
-			"sum := func(a...) { total:=0; for v in a { total+=v }; return total }",
+			"sum := func(...a) { total:=0; for v in a { total+=v }; return total }",
 			"func(a, b){ return a*b }(2, 3)",
 			`println("")`,
 			`var (x, y, z); if x { y } else { z }`,
@@ -356,12 +332,56 @@ func main() {
 			`m := {}; for k,v in m { printf("%s:%v\n", k, v) }`,
 			`try { } catch err { } finally { }`,
 		}),
-		prompt.OptionLivePrefix(livePrefix),
+		prompt.OptionLivePrefix(func() (string, bool) {
+			if isMultiline {
+				return promptPrefix2, true
+			}
+			return "", false
+		}),
 		prompt.OptionTitle(title),
 		prompt.OptionPrefixTextColor(prompt.Yellow),
 		prompt.OptionPreviewSuggestionTextColor(prompt.Blue),
 		prompt.OptionSelectedSuggestionBGColor(prompt.LightGray),
 		prompt.OptionSuggestionBGColor(prompt.DarkGray),
+	}
+	options = append(options, poptions...)
+	return prompt.New(
+		executor,
+		completer,
+		options...,
 	)
-	p.Run()
+}
+
+func parseFlags() {
+	var trace string
+	flag.StringVar(&trace, "trace", "",
+		`comma separated units: -trace parser,optimizer,compiler`)
+	flag.BoolVar(&noOptimizer, "no-optimizer", false, `disable optimization`)
+	flag.Parse()
+	if trace != "" {
+		traceEnabled = true
+		trace = "," + trace + ","
+		if strings.Contains(trace, ",parser,") {
+			traceParser = true
+		}
+		if strings.Contains(trace, ",optimizer,") {
+			traceOptimizer = true
+		}
+		if strings.Contains(trace, ",compiler,") {
+			traceCompiler = true
+		}
+	}
+}
+
+func main() {
+	parseFlags()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	cw := prompt.NewStdoutWriter()
+	grepl = newREPL(ctx, os.Stdout, cw)
+	newPrompt(
+		func(s string) { grepl.executor(s) },
+		os.Stdout,
+		prompt.OptionWriter(cw),
+	).Run()
 }
