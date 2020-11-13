@@ -21,7 +21,9 @@ the comments (ignore SETLOCAL and RETURN opcodes for the example).
 
 ``` go
 a := 1 << 4
-/*
+```
+
+```console
 Bytecode
 Modules:0
 Constants:
@@ -35,7 +37,6 @@ Instructions:
 0008 SETLOCAL        0
 0010 RETURN          0
 SourceMap:map[0:6 3:11 6:6 8:1 10:0]
-*/
 ```
 
 If optimizer is enabled, 1 instruction is emitted by the compiler as below. We
@@ -43,7 +44,9 @@ saved 2 instructions, 1 constant and a few source map entries.
 
 ``` go
 a := 1 << 4
-/*
+```
+
+```console
 Bytecode
 Modules:0
 Constants:
@@ -54,7 +57,6 @@ Instructions:
 0003 SETLOCAL        0
 0005 RETURN          0
 SourceMap:map[0:6 3:1 5:0]
-*/
 ```
 
 Of course user can directly write constant value instead of writing `1 << 4` but
