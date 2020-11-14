@@ -1,6 +1,6 @@
 # The uGO Language
 
-[![PkgGoDev](https://pkg.go.dev/badge/ozanh/ugo)](https://pkg.go.dev/ozanh/ugo)
+[![PkgGoDev](https://pkg.go.dev/badge/github.com/ozanh/ugo)](https://pkg.go.dev/github.com/ozanh/ugo)
 [![GoDoc](https://godoc.org/github.com/ozanh/ugo?status.svg)](https://godoc.org/github.com/ozanh/ugo)
 [![Go Report Card](https://goreportcard.com/badge/github.com/ozanh/ugo)](https://goreportcard.com/report/github.com/ozanh/ugo)
 [![uGO Test](https://github.com/ozanh/ugo/workflows/test/badge.svg)](https://github.com/ozanh/ugo/actions)
