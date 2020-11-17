@@ -71,6 +71,8 @@ uGO has a REPL application to learn and test uGO language thanks to
 
 This example is to show some features of uGO.
 
+<https://play.golang.org/p/6FyaxObPjwO>
+
 ```go
 package main
 
@@ -114,7 +116,7 @@ global multiplier
 return mapEach(args, func(x) { return x*multiplier })
 `
 
-    bytecode, err := ugo.Compile([]byte(src), ugo.DefaultCompilerOptions)
+    bytecode, err := ugo.Compile([]byte(script), ugo.DefaultCompilerOptions)
     if err != nil {
         panic(err)
     }
@@ -126,7 +128,7 @@ return mapEach(args, func(x) { return x*multiplier })
     if err != nil {
         panic(err)
     }
-    fmt.Println(ret)    // [2, 4, 6, 8]
+    fmt.Println(ret) // [2, 4, 6, 8]
 }
 ```
 
