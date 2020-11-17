@@ -293,15 +293,18 @@ var Module = map[string]ugo.Object{
 func fnASSRS(fn func(string, string) string) ugo.CallableFunc {
 	return func(args ...ugo.Object) (ugo.Object, error) {
 		if len(args) != 2 {
-			return nil, ugo.ErrWrongNumArguments.NewError(wantEqXGotY(2, len(args)))
+			return nil, ugo.ErrWrongNumArguments.NewError(
+				wantEqXGotY(2, len(args)))
 		}
 		s1, ok := args[0].(ugo.String)
 		if !ok {
-			return nil, ugo.NewArgumentTypeError("first", "string", args[0].TypeName())
+			return nil, ugo.NewArgumentTypeError("first", "string",
+				args[0].TypeName())
 		}
 		s2, ok := args[1].(ugo.String)
 		if !ok {
-			return nil, ugo.NewArgumentTypeError("second", "string", args[1].TypeName())
+			return nil, ugo.NewArgumentTypeError("second", "string",
+				args[1].TypeName())
 		}
 		return ugo.String(fn(string(s1), string(s2))), nil
 	}
@@ -310,15 +313,18 @@ func fnASSRS(fn func(string, string) string) ugo.CallableFunc {
 func fnASSRB(fn func(string, string) bool) ugo.CallableFunc {
 	return func(args ...ugo.Object) (ugo.Object, error) {
 		if len(args) != 2 {
-			return nil, ugo.ErrWrongNumArguments.NewError(wantEqXGotY(2, len(args)))
+			return nil, ugo.ErrWrongNumArguments.NewError(
+				wantEqXGotY(2, len(args)))
 		}
 		s1, ok := args[0].(ugo.String)
 		if !ok {
-			return nil, ugo.NewArgumentTypeError("first", "string", args[0].TypeName())
+			return nil, ugo.NewArgumentTypeError("first", "string",
+				args[0].TypeName())
 		}
 		s2, ok := args[1].(ugo.String)
 		if !ok {
-			return nil, ugo.NewArgumentTypeError("second", "string", args[1].TypeName())
+			return nil, ugo.NewArgumentTypeError("second", "string",
+				args[1].TypeName())
 		}
 		return ugo.Bool(fn(string(s1), string(s2))), nil
 	}
@@ -327,15 +333,18 @@ func fnASSRB(fn func(string, string) bool) ugo.CallableFunc {
 func fnASSRI(fn func(string, string) int) ugo.CallableFunc {
 	return func(args ...ugo.Object) (ugo.Object, error) {
 		if len(args) != 2 {
-			return nil, ugo.ErrWrongNumArguments.NewError(wantEqXGotY(2, len(args)))
+			return nil, ugo.ErrWrongNumArguments.NewError(
+				wantEqXGotY(2, len(args)))
 		}
 		s1, ok := args[0].(ugo.String)
 		if !ok {
-			return nil, ugo.NewArgumentTypeError("first", "string", args[0].TypeName())
+			return nil, ugo.NewArgumentTypeError("first", "string",
+				args[0].TypeName())
 		}
 		s2, ok := args[1].(ugo.String)
 		if !ok {
-			return nil, ugo.NewArgumentTypeError("second", "string", args[1].TypeName())
+			return nil, ugo.NewArgumentTypeError("second", "string",
+				args[1].TypeName())
 		}
 		return ugo.Int(fn(string(s1), string(s2))), nil
 	}
@@ -378,11 +387,13 @@ func fnASSIRA(fn func(string, string, int) []string) ugo.CallableFunc {
 func fnASRS(fn func(string) string) ugo.CallableFunc {
 	return func(args ...ugo.Object) (ugo.Object, error) {
 		if len(args) != 1 {
-			return nil, ugo.ErrWrongNumArguments.NewError(wantEqXGotY(1, len(args)))
+			return nil, ugo.ErrWrongNumArguments.NewError(
+				wantEqXGotY(1, len(args)))
 		}
 		s, ok := args[0].(ugo.String)
 		if !ok {
-			return nil, ugo.NewArgumentTypeError("first", "string", args[0].TypeName())
+			return nil, ugo.NewArgumentTypeError("first", "string",
+				args[0].TypeName())
 		}
 		return ugo.String(fn(string(s))), nil
 	}
