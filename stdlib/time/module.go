@@ -17,7 +17,7 @@ import (
 )
 
 func init() {
-	gob.Register(Time{})
+	gob.Register(&Time{})
 	gob.Register(&Location{})
 }
 
@@ -487,31 +487,31 @@ func timeTime(args ...ugo.Object) (ugo.Object, error) {
 	if len(args) != 0 {
 		return nil, ugo.ErrWrongNumArguments.NewError(wantEqXGotY(0, len(args)))
 	}
-	return Time(time.Time{}), nil
+	return &Time{Value: time.Time{}}, nil
 }
 
 func timeSince(args ...ugo.Object) (ugo.Object, error) {
 	if len(args) != 1 {
 		return nil, ugo.ErrWrongNumArguments.NewError(wantEqXGotY(1, len(args)))
 	}
-	v, ok := args[0].(Time)
+	v, ok := args[0].(*Time)
 	if !ok {
 		return nil, ugo.NewArgumentTypeError("first", "time",
 			args[0].TypeName())
 	}
-	return ugo.Int(time.Since(time.Time(v))), nil
+	return ugo.Int(time.Since(v.Value)), nil
 }
 
 func timeUntil(args ...ugo.Object) (ugo.Object, error) {
 	if len(args) != 1 {
 		return nil, ugo.ErrWrongNumArguments.NewError(wantEqXGotY(1, len(args)))
 	}
-	v, ok := args[0].(Time)
+	v, ok := args[0].(*Time)
 	if !ok {
 		return nil, ugo.NewArgumentTypeError("first", "time",
 			args[0].TypeName())
 	}
-	return ugo.Int(time.Until(time.Time(v))), nil
+	return ugo.Int(time.Until(v.Value)), nil
 }
 
 func durationRound(args ...ugo.Object) (ugo.Object, error) {
@@ -644,14 +644,14 @@ func date(args ...ugo.Object) (ugo.Object, error) {
 
 	tm := time.Date(ymdHmsn[0], time.Month(ymdHmsn[1]), ymdHmsn[2],
 		ymdHmsn[3], ymdHmsn[4], ymdHmsn[5], ymdHmsn[6], loc.Location)
-	return Time(tm), nil
+	return &Time{Value: tm}, nil
 }
 
 func now(args ...ugo.Object) (ugo.Object, error) {
 	if len(args) != 0 {
 		return nil, ugo.ErrWrongNumArguments.NewError(wantEqXGotY(0, len(args)))
 	}
-	return Time(time.Now()), nil
+	return &Time{Value: time.Now()}, nil
 }
 
 func parse(args ...ugo.Object) (ugo.Object, error) {
@@ -674,7 +674,7 @@ func parse(args ...ugo.Object) (ugo.Object, error) {
 		if err != nil {
 			return nil, err
 		}
-		return Time(tm), nil
+		return &Time{Value: tm}, nil
 	}
 	loc, ok := args[2].(*Location)
 	if !ok {
@@ -685,7 +685,7 @@ func parse(args ...ugo.Object) (ugo.Object, error) {
 	if err != nil {
 		return nil, err
 	}
-	return Time(tm), nil
+	return &Time{Value: tm}, nil
 }
 
 func unix(args ...ugo.Object) (ugo.Object, error) {
@@ -712,21 +712,21 @@ func unix(args ...ugo.Object) (ugo.Object, error) {
 				args[1].TypeName())
 		}
 	}
-	return Time(time.Unix(sec, nsec)), nil
+	return &Time{Value: time.Unix(sec, nsec)}, nil
 }
 
 func add(args ...ugo.Object) (ugo.Object, error) {
 	if len(args) != 2 {
 		return nil, ugo.ErrWrongNumArguments.NewError(wantEqXGotY(2, len(args)))
 	}
-	tm, ok := args[0].(Time)
+	tm, ok := args[0].(*Time)
 	if !ok {
 		return nil, ugo.NewArgumentTypeError("first", "time",
 			args[0].TypeName())
 	}
 	switch v := args[1].(type) {
 	case ugo.Int:
-		return Time(time.Time(tm).Add(time.Duration(v))), nil
+		return &Time{Value: tm.Value.Add(time.Duration(v))}, nil
 	}
 	return nil, ugo.NewArgumentTypeError("second", "int",
 		args[1].TypeName())
@@ -736,24 +736,24 @@ func sub(args ...ugo.Object) (ugo.Object, error) {
 	if len(args) != 2 {
 		return nil, ugo.ErrWrongNumArguments.NewError(wantEqXGotY(2, len(args)))
 	}
-	tm1, ok := args[0].(Time)
+	tm1, ok := args[0].(*Time)
 	if !ok {
 		return nil, ugo.NewArgumentTypeError("first", "time",
 			args[0].TypeName())
 	}
-	tm2, ok := args[1].(Time)
+	tm2, ok := args[1].(*Time)
 	if !ok {
 		return nil, ugo.NewArgumentTypeError("second", "time",
 			args[1].TypeName())
 	}
-	return ugo.Int(time.Time(tm1).Sub(time.Time(tm2))), nil
+	return ugo.Int(tm1.Value.Sub(tm2.Value)), nil
 }
 
 func addDate(args ...ugo.Object) (ugo.Object, error) {
 	if len(args) != 4 {
 		return nil, ugo.ErrWrongNumArguments.NewError(wantEqXGotY(4, len(args)))
 	}
-	tm, ok := args[0].(Time)
+	tm, ok := args[0].(*Time)
 	if !ok {
 		return nil, ugo.NewArgumentTypeError("first", "time",
 			args[0].TypeName())
@@ -773,48 +773,50 @@ func addDate(args ...ugo.Object) (ugo.Object, error) {
 		return nil, ugo.NewArgumentTypeError("fourth", "int",
 			args[3].TypeName())
 	}
-	return Time(time.Time(tm).AddDate(int(years), int(months), int(days))), nil
+	return &Time{
+		Value: tm.Value.AddDate(int(years), int(months), int(days)),
+	}, nil
 }
 
 func after(args ...ugo.Object) (ugo.Object, error) {
 	if len(args) != 2 {
 		return nil, ugo.ErrWrongNumArguments.NewError(wantEqXGotY(2, len(args)))
 	}
-	tm1, ok := args[0].(Time)
+	tm1, ok := args[0].(*Time)
 	if !ok {
 		return nil, ugo.NewArgumentTypeError("first", "time",
 			args[0].TypeName())
 	}
-	tm2, ok := args[1].(Time)
+	tm2, ok := args[1].(*Time)
 	if !ok {
 		return nil, ugo.NewArgumentTypeError("second", "time",
 			args[1].TypeName())
 	}
-	return ugo.Bool(time.Time(tm1).After(time.Time(tm2))), nil
+	return ugo.Bool(tm1.Value.After(tm2.Value)), nil
 }
 
 func before(args ...ugo.Object) (ugo.Object, error) {
 	if len(args) != 2 {
 		return nil, ugo.ErrWrongNumArguments.NewError(wantEqXGotY(2, len(args)))
 	}
-	tm1, ok := args[0].(Time)
+	tm1, ok := args[0].(*Time)
 	if !ok {
 		return nil, ugo.NewArgumentTypeError("first", "time",
 			args[0].TypeName())
 	}
-	tm2, ok := args[1].(Time)
+	tm2, ok := args[1].(*Time)
 	if !ok {
 		return nil, ugo.NewArgumentTypeError("second", "time",
 			args[1].TypeName())
 	}
-	return ugo.Bool(time.Time(tm1).Before(time.Time(tm2))), nil
+	return ugo.Bool(tm1.Value.Before(tm2.Value)), nil
 }
 
 func appendFormat(args ...ugo.Object) (ugo.Object, error) {
 	if len(args) != 3 {
 		return nil, ugo.ErrWrongNumArguments.NewError(wantEqXGotY(3, len(args)))
 	}
-	tm, ok := args[0].(Time)
+	tm, ok := args[0].(*Time)
 	if !ok {
 		return nil, ugo.NewArgumentTypeError("first", "time",
 			args[0].TypeName())
@@ -829,14 +831,14 @@ func appendFormat(args ...ugo.Object) (ugo.Object, error) {
 		return nil, ugo.NewArgumentTypeError("third", "string",
 			args[2].TypeName())
 	}
-	return ugo.Bytes(time.Time(tm).AppendFormat(b, string(layout))), nil
+	return ugo.Bytes(tm.Value.AppendFormat(b, string(layout))), nil
 }
 
 func format(args ...ugo.Object) (ugo.Object, error) {
 	if len(args) != 2 {
 		return nil, ugo.ErrWrongNumArguments.NewError(wantEqXGotY(2, len(args)))
 	}
-	tm, ok := args[0].(Time)
+	tm, ok := args[0].(*Time)
 	if !ok {
 		return nil, ugo.NewArgumentTypeError("first", "time",
 			args[0].TypeName())
@@ -846,14 +848,14 @@ func format(args ...ugo.Object) (ugo.Object, error) {
 		return nil, ugo.NewArgumentTypeError("second", "string",
 			args[1].TypeName())
 	}
-	return ugo.String(time.Time(tm).Format(string(layout))), nil
+	return ugo.String(tm.Value.Format(string(layout))), nil
 }
 
 func timeIn(args ...ugo.Object) (ugo.Object, error) {
 	if len(args) != 2 {
 		return nil, ugo.ErrWrongNumArguments.NewError(wantEqXGotY(2, len(args)))
 	}
-	tm, ok := args[0].(Time)
+	tm, ok := args[0].(*Time)
 	if !ok {
 		return nil, ugo.NewArgumentTypeError("first", "time",
 			args[0].TypeName())
@@ -863,21 +865,21 @@ func timeIn(args ...ugo.Object) (ugo.Object, error) {
 		return nil, ugo.NewArgumentTypeError("second", "location",
 			args[1].TypeName())
 	}
-	return Time(time.Time(tm).In(loc.Location)), nil
+	return &Time{Value: tm.Value.In(loc.Location)}, nil
 }
 
 func timeRound(args ...ugo.Object) (ugo.Object, error) {
 	if len(args) != 2 {
 		return nil, ugo.ErrWrongNumArguments.NewError(wantEqXGotY(2, len(args)))
 	}
-	tm, ok := args[0].(Time)
+	tm, ok := args[0].(*Time)
 	if !ok {
 		return nil, ugo.NewArgumentTypeError("first", "time",
 			args[0].TypeName())
 	}
 	switch v := args[1].(type) {
 	case ugo.Int:
-		return Time(time.Time(tm).Round(time.Duration(v))), nil
+		return &Time{Value: tm.Value.Round(time.Duration(v))}, nil
 	default:
 		return nil, ugo.NewArgumentTypeError("second", "int",
 			args[1].TypeName())
@@ -888,14 +890,14 @@ func timeTruncate(args ...ugo.Object) (ugo.Object, error) {
 	if len(args) != 2 {
 		return nil, ugo.ErrWrongNumArguments.NewError(wantEqXGotY(2, len(args)))
 	}
-	tm, ok := args[0].(Time)
+	tm, ok := args[0].(*Time)
 	if !ok {
 		return nil, ugo.NewArgumentTypeError("first", "time",
 			args[0].TypeName())
 	}
 	switch v := args[1].(type) {
 	case ugo.Int:
-		return Time(time.Time(tm).Truncate(time.Duration(v))), nil
+		return &Time{Value: tm.Value.Truncate(time.Duration(v))}, nil
 	default:
 		return nil, ugo.NewArgumentTypeError("second", "int",
 			args[1].TypeName())
@@ -906,7 +908,7 @@ func isTime(args ...ugo.Object) (ugo.Object, error) {
 	if len(args) != 1 {
 		return nil, ugo.ErrWrongNumArguments.NewError(wantEqXGotY(1, len(args)))
 	}
-	_, ok := args[0].(Time)
+	_, ok := args[0].(*Time)
 	return ugo.Bool(ok), nil
 }
 

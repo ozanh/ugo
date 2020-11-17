@@ -23,7 +23,9 @@ Go Type
 
 ```go
 // Time represents time values and implements ugo.Object interface.
-type Time time.Time
+type Time struct {
+  Value time.Time
+}
 ```
 
 #### Overloaded time Operators

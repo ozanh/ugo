@@ -19,48 +19,52 @@ import (
 //
 // ```go
 // // Time represents time values and implements ugo.Object interface.
-// type Time time.Time
+// type Time struct {
+//   Value time.Time
+// }
 // ```
 
 // Time represents time values and implements ugo.Object interface.
-type Time time.Time
+type Time struct {
+	Value time.Time
+}
 
 // TypeName implements ugo.Object interface.
-func (Time) TypeName() string {
+func (*Time) TypeName() string {
 	return "time"
 }
 
 // String implements ugo.Object interface.
-func (o Time) String() string {
-	return time.Time(o).String()
+func (o *Time) String() string {
+	return o.Value.String()
 }
 
 // IsFalsy implements ugo.Object interface.
-func (o Time) IsFalsy() bool {
-	return bool(time.Time(o).IsZero())
+func (o *Time) IsFalsy() bool {
+	return bool(o.Value.IsZero())
 }
 
 // Equal implements ugo.Object interface.
-func (o Time) Equal(right ugo.Object) bool {
-	if v, ok := right.(Time); ok {
-		return time.Time(o).Equal(time.Time(v))
+func (o *Time) Equal(right ugo.Object) bool {
+	if v, ok := right.(*Time); ok {
+		return o.Value.Equal(v.Value)
 	}
 	return false
 }
 
 // CanCall implements ugo.Object interface.
-func (Time) CanCall() bool { return false }
+func (*Time) CanCall() bool { return false }
 
 // Call implements ugo.Object interface.
-func (Time) Call(args ...ugo.Object) (ugo.Object, error) {
+func (*Time) Call(args ...ugo.Object) (ugo.Object, error) {
 	return nil, ugo.ErrNotCallable
 }
 
 // CanIterate implements ugo.Object interface.
-func (Time) CanIterate() bool { return false }
+func (*Time) CanIterate() bool { return false }
 
 // Iterate implements ugo.Object interface.
-func (Time) Iterate() ugo.Iterator { return nil }
+func (*Time) Iterate() ugo.Iterator { return nil }
 
 // ugo:doc
 // #### Overloaded time Operators
@@ -76,30 +80,30 @@ func (Time) Iterate() ugo.Iterator { return nil }
 // Note that, `int` values as duration must be the right hand side operand.
 
 // BinaryOp implements ugo.Object interface.
-func (o Time) BinaryOp(tok token.Token,
+func (o *Time) BinaryOp(tok token.Token,
 	right ugo.Object) (ugo.Object, error) {
 
 	switch v := right.(type) {
 	case ugo.Int:
 		switch tok {
 		case token.Add:
-			return Time(time.Time(o).Add(time.Duration(v))), nil
+			return &Time{Value: o.Value.Add(time.Duration(v))}, nil
 		case token.Sub:
-			return Time(time.Time(o).Add(time.Duration(-v))), nil
+			return &Time{Value: o.Value.Add(time.Duration(-v))}, nil
 		}
-	case Time:
+	case *Time:
 		switch tok {
 		case token.Sub:
-			return ugo.Int(time.Time(o).Sub(time.Time(v))), nil
+			return ugo.Int(o.Value.Sub(v.Value)), nil
 		case token.Less:
-			return ugo.Bool(time.Time(o).Before(time.Time(v))), nil
+			return ugo.Bool(o.Value.Before(v.Value)), nil
 		case token.LessEq:
-			return ugo.Bool(time.Time(o).Before(time.Time(v)) || o.Equal(v)),
+			return ugo.Bool(o.Value.Before(v.Value) || o.Value.Equal(v.Value)),
 				nil
 		case token.Greater:
-			return ugo.Bool(time.Time(o).After(time.Time(v))), nil
+			return ugo.Bool(o.Value.After(v.Value)), nil
 		case token.GreaterEq:
-			return ugo.Bool(time.Time(o).After(time.Time(v)) || o.Equal(v)),
+			return ugo.Bool(o.Value.After(v.Value) || o.Value.Equal(v.Value)),
 				nil
 		}
 	}
@@ -118,7 +122,7 @@ func (o Time) BinaryOp(tok token.Token,
 }
 
 // IndexSet implements ugo.Object interface.
-func (Time) IndexSet(_, _ ugo.Object) error { return ugo.ErrNotIndexAssignable }
+func (*Time) IndexSet(_, _ ugo.Object) error { return ugo.ErrNotIndexAssignable }
 
 // ugo:doc
 // #### time Getters
@@ -148,76 +152,86 @@ func (Time) IndexSet(_, _ ugo.Object) error { return ugo.ErrNotIndexAssignable }
 // |.Zone      | {"name": string, "offset": int}                 |
 
 // IndexGet implements ugo.Object interface.
-func (o Time) IndexGet(index ugo.Object) (ugo.Object, error) {
+func (o *Time) IndexGet(index ugo.Object) (ugo.Object, error) {
 	v, ok := index.(ugo.String)
 	if !ok {
 		return nil, ugo.NewIndexTypeError("string", index.TypeName())
 	}
 	switch v {
 	case "Date":
-		y, m, d := time.Time(o).Date()
+		y, m, d := o.Value.Date()
 		return ugo.Map{"year": ugo.Int(y), "month": ugo.Int(m),
 			"day": ugo.Int(d)}, nil
 	case "Clock":
-		h, m, s := time.Time(o).Clock()
+		h, m, s := o.Value.Clock()
 		return ugo.Map{"hour": ugo.Int(h), "minute": ugo.Int(m),
 			"second": ugo.Int(s)}, nil
 	case "UTC":
-		return Time(time.Time(o).UTC()), nil
+		return &Time{Value: o.Value.UTC()}, nil
 	case "Unix":
-		return ugo.Int(time.Time(o).Unix()), nil
+		return ugo.Int(o.Value.Unix()), nil
 	case "UnixNano":
-		return ugo.Int(time.Time(o).UnixNano()), nil
+		return ugo.Int(o.Value.UnixNano()), nil
 	case "Year":
-		return ugo.Int(time.Time(o).Year()), nil
+		return ugo.Int(o.Value.Year()), nil
 	case "Month":
-		return ugo.Int(time.Time(o).Month()), nil
+		return ugo.Int(o.Value.Month()), nil
 	case "Day":
-		return ugo.Int(time.Time(o).Day()), nil
+		return ugo.Int(o.Value.Day()), nil
 	case "Hour":
-		return ugo.Int(time.Time(o).Hour()), nil
+		return ugo.Int(o.Value.Hour()), nil
 	case "Minute":
-		return ugo.Int(time.Time(o).Minute()), nil
+		return ugo.Int(o.Value.Minute()), nil
 	case "Second":
-		return ugo.Int(time.Time(o).Second()), nil
+		return ugo.Int(o.Value.Second()), nil
 	case "Nanosecond":
-		return ugo.Int(time.Time(o).Nanosecond()), nil
+		return ugo.Int(o.Value.Nanosecond()), nil
 	case "IsZero":
-		return ugo.Bool(time.Time(o).IsZero()), nil
+		return ugo.Bool(o.Value.IsZero()), nil
 	case "Local":
-		return Time(time.Time(o).Local()), nil
+		return &Time{Value: o.Value.Local()}, nil
 	case "Location":
-		return &Location{Location: time.Time(o).Location()}, nil
+		return &Location{Location: o.Value.Location()}, nil
 	case "YearDay":
-		return ugo.Int(time.Time(o).YearDay()), nil
+		return ugo.Int(o.Value.YearDay()), nil
 	case "Weekday":
-		return ugo.Int(time.Time(o).Weekday()), nil
+		return ugo.Int(o.Value.Weekday()), nil
 	case "ISOWeek":
-		y, w := time.Time(o).ISOWeek()
+		y, w := o.Value.ISOWeek()
 		return ugo.Map{"year": ugo.Int(y), "week": ugo.Int(w)}, nil
 	case "Zone":
-		name, offset := time.Time(o).Zone()
+		name, offset := o.Value.Zone()
 		return ugo.Map{"name": ugo.String(name), "offset": ugo.Int(offset)}, nil
 	}
 	return ugo.Undefined, nil
 }
 
 // MarshalBinary implements encoding.BinaryMarshaler interface.
-func (o Time) MarshalBinary() ([]byte, error) {
-	return time.Time(o).MarshalBinary()
+func (o *Time) MarshalBinary() ([]byte, error) {
+	return o.Value.MarshalBinary()
 }
 
 // MarshalJSON implements json.JSONMarshaler interface.
-func (o Time) MarshalJSON() ([]byte, error) {
-	return time.Time(o).MarshalJSON()
+func (o *Time) MarshalJSON() ([]byte, error) {
+	return o.Value.MarshalJSON()
 }
 
 // UnmarshalBinary implements encoding.BinaryUnmarshaler interface.
 func (o *Time) UnmarshalBinary(data []byte) error {
-	return (*time.Time)(o).UnmarshalBinary(data)
+	var t time.Time
+	if err := t.UnmarshalBinary(data); err != nil {
+		return err
+	}
+	o.Value = t
+	return nil
 }
 
 // UnmarshalJSON implements json.JSONUnmarshaler interface.
 func (o *Time) UnmarshalJSON(data []byte) error {
-	return (*time.Time)(o).UnmarshalJSON(data)
+	var t time.Time
+	if err := t.UnmarshalJSON(data); err != nil {
+		return err
+	}
+	o.Value = t
+	return nil
 }
