@@ -19,8 +19,10 @@ import (
 	"github.com/c-bata/go-prompt"
 
 	"github.com/ozanh/ugo"
-	"github.com/ozanh/ugo/stdlib/time"
 	"github.com/ozanh/ugo/token"
+
+	ugostrings "github.com/ozanh/ugo/stdlib/strings"
+	ugotime "github.com/ozanh/ugo/stdlib/time"
 )
 
 const logo = `
@@ -70,7 +72,8 @@ type repl struct {
 
 func newREPL(ctx context.Context, stdout io.Writer, cw prompt.ConsoleWriter) *repl {
 	moduleMap := ugo.NewModuleMap()
-	moduleMap.AddBuiltinModule("time", time.Module)
+	moduleMap.AddBuiltinModule("time", ugotime.Module)
+	moduleMap.AddBuiltinModule("strings", ugostrings.Module)
 	opts := ugo.CompilerOptions{
 		ModulePath:        "(repl)",
 		ModuleMap:         moduleMap,
