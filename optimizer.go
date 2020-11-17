@@ -538,14 +538,18 @@ func (opt *SimpleOptimizer) optimize(node parser.Node) (parser.Expr, bool) {
 			_, _ = opt.optimize(stmt)
 		}
 	case *parser.ExprStmt:
-		if expr, ok = opt.optimize(node.Expr); ok {
-			node.Expr = expr
-		}
-		if expr, ok = opt.evalExpr(node.Expr); ok {
-			node.Expr = expr
+		if node.Expr != nil {
+			if expr, ok = opt.optimize(node.Expr); ok {
+				node.Expr = expr
+			}
+			if expr, ok = opt.evalExpr(node.Expr); ok {
+				node.Expr = expr
+			}
 		}
 	case *parser.ParenExpr:
-		return opt.optimize(node.Expr)
+		if node.Expr != nil {
+			return opt.optimize(node.Expr)
+		}
 	case *parser.BinaryExpr:
 		if expr, ok = opt.optimize(node.LHS); ok {
 			node.LHS = expr
@@ -721,13 +725,17 @@ func (opt *SimpleOptimizer) optimize(node parser.Node) (parser.Expr, bool) {
 			}
 		}
 	case *parser.FuncLit:
-		_, _ = opt.optimize(node.Body)
-	case *parser.ReturnStmt:
-		if expr, ok = opt.optimize(node.Result); ok {
-			node.Result = expr
+		if node.Body != nil {
+			_, _ = opt.optimize(node.Body)
 		}
-		if expr, ok = opt.evalExpr(node.Result); ok {
-			node.Result = expr
+	case *parser.ReturnStmt:
+		if node.Result != nil {
+			if expr, ok = opt.optimize(node.Result); ok {
+				node.Result = expr
+			}
+			if expr, ok = opt.evalExpr(node.Result); ok {
+				node.Result = expr
+			}
 		}
 	case *parser.CallExpr:
 		if node.Func != nil {
