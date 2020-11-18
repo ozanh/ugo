@@ -220,4 +220,26 @@ func TestDestructuring(t *testing.T) {
 		return repeat([n], n)
 	}(3)
 	return [x, y]`, nil, Array{Int(3), Int(3)})
+	// closures
+	expectRun(t, `
+	var x = 10
+	a, b := func(n) {
+		x = n
+	}(3)
+	return [x, a, b]`, nil, Array{Int(3), Undefined, Undefined})
+	expectRun(t, `
+	var x = 10
+	a, b := func(...args) {
+		x, y := args
+		return [x, y]
+	}(1, 2)
+	return [x, a, b]`, nil, Array{Int(10), Int(1), Int(2)})
+	expectRun(t, `
+	var x = 10
+	a, b := func(...args) {
+		var y
+		x, y = args
+		return [x, y]
+	}(1, 2)
+	return [x, a, b]`, nil, Array{Int(1), Int(1), Int(2)})
 }
