@@ -188,11 +188,9 @@ func Compile(script []byte, opts CompilerOptions) (*Bytecode, error) {
 		if err != nil {
 			return nil, err
 		}
-		if optim != nil {
-			if opts.TraceCompiler && !opts.TraceOptimizer {
-				_, _ = fmt.Fprintf(opts.Trace,
-					"<Optimization Took: %s>\n", optim.Duration())
-			}
+		if optim != nil && opts.TraceCompiler && !opts.TraceOptimizer {
+			_, _ = fmt.Fprintf(opts.Trace,
+				"<Optimization Took: %s>\n", optim.Duration())
 		}
 
 	}
