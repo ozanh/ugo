@@ -77,6 +77,8 @@ const (
 	BuiltinNotImplementedError
 	BuiltinZeroDivisionError
 	BuiltinTypeError
+
+	pBuiltinArrayDestruct
 )
 
 // BuiltinsMap is list of builtin types, exported for REPL.
@@ -130,10 +132,16 @@ var BuiltinsMap = map[string]BuiltinType{
 	"NotImplementedError":     BuiltinNotImplementedError,
 	"ZeroDivisionError":       BuiltinZeroDivisionError,
 	"TypeError":               BuiltinTypeError,
+
+	":arrayDestruct": pBuiltinArrayDestruct,
 }
 
 // BuiltinObjects is list of builtins, exported for REPL.
 var BuiltinObjects = [...]Object{
+	pBuiltinArrayDestruct: &BuiltinFunction{
+		Name:  ":arrayDestruct",
+		Value: pBuiltinArrayDestructFunc,
+	},
 	BuiltinAppend: &BuiltinFunction{
 		Name:  "append",
 		Value: builtinAppendFunc,
@@ -298,6 +306,45 @@ var BuiltinObjects = [...]Object{
 
 func noopFunc(args ...Object) (Object, error) {
 	return Undefined, nil
+}
+
+func pBuiltinArrayDestructFunc(args ...Object) (Object, error) {
+	if len(args) != 2 {
+		return nil, ErrWrongNumArguments.NewError(wantEqXGotY(2, len(args)))
+	}
+
+	n, ok := args[0].(Int)
+	if !ok {
+		return nil, NewArgumentTypeError(
+			"first",
+			"int",
+			args[0].TypeName(),
+		)
+	}
+	nn := int(n)
+	if nn <= 0 {
+		return args[1], nil
+	}
+
+	arr, ok := args[1].(Array)
+	if !ok {
+		ret := make(Array, nn)
+		for i := 1; i < nn; i++ {
+			ret[i] = Undefined
+		}
+		ret[0] = args[1]
+		return ret, nil
+	}
+	length := len(arr)
+	if nn <= length {
+		return arr[:nn], nil
+	}
+	ret := make(Array, nn)
+	x := copy(ret, arr)
+	for i := x; i < nn; i++ {
+		ret[i] = Undefined
+	}
+	return ret, nil
 }
 
 func builtinAppendFunc(args ...Object) (Object, error) {

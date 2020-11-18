@@ -2,6 +2,7 @@ package ugo_test
 
 import (
 	"bytes"
+	"fmt"
 	"reflect"
 	"testing"
 
@@ -82,6 +83,31 @@ func concatInsts(insts ...[]byte) []byte {
 		out = append(out, insts[i]...)
 	}
 	return out
+}
+
+func TestCompilerPrint(t *testing.T) {
+	bc, err := Compile([]byte(`
+	f := func() {
+		var z
+		var y
+		x, y, z := [10, error("xxx"), 12]
+		return [1, [2]]
+	}
+	var a = {}
+	var b
+	var g
+	b, a.x, g, g = f()
+	return [a, b, g, g]
+	`), DefaultCompilerOptions)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fmt.Println(bc.String())
+	ret, err := NewVM(bc).Run(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Log(sdump(ret))
 }
 
 func TestCompiler_Compile(t *testing.T) {

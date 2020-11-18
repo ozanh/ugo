@@ -980,20 +980,31 @@ func (c *Compiler) compileAssign(node parser.Node, lhs, rhs []parser.Expr,
 	op token.Token) error {
 
 	numLHS, numRHS := len(lhs), len(rhs)
-	if numLHS > 1 || numRHS > 1 {
+	if numRHS > 1 {
 		return c.errorf(node, "tuple assignment not allowed")
 	}
+	var isArrDestruct bool
+	if numLHS > 1 && (op == token.Define || op == token.Assign) {
+		isArrDestruct = true
+	}
 
-	// resolve and compile left-hand side
-	ident, selectors := resolveAssignLHS(lhs[0])
-	numSel := len(selectors)
+	var totNumSel int
+	for _, expr := range lhs {
+		_, s := resolveAssignLHS(expr)
+		totNumSel += len(s)
+	}
 
-	if op == token.Define && numSel > 0 {
+	if op == token.Define && totNumSel > 0 {
 		// using selector on new variable does not make sense
 		return c.errorf(node, "operator ':=' not allowed with selector")
-	} else if op == token.Define && numSel == 0 && len(rhs) == 1 {
+	} else if op == token.Define &&
+		totNumSel == 0 &&
+		numLHS == 1 &&
+		numRHS == 1 {
 		// exception for variable := undefined
 		// all local variables are inited as undefined at VM, ignore if rhs[0] == undefined
+
+		ident, _ := resolveAssignLHS(lhs[0])
 		if _, ok := rhs[0].(*parser.UndefinedLit); ok {
 			symbol, ok := c.symbolTable.DefineLocal(ident)
 			if ok {
@@ -1009,6 +1020,13 @@ func (c *Compiler) compileAssign(node parser.Node, lhs, rhs []parser.Expr,
 		if err := c.Compile(lhs[0]); err != nil {
 			return err
 		}
+	}
+
+	var tempArrSymbol *Symbol
+	if isArrDestruct {
+		tempArrSymbol, _ = c.symbolTable.DefineLocal(":arr")
+		c.emit(node, OpGetBuiltin, int(pBuiltinArrayDestruct))
+		c.emit(node, OpConstant, c.addConstant(Int(len(lhs))))
 	}
 
 	// compile RHSs
@@ -1042,10 +1060,51 @@ func (c *Compiler) compileAssign(node parser.Node, lhs, rhs []parser.Expr,
 	case token.ShrAssign:
 		c.emit(node, OpBinaryOp, int(token.Shr))
 	}
-
+	if !isArrDestruct {
+		return c.assign(node, lhs[0], op, false)
+	}
 	if op == token.Define {
+		var resolved int
+		for _, expr := range lhs {
+			switch term := expr.(type) {
+			case *parser.Ident:
+				if _, ok := c.symbolTable.Resolve(term.Name); ok {
+					resolved++
+				}
+			}
+		}
+		if resolved == numLHS {
+			return c.errorf(node, "no new variable on left side")
+		}
+	}
+
+	c.emit(node, OpCall, 2, 0)
+	c.emit(node, OpSetLocal, tempArrSymbol.Index)
+	for i, expr := range lhs {
+		c.emit(node, OpGetLocal, tempArrSymbol.Index)
+		c.emit(node, OpConstant, c.addConstant(Int(i)))
+		c.emit(node, OpGetIndex, 1)
+		err := c.assign(node, expr, op, true)
+		if err != nil {
+			return err
+		}
+	}
+	c.emit(node, OpNull)
+	c.emit(node, OpSetLocal, tempArrSymbol.Index)
+	return nil
+}
+
+func (c *Compiler) assign(
+	node parser.Node,
+	lhsExpr parser.Expr,
+	op token.Token,
+	allowRedefine bool,
+) error {
+	ident, selectors := resolveAssignLHS(lhsExpr)
+	numSel := len(selectors)
+	if numSel == 0 && op == token.Define {
 		symbol, ok := c.symbolTable.DefineLocal(ident)
-		if ok {
+		if !allowRedefine && ok {
 			return c.errorf(node, "%q redeclared in this block", ident)
 		}
 		c.emit(node, OpSetLocal, symbol.Index)
