@@ -189,7 +189,6 @@ func Compile(script []byte, opts CompilerOptions) (*Bytecode, error) {
 			return nil, err
 		}
 		if optim != nil {
-			opts.OptimizerMaxCycle -= optim.Total()
 			if opts.TraceCompiler && !opts.TraceOptimizer {
 				_, _ = fmt.Fprintf(opts.Trace,
 					"<Optimization Took: %s>\n", optim.Duration())
