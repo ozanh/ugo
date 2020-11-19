@@ -148,63 +148,63 @@ var BuiltinObjects = [...]Object{
 	},
 	BuiltinDelete: &BuiltinFunction{
 		Name:  "delete",
-		Value: builtinDeleteFunc,
+		Value: builtinWant2(builtinDeleteFunc),
 	},
 	BuiltinCopy: &BuiltinFunction{
 		Name:  "copy",
-		Value: builtinCopyFunc,
+		Value: builtinWant1(builtinCopyFunc),
 	},
 	BuiltinRepeat: &BuiltinFunction{
 		Name:  "repeat",
-		Value: builtinRepeatFunc,
+		Value: builtinWant2(builtinRepeatFunc),
 	},
 	BuiltinContains: &BuiltinFunction{
 		Name:  "contains",
-		Value: builtinContainsFunc,
+		Value: builtinWant2(builtinContainsFunc),
 	},
 	BuiltinLen: &BuiltinFunction{
 		Name:  "len",
-		Value: builtinLenFunc,
+		Value: builtinWant1(builtinLenFunc),
 	},
 	BuiltinSort: &BuiltinFunction{
 		Name:  "sort",
-		Value: builtinSortFunc,
+		Value: builtinWant1(builtinSortFunc),
 	},
 	BuiltinSortReverse: &BuiltinFunction{
 		Name:  "sortReverse",
-		Value: builtinSortReverseFunc,
+		Value: builtinWant1(builtinSortReverseFunc),
 	},
 	BuiltinError: &BuiltinFunction{
 		Name:  "error",
-		Value: builtinErrorFunc,
+		Value: builtinWant1(builtinErrorFunc),
 	},
 	BuiltinTypeName: &BuiltinFunction{
 		Name:  "typeName",
-		Value: builtinTypeNameFunc,
+		Value: builtinWant1(builtinTypeNameFunc),
 	},
 	BuiltinBool: &BuiltinFunction{
 		Name:  "bool",
-		Value: builtinBoolFunc,
+		Value: builtinWant1(builtinBoolFunc),
 	},
 	BuiltinInt: &BuiltinFunction{
 		Name:  "int",
-		Value: builtinIntFunc,
+		Value: builtinWant1(builtinIntFunc),
 	},
 	BuiltinUint: &BuiltinFunction{
 		Name:  "uint",
-		Value: builtinUintFunc,
+		Value: builtinWant1(builtinUintFunc),
 	},
 	BuiltinFloat: &BuiltinFunction{
 		Name:  "float",
-		Value: builtinFloatFunc,
+		Value: builtinWant1(builtinFloatFunc),
 	},
 	BuiltinChar: &BuiltinFunction{
 		Name:  "char",
-		Value: builtinCharFunc,
+		Value: builtinWant1(builtinCharFunc),
 	},
 	BuiltinString: &BuiltinFunction{
 		Name:  "string",
-		Value: builtinStringFunc,
+		Value: builtinWant1(builtinStringFunc),
 	},
 	BuiltinBytes: &BuiltinFunction{
 		Name:  "bytes",
@@ -212,7 +212,7 @@ var BuiltinObjects = [...]Object{
 	},
 	BuiltinChars: &BuiltinFunction{
 		Name:  "chars",
-		Value: builtinCharsFunc,
+		Value: builtinWant1(builtinCharsFunc),
 	},
 	BuiltinPrintf: &BuiltinFunction{
 		Name:  "printf",
@@ -237,59 +237,59 @@ var BuiltinObjects = [...]Object{
 	},
 	BuiltinIsInt: &BuiltinFunction{
 		Name:  "isInt",
-		Value: builtinIsIntFunc,
+		Value: builtinWant1(builtinIsIntFunc),
 	},
 	BuiltinIsUint: &BuiltinFunction{
 		Name:  "isUint",
-		Value: builtinIsUintFunc,
+		Value: builtinWant1(builtinIsUintFunc),
 	},
 	BuiltinIsFloat: &BuiltinFunction{
 		Name:  "isFloat",
-		Value: builtinIsFloatFunc,
+		Value: builtinWant1(builtinIsFloatFunc),
 	},
 	BuiltinIsChar: &BuiltinFunction{
 		Name:  "isChar",
-		Value: builtinIsCharFunc,
+		Value: builtinWant1(builtinIsCharFunc),
 	},
 	BuiltinIsBool: &BuiltinFunction{
 		Name:  "isBool",
-		Value: builtinIsBoolFunc,
+		Value: builtinWant1(builtinIsBoolFunc),
 	},
 	BuiltinIsString: &BuiltinFunction{
 		Name:  "isString",
-		Value: builtinIsStringFunc,
+		Value: builtinWant1(builtinIsStringFunc),
 	},
 	BuiltinIsBytes: &BuiltinFunction{
 		Name:  "isBytes",
-		Value: builtinIsBytesFunc,
+		Value: builtinWant1(builtinIsBytesFunc),
 	},
 	BuiltinIsMap: &BuiltinFunction{
 		Name:  "isMap",
-		Value: builtinIsMapFunc,
+		Value: builtinWant1(builtinIsMapFunc),
 	},
 	BuiltinIsSyncMap: &BuiltinFunction{
 		Name:  "isSyncMap",
-		Value: builtinIsSyncMapFunc,
+		Value: builtinWant1(builtinIsSyncMapFunc),
 	},
 	BuiltinIsArray: &BuiltinFunction{
 		Name:  "isArray",
-		Value: builtinIsArrayFunc,
+		Value: builtinWant1(builtinIsArrayFunc),
 	},
 	BuiltinIsUndefined: &BuiltinFunction{
 		Name:  "isUndefined",
-		Value: builtinIsUndefinedFunc,
+		Value: builtinWant1(builtinIsUndefinedFunc),
 	},
 	BuiltinIsFunction: &BuiltinFunction{
 		Name:  "isFunction",
-		Value: builtinIsFunctionFunc,
+		Value: builtinWant1(builtinIsFunctionFunc),
 	},
 	BuiltinIsCallable: &BuiltinFunction{
 		Name:  "isCallable",
-		Value: builtinIsCallableFunc,
+		Value: builtinWant1(builtinIsCallableFunc),
 	},
 	BuiltinIsIterable: &BuiltinFunction{
 		Name:  "isIterable",
-		Value: builtinIsIterableFunc,
+		Value: builtinWant1(builtinIsIterableFunc),
 	},
 
 	BuiltinWrongNumArgumentsError:  ErrWrongNumArguments,
@@ -306,6 +306,24 @@ var BuiltinObjects = [...]Object{
 
 func noopFunc(args ...Object) (Object, error) {
 	return Undefined, nil
+}
+
+func builtinWant1(fn CallableFunc) CallableFunc {
+	return func(args ...Object) (ret Object, err error) {
+		if len(args) != 1 {
+			return nil, ErrWrongNumArguments.NewError(wantEqXGotY(1, len(args)))
+		}
+		return fn(args...)
+	}
+}
+
+func builtinWant2(fn CallableFunc) CallableFunc {
+	return func(args ...Object) (ret Object, err error) {
+		if len(args) != 2 {
+			return nil, ErrWrongNumArguments.NewError(wantEqXGotY(2, len(args)))
+		}
+		return fn(args...)
+	}
 }
 
 func pBuiltinArrayDestructFunc(args ...Object) (Object, error) {
@@ -394,9 +412,6 @@ func builtinAppendFunc(args ...Object) (Object, error) {
 }
 
 func builtinDeleteFunc(args ...Object) (Object, error) {
-	if len(args) != 2 {
-		return nil, ErrWrongNumArguments.NewError(wantEqXGotY(2, len(args)))
-	}
 	switch arg := args[0].(type) {
 	case Map:
 		if key, ok := args[1].(String); ok {
@@ -431,9 +446,6 @@ func builtinDeleteFunc(args ...Object) (Object, error) {
 }
 
 func builtinCopyFunc(args ...Object) (Object, error) {
-	if len(args) != 1 {
-		return nil, ErrWrongNumArguments.NewError(wantEqXGotY(1, len(args)))
-	}
 	if v, ok := args[0].(Copier); ok {
 		return v.Copy(), nil
 	}
@@ -441,9 +453,6 @@ func builtinCopyFunc(args ...Object) (Object, error) {
 }
 
 func builtinRepeatFunc(args ...Object) (Object, error) {
-	if len(args) != 2 {
-		return nil, ErrWrongNumArguments.NewError(wantEqXGotY(2, len(args)))
-	}
 	var count int
 	switch v := args[1].(type) {
 	case Int:
@@ -484,9 +493,6 @@ func builtinRepeatFunc(args ...Object) (Object, error) {
 }
 
 func builtinContainsFunc(args ...Object) (Object, error) {
-	if len(args) != 2 {
-		return nil, ErrWrongNumArguments.NewError(wantEqXGotY(2, len(args)))
-	}
 	switch obj := args[0].(type) {
 	case Map:
 		_, ok := obj[args[1].String()]
@@ -535,9 +541,6 @@ func builtinContainsFunc(args ...Object) (Object, error) {
 }
 
 func builtinLenFunc(args ...Object) (Object, error) {
-	if len(args) != 1 {
-		return nil, ErrWrongNumArguments.NewError(wantEqXGotY(1, len(args)))
-	}
 	switch v := args[0].(type) {
 	case String:
 		return Int(len(v)), nil
@@ -554,9 +557,6 @@ func builtinLenFunc(args ...Object) (Object, error) {
 }
 
 func builtinSortFunc(args ...Object) (Object, error) {
-	if len(args) != 1 {
-		return nil, ErrWrongNumArguments.NewError(wantEqXGotY(1, len(args)))
-	}
 	switch obj := args[0].(type) {
 	case Array:
 		var err error
@@ -597,9 +597,6 @@ func builtinSortFunc(args ...Object) (Object, error) {
 }
 
 func builtinSortReverseFunc(args ...Object) (Object, error) {
-	if len(args) != 1 {
-		return nil, ErrWrongNumArguments.NewError(wantEqXGotY(1, len(args)))
-	}
 	switch obj := args[0].(type) {
 	case Array:
 		var err error
@@ -640,30 +637,18 @@ func builtinSortReverseFunc(args ...Object) (Object, error) {
 }
 
 func builtinErrorFunc(args ...Object) (Object, error) {
-	if len(args) != 1 {
-		return nil, ErrWrongNumArguments.NewError(wantEqXGotY(1, len(args)))
-	}
 	return &Error{Name: "error", Message: args[0].String()}, nil
 }
 
 func builtinTypeNameFunc(args ...Object) (Object, error) {
-	if len(args) != 1 {
-		return nil, ErrWrongNumArguments.NewError(wantEqXGotY(1, len(args)))
-	}
 	return String(args[0].TypeName()), nil
 }
 
 func builtinBoolFunc(args ...Object) (Object, error) {
-	if len(args) != 1 {
-		return nil, ErrWrongNumArguments.NewError(wantEqXGotY(1, len(args)))
-	}
 	return Bool(!args[0].IsFalsy()), nil
 }
 
 func builtinIntFunc(args ...Object) (Object, error) {
-	if len(args) != 1 {
-		return nil, ErrWrongNumArguments.NewError(wantEqXGotY(1, len(args)))
-	}
 	switch obj := args[0].(type) {
 	case Uint:
 		return Int(obj), nil
@@ -694,9 +679,6 @@ func builtinIntFunc(args ...Object) (Object, error) {
 }
 
 func builtinUintFunc(args ...Object) (Object, error) {
-	if len(args) != 1 {
-		return nil, ErrWrongNumArguments.NewError(wantEqXGotY(1, len(args)))
-	}
 	switch obj := args[0].(type) {
 	case Int:
 		return Uint(obj), nil
@@ -727,9 +709,6 @@ func builtinUintFunc(args ...Object) (Object, error) {
 }
 
 func builtinCharFunc(args ...Object) (Object, error) {
-	if len(args) != 1 {
-		return nil, ErrWrongNumArguments.NewError(wantEqXGotY(1, len(args)))
-	}
 	switch obj := args[0].(type) {
 	case Int:
 		return Char(obj), nil
@@ -760,9 +739,6 @@ func builtinCharFunc(args ...Object) (Object, error) {
 }
 
 func builtinFloatFunc(args ...Object) (Object, error) {
-	if len(args) != 1 {
-		return nil, ErrWrongNumArguments.NewError(wantEqXGotY(1, len(args)))
-	}
 	switch obj := args[0].(type) {
 	case Int:
 		return Float(obj), nil
@@ -793,9 +769,6 @@ func builtinFloatFunc(args ...Object) (Object, error) {
 }
 
 func builtinStringFunc(args ...Object) (Object, error) {
-	if len(args) != 1 {
-		return nil, ErrWrongNumArguments.NewError(wantEqXGotY(1, len(args)))
-	}
 	return String(args[0].String()), nil
 }
 
@@ -831,9 +804,6 @@ func builtinBytesFunc(args ...Object) (Object, error) {
 }
 
 func builtinCharsFunc(args ...Object) (Object, error) {
-	if len(args) != 1 {
-		return nil, ErrWrongNumArguments.NewError(wantEqXGotY(1, len(args)))
-	}
 	switch obj := args[0].(type) {
 	case String:
 		s := string(obj)
@@ -946,96 +916,60 @@ func builtinIsErrorFunc(args ...Object) (Object, error) {
 }
 
 func builtinIsIntFunc(args ...Object) (Object, error) {
-	if len(args) != 1 {
-		return nil, ErrWrongNumArguments.NewError(wantEqXGotY(1, len(args)))
-	}
 	_, ok := args[0].(Int)
 	return Bool(ok), nil
 }
 
 func builtinIsUintFunc(args ...Object) (Object, error) {
-	if len(args) != 1 {
-		return nil, ErrWrongNumArguments.NewError(wantEqXGotY(1, len(args)))
-	}
 	_, ok := args[0].(Uint)
 	return Bool(ok), nil
 }
 
 func builtinIsFloatFunc(args ...Object) (Object, error) {
-	if len(args) != 1 {
-		return nil, ErrWrongNumArguments.NewError(wantEqXGotY(1, len(args)))
-	}
 	_, ok := args[0].(Float)
 	return Bool(ok), nil
 }
 
 func builtinIsCharFunc(args ...Object) (Object, error) {
-	if len(args) != 1 {
-		return nil, ErrWrongNumArguments.NewError(wantEqXGotY(1, len(args)))
-	}
 	_, ok := args[0].(Char)
 	return Bool(ok), nil
 }
 
 func builtinIsBoolFunc(args ...Object) (Object, error) {
-	if len(args) != 1 {
-		return nil, ErrWrongNumArguments.NewError(wantEqXGotY(1, len(args)))
-	}
 	_, ok := args[0].(Bool)
 	return Bool(ok), nil
 }
 
 func builtinIsStringFunc(args ...Object) (Object, error) {
-	if len(args) != 1 {
-		return nil, ErrWrongNumArguments.NewError(wantEqXGotY(1, len(args)))
-	}
 	_, ok := args[0].(String)
 	return Bool(ok), nil
 }
 
 func builtinIsBytesFunc(args ...Object) (Object, error) {
-	if len(args) != 1 {
-		return nil, ErrWrongNumArguments.NewError(wantEqXGotY(1, len(args)))
-	}
 	_, ok := args[0].(Bytes)
 	return Bool(ok), nil
 }
 
 func builtinIsMapFunc(args ...Object) (Object, error) {
-	if len(args) != 1 {
-		return nil, ErrWrongNumArguments.NewError(wantEqXGotY(1, len(args)))
-	}
 	_, ok := args[0].(Map)
 	return Bool(ok), nil
 }
 
 func builtinIsSyncMapFunc(args ...Object) (Object, error) {
-	if len(args) != 1 {
-		return nil, ErrWrongNumArguments.NewError(wantEqXGotY(1, len(args)))
-	}
 	_, ok := args[0].(*SyncMap)
 	return Bool(ok), nil
 }
 
 func builtinIsArrayFunc(args ...Object) (Object, error) {
-	if len(args) != 1 {
-		return nil, ErrWrongNumArguments.NewError(wantEqXGotY(1, len(args)))
-	}
 	_, ok := args[0].(Array)
 	return Bool(ok), nil
 }
 
 func builtinIsUndefinedFunc(args ...Object) (Object, error) {
-	if len(args) != 1 {
-		return nil, ErrWrongNumArguments.NewError(wantEqXGotY(1, len(args)))
-	}
 	return Bool(args[0] == Undefined), nil
 }
 
 func builtinIsFunctionFunc(args ...Object) (Object, error) {
-	if len(args) != 1 {
-		return nil, ErrWrongNumArguments.NewError(wantEqXGotY(1, len(args)))
-	}
 	_, ok := args[0].(*CompiledFunction)
 	if ok {
 		return True, nil
@@ -1049,16 +983,10 @@ func builtinIsFunctionFunc(args ...Object) (Object, error) {
 }
 
 func builtinIsCallableFunc(args ...Object) (Object, error) {
-	if len(args) != 1 {
-		return nil, ErrWrongNumArguments.NewError(wantEqXGotY(1, len(args)))
-	}
 	return Bool(args[0].CanCall()), nil
 }
 
 func builtinIsIterableFunc(args ...Object) (Object, error) {
-	if len(args) != 1 {
-		return nil, ErrWrongNumArguments.NewError(wantEqXGotY(1, len(args)))
-	}
 	return Bool(args[0].CanIterate()), nil
 }
 
