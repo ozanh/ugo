@@ -242,4 +242,77 @@ func TestDestructuring(t *testing.T) {
 		return [x, y]
 	}(1, 2)
 	return [x, a, b]`, nil, Array{Int(1), Int(1), Int(2)})
+
+	// return implicit array if return statement's expressions are comma
+	// separated which is a part of destructuring implementation to mimic multi
+	// return values.
+	parseErr := `Parse Error: expected operand, found 'EOF'`
+	expectErrHas(t, `return 1,`,
+		newOpts().CompilerError(), parseErr)
+	expectErrHas(t, `return 1, 2,`,
+		newOpts().CompilerError(), parseErr)
+	expectErrHas(t, `var a; return a,`,
+		newOpts().CompilerError(), parseErr)
+	expectErrHas(t, `var (a, b); return a, b,`,
+		newOpts().CompilerError(), parseErr)
+	expectErrHas(t, `return 1,`,
+		newOpts().CompilerError(), parseErr)
+	expectErrHas(t, `return 1, 2,`,
+		newOpts().CompilerError(), parseErr)
+	expectErrHas(t, `var a; return a,`,
+		newOpts().CompilerError(), parseErr)
+	expectErrHas(t, `var (a, b); return a, b,`,
+		newOpts().CompilerError(), parseErr)
+
+	parseErr = `Parse Error: expected operand, found '}'`
+	expectErrHas(t, `func(){ return 1, }`,
+		newOpts().CompilerError(), parseErr)
+	expectErrHas(t, `func(){ return 1, 2,}`,
+		newOpts().CompilerError(), parseErr)
+
+	expectErrHas(t, `func(){ var a; return a,}`,
+		newOpts().CompilerError(), parseErr)
+	expectErrHas(t, `func(){ var (a, b); return a, b,}`,
+		newOpts().CompilerError(), parseErr)
+	expectErrHas(t, `func(){ return 1,}`,
+		newOpts().CompilerError(), parseErr)
+	expectErrHas(t, `func(){ return 1, 2,}`,
+		newOpts().CompilerError(), parseErr)
+	expectErrHas(t, `func(){ var a; return a,}`,
+		newOpts().CompilerError(), parseErr)
+	expectErrHas(t, `func(){ var (a, b); return a, b,}`,
+		newOpts().CompilerError(), parseErr)
+
+	expectRun(t, `return 1, 2`, nil, Array{Int(1), Int(2)})
+	expectRun(t, `a := 1; return a, a`, nil, Array{Int(1), Int(1)})
+	expectRun(t, `a := 1; return a, 2`, nil, Array{Int(1), Int(2)})
+	expectRun(t, `a := 1; return 2, a`, nil, Array{Int(2), Int(1)})
+	expectRun(t, `a := 1; return 2, a, [3]`, nil,
+		Array{Int(2), Int(1), Array{Int(3)}})
+	expectRun(t, `a := 1; return [2, a], [3]`, nil,
+		Array{Array{Int(2), Int(1)}, Array{Int(3)}})
+	expectRun(t, `return {}, []`, nil, Array{Map{}, Array{}})
+	expectRun(t, `return func(){ return 1}(), []`, nil, Array{Int(1), Array{}})
+	expectRun(t, `return func(){ return 1}(), [2]`, nil,
+		Array{Int(1), Array{Int(2)}})
+	expectRun(t, `
+	f := func() {
+		return 1, 2
+	}
+	a, b := f()
+	return a, b`, nil, Array{Int(1), Int(2)})
+	expectRun(t, `
+	a, b := func() {
+		return 1, error("x")
+	}()
+	return a, "" + b`, nil, Array{Int(1), String("error: x")})
+	expectRun(t, `
+	a, b := func(a, b) {
+		return a + 1, b + 1
+	}(1, 2)
+	return a, b, a*2, 3/b`, nil, Array{Int(2), Int(3), Int(4), Int(1)})
+	expectRun(t, `
+	return func(a, b) {
+		return a + 1, b + 1
+	}(1, 2), 4`, nil, Array{Array{Int(2), Int(3)}, Int(4)})
 }
