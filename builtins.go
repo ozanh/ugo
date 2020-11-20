@@ -78,7 +78,7 @@ const (
 	BuiltinZeroDivisionError
 	BuiltinTypeError
 
-	pBuiltinArrayDestruct
+	BuiltinMakeArray
 )
 
 // BuiltinsMap is list of builtin types, exported for REPL.
@@ -133,14 +133,15 @@ var BuiltinsMap = map[string]BuiltinType{
 	"ZeroDivisionError":       BuiltinZeroDivisionError,
 	"TypeError":               BuiltinTypeError,
 
-	":arrayDestruct": pBuiltinArrayDestruct,
+	":makeArray": BuiltinMakeArray,
 }
 
 // BuiltinObjects is list of builtins, exported for REPL.
 var BuiltinObjects = [...]Object{
-	pBuiltinArrayDestruct: &BuiltinFunction{
-		Name:  ":arrayDestruct",
-		Value: pBuiltinArrayDestructFunc,
+	// :makeArray is a private builtin function to help array destructuring assignments
+	BuiltinMakeArray: &BuiltinFunction{
+		Name:  ":makeArray",
+		Value: builtinWant2(builtinMakeArrayFunc),
 	},
 	BuiltinAppend: &BuiltinFunction{
 		Name:  "append",
@@ -326,11 +327,7 @@ func builtinWant2(fn CallableFunc) CallableFunc {
 	}
 }
 
-func pBuiltinArrayDestructFunc(args ...Object) (Object, error) {
-	if len(args) != 2 {
-		return nil, ErrWrongNumArguments.NewError(wantEqXGotY(2, len(args)))
-	}
-
+func builtinMakeArrayFunc(args ...Object) (Object, error) {
 	n, ok := args[0].(Int)
 	if !ok {
 		return nil, NewArgumentTypeError(
