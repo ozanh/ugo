@@ -1077,8 +1077,27 @@ func (p *Parser) parseReturnStmt() Stmt {
 
 	var x Expr
 	if p.token != token.Semicolon && p.token != token.RBrace {
+		lbpos := p.pos
 		x = p.parseExpr()
+		if p.token != token.Comma {
+			goto done
+		}
+		// if the next token is a comma, treat it as multi return so put
+		// expressions into a slice and replace x expression with an ArrayLit.
+		elements := make([]Expr, 1, 2)
+		elements[0] = x
+		for p.token == token.Comma {
+			p.next()
+			x = p.parseExpr()
+			elements = append(elements, x)
+		}
+		x = &ArrayLit{
+			Elements: elements,
+			LBrack:   lbpos,
+			RBrack:   x.End(),
+		}
 	}
+done:
 	p.expectSemi()
 	return &ReturnStmt{
 		ReturnPos: pos,

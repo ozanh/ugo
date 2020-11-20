@@ -275,6 +275,79 @@ b=2)`, func(p pfn) []Stmt {
 	expectParseError(t, `var ,a`)
 }
 
+func TestCommaSepReturn(t *testing.T) {
+	expectParse(t, "return 1, 23", func(p pfn) []Stmt {
+		return stmts(
+			returnStmt(
+				p(1, 1),
+				arrayLit(
+					p(1, 8),
+					p(1, 13),
+					intLit(1, p(1, 8)),
+					intLit(23, p(1, 11)),
+				),
+			),
+		)
+	})
+	expectParse(t, "return 1, 23, 2.2", func(p pfn) []Stmt {
+		return stmts(
+			returnStmt(
+				p(1, 1),
+				arrayLit(
+					p(1, 8),
+					p(1, 18),
+					intLit(1, p(1, 8)),
+					intLit(23, p(1, 11)),
+					floatLit(2.2, p(1, 15)),
+				),
+			),
+		)
+	})
+	expectParse(t, "return a, b", func(p pfn) []Stmt {
+		return stmts(
+			returnStmt(
+				p(1, 1),
+				arrayLit(
+					p(1, 8),
+					p(1, 12),
+					ident("a", p(1, 8)),
+					ident("b", p(1, 11)),
+				),
+			),
+		)
+	})
+	expectParse(t, "func() { return a, b }", func(p pfn) []Stmt {
+		return stmts(
+			exprStmt(
+				funcLit(
+					funcType(
+						identList(p(1, 5), p(1, 6), false),
+						p(1, 1),
+					),
+					blockStmt(
+						p(1, 8),
+						p(1, 22),
+						returnStmt(
+							p(1, 10),
+							arrayLit(
+								p(1, 17),
+								p(1, 21),
+								ident("a", p(1, 17)),
+								ident("b", p(1, 20)),
+							),
+						),
+					),
+				),
+			),
+		)
+	})
+	expectParseError(t, `return a,`)
+	expectParseError(t, `return a,b,`)
+	expectParseError(t, `return a,`)
+	expectParseError(t, `func() { return a, }`)
+	expectParseError(t, `func() { return a,b, }`)
+}
+
 func TestParseArray(t *testing.T) {
 	expectParse(t, "[1, 2, 3]", func(p pfn) []Stmt {
 		return stmts(
