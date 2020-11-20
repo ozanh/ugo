@@ -71,7 +71,7 @@ uGO has a REPL application to learn and test uGO language thanks to
 
 This example is to show some features of uGO.
 
-<https://play.golang.org/p/6FyaxObPjwO>
+<https://play.golang.org/p/1Tj6joRmLiX>
 
 ```go
 package main
@@ -107,13 +107,17 @@ mapEach := func(seq, fn) {
     } catch err {
         println(err)
     } finally {
-        return err == undefined ? out : err
+        return out, err
     }
 }
 
 global multiplier
 
-return mapEach(args, func(x) { return x*multiplier })
+v, err := mapEach(args, func(x) { return x*multiplier })
+if err != undefined {
+    return err
+}
+return v
 `
 
     bytecode, err := ugo.Compile([]byte(script), ugo.DefaultCompilerOptions)
@@ -134,11 +138,7 @@ return mapEach(args, func(x) { return x*multiplier })
 
 ## Roadmap
 
-Note: Until stable version 1, there will be no major language and runtime
-change.
-
-Currently, there is no standard library although uGO supports modules but it
-will be developed gradually.
+More standard library modules will be added.
 
 More tests will be added.
 
@@ -155,6 +155,7 @@ Dead code elimination will be added.
 * [Error Handling](https://github.com/ozanh/ugo/blob/main/docs/error-handling.md)
 * [Standard Library](https://github.com/ozanh/ugo/blob/main/docs/stdlib.md)
 * [Optimizer](https://github.com/ozanh/ugo/blob/main/docs/optimizer.md)
+* [Destructuring](https://github.com/ozanh/ugo/blob/main/docs/destructuring.md)
 
 ## LICENSE
 

@@ -13,8 +13,9 @@ Main script and uGO source modules in uGO are all functions which have
 `compiled-function` type name. Parameters can be defined for main function with
 [`param`](#param) statement and main function returns a value with `return`
 statement as well. If return statement is missing, `undefined` value is returned
-by default. All functions return single value and tuple assignment is not
-supported.
+by default. All functions return single value but thanks to
+[destructuring](destructuring.md) feature uGO allows to return multiple values
+as an array and set returning array elements to multiple variables.
 
 uGO relies on Go's garbage collector and there is no allocation limit for
 objects like Tengo. To run scripts which are not safe must be run in a sandboxed
@@ -470,7 +471,8 @@ func() {
 ### var
 
 `var` keyword is used to declare a local variable. Parenthesis is required for
-multiple declaration. Note: Tuple assignment is not supported.
+multiple declaration. Note: Tuple assignment is not supported with var
+statements.
 
 ```go
 var foo               // foo == undefined
@@ -869,7 +871,7 @@ Unlike Go, uGO does not have the following:
 * Pointers
 * Channels
 * Goroutines
-* Tuple assignment
+* Tuple assignment (uGO supports [destructuring](destructuring.md) array)
 * Switch statement
 * Goto statement
 * Defer statement
