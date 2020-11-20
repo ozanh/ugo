@@ -127,6 +127,9 @@ func TestVMDecl(t *testing.T) {
 }
 
 func TestVMAssignment(t *testing.T) {
+	expectErrHas(t, `a.b := 1`, newOpts().CompilerError(),
+		`Compile Error: operator ':=' not allowed with selector`)
+
 	expectRun(t, `a := 1; a = 2; return a`, nil, Int(2))
 	expectRun(t, `a := 1; a = a + 4; return a`, nil, Int(5))
 	expectRun(t, `a := 1; f1 := func() { a = 2; return a }; return f1()`,

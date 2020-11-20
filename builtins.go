@@ -138,7 +138,7 @@ var BuiltinsMap = map[string]BuiltinType{
 
 // BuiltinObjects is list of builtins, exported for REPL.
 var BuiltinObjects = [...]Object{
-	// :makeArray is a private builtin function to help array destructuring assignments
+	// :makeArray is a private builtin function to help destructuring array assignments
 	BuiltinMakeArray: &BuiltinFunction{
 		Name:  ":makeArray",
 		Value: builtinWant2(builtinMakeArrayFunc),

@@ -978,7 +978,8 @@ func (c *Compiler) compileAssign(node parser.Node, lhs, rhs []parser.Expr,
 
 	numLHS, numRHS := len(lhs), len(rhs)
 	if numRHS > 1 {
-		return c.errorf(node, "tuple assignment not allowed")
+		return c.errorf(node,
+			"multiple expressions on the right side not supported")
 	}
 	var isArrDestruct bool
 	if numLHS > 1 && (op == token.Define || op == token.Assign) {

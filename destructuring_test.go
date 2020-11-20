@@ -11,6 +11,8 @@ func TestDestructuring(t *testing.T) {
 		newOpts().CompilerError(), `Compile Error: unresolved reference "x"`)
 	expectErrHas(t, `var (x, y); x, y := undefined; return x`,
 		newOpts().CompilerError(), `Compile Error: no new variable on left side`)
+	expectErrHas(t, `x, y = 1, 2`, newOpts().CompilerError(),
+		`Compile Error: multiple expressions on the right side not supported`)
 
 	expectRun(t, `x, y := undefined; return x`, nil, Undefined)
 	expectRun(t, `x, y := undefined; return y`, nil, Undefined)
@@ -315,4 +317,63 @@ func TestDestructuring(t *testing.T) {
 	return func(a, b) {
 		return a + 1, b + 1
 	}(1, 2), 4`, nil, Array{Array{Int(2), Int(3)}, Int(4)})
+
+	expectRun(t, `
+	param ...args
+
+	mapEach := func(seq, fn) {
+	
+		if !isArray(seq) {
+			return error("want array, got " + typeName(seq))
+		}
+	
+		var out = []
+	
+		if sz := len(seq); sz > 0 {
+			out = repeat([0], sz)
+		} else {
+			return out
+		}
+	
+		try {
+			for i, v in seq {
+				out[i] = fn(v)
+			}
+		} catch err {
+			println(err)
+		} finally {
+			return out, err
+		}
+	}
+	
+	global multiplier
+	
+	v, err := mapEach(args, func(x) { return x*multiplier })
+	if err != undefined {
+		return err
+	}
+	return v
+	`, newOpts().
+		Globals(Map{"multiplier": Int(2)}).
+		Args(Int(1), Int(2), Int(3), Int(4)),
+		Array{Int(2), Int(4), Int(6), Int(8)})
+
+	expectRun(t, `
+	global goFunc
+	// ...
+	v, err := goFunc(2)
+	if err != undefined {
+		return string(err)
+	}
+	`, newOpts().
+		Globals(Map{"goFunc": &Function{
+			Value: func(args ...Object) (Object, error) {
+				// ...
+				return Array{
+					Undefined,
+					ErrIndexOutOfBounds.NewError("message"),
+				}, nil
+			},
+		}}),
+		String("IndexOutOfBoundsError: message"))
 }
