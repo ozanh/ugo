@@ -1150,6 +1150,7 @@ func (p *Parser) parseSimpleStmt(forIn bool) Stmt {
 					p.errorExpected(x[1].Pos(), "identifier")
 					value = &Ident{Name: "_", NamePos: x[1].Pos()}
 				}
+				//TODO: no more than 2 idents
 			}
 			return &ForInStmt{
 				Key:      key,

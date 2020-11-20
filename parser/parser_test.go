@@ -1,8 +1,12 @@
 package parser_test
 
 import (
+	"bytes"
+	"flag"
 	"fmt"
 	"io"
+	"io/ioutil"
+	"os"
 	"reflect"
 	"strings"
 	"testing"
@@ -12,6 +16,79 @@ import (
 	. "github.com/ozanh/ugo/parser"
 	"github.com/ozanh/ugo/token"
 )
+
+var update = flag.Bool("update", false, "update golden files")
+
+func TestParserTrace(t *testing.T) {
+	parse := func(input string, tracer io.Writer) {
+		testFileSet := NewFileSet()
+		testFile := testFileSet.AddFile("test", -1, len(input))
+		p := NewParser(testFile, []byte(input), tracer)
+		_, err := p.ParseFile()
+		require.NoError(t, err)
+	}
+	sample := `
+param (a, ...args)
+global (x, y)
+var b
+var (v1 = 1, v2)
+if w := ""; w {
+	return
+}
+for i := 0; i < 10; i++ {
+	if i == 5 {
+		break
+	}
+	if i == 6 {
+		try {
+			x()
+		} catch err {
+			println(err)
+			throw err
+		} finally {
+			return v1
+		}
+	}
+}
+counter := 0
+for k,v in {a: 1, b: 2} {
+	counter++
+	println(k, v)
+}
+f := func() {
+	return 0, error("err")
+}
+v1, v2 := f()
+v3 := [v1*counter, v2/counter, 3u,
+	4.7, 'y']
+v3[1]
+v3[1:]
+v3[:2]
+v3[:]
+_ := import("strings")
+time := import("time")
+time.Now() + 10 * time.Second
+c := counter ? v3 : undefined
+`
+	openGolden := func() (*os.File, error) {
+		return os.OpenFile("testdata/trace.golden", os.O_CREATE|os.O_RDWR, 0644)
+	}
+
+	f, err := openGolden()
+	require.NoError(t, err)
+	defer f.Close()
+	if *update {
+		parse(sample, f)
+		f.Close()
+		f, err = openGolden()
+		require.NoError(t, err)
+	}
+	golden, err := ioutil.ReadAll(f)
+	require.NoError(t, err)
+	var out bytes.Buffer
+	parse(sample, &out)
+	require.Equal(t, string(golden), out.String())
+}
 
 func TestParserError(t *testing.T) {
 	err := &Error{Pos: SourceFilePos{
@@ -883,6 +960,11 @@ func TestParseForIn(t *testing.T) {
 				blockStmt(p(1, 28), p(1, 29)),
 				p(1, 1)))
 	})
+
+	expectParseError(t, `for 1 in a {}`)
+	expectParseError(t, `for "" in a {}`)
+	expectParseError(t, `for k,2 in a {}`)
+	expectParseError(t, `for 1,v in a {}`)
 }
 
 func TestParseFor(t *testing.T) {
@@ -993,6 +1075,28 @@ func TestParseFor(t *testing.T) {
 				blockStmt(p(1, 22), p(1, 23)),
 				p(1, 1)))
 	})
+
+	expectParse(t, `for { break }`, func(p pfn) []Stmt {
+		return stmts(
+			forStmt(nil, nil, nil,
+				blockStmt(p(1, 5), p(1, 13),
+					breakStmt(p(1, 7)),
+				),
+				p(1, 1)),
+		)
+	})
+	expectParse(t, `for { continue }`, func(p pfn) []Stmt {
+		return stmts(
+			forStmt(nil, nil, nil,
+				blockStmt(p(1, 5), p(1, 16),
+					continueStmt(p(1, 7)),
+				),
+				p(1, 1)),
+		)
+	})
+
+	// labels are parsed by parser but not supported by compiler yet
+	// expectParseError(t, `for { break x }`)
 }
 
 func TestParseFunction(t *testing.T) {
@@ -1317,6 +1421,9 @@ func TestParseImport(t *testing.T) {
 				blockStmt(p(1, 28), p(1, 29)),
 				p(1, 1)))
 	})
+
+	expectParseError(t, `import(1)`)
+	expectParseError(t, `import('a')`)
 }
 
 func TestParseIndex(t *testing.T) {
@@ -1545,6 +1652,7 @@ func TestParseMap(t *testing.T) {
 key1: 1,
 key2: 2,
 }`)
+	expectParseError(t, `{1: 1}`)
 }
 
 func TestParsePrecedence(t *testing.T) {
@@ -2030,6 +2138,20 @@ func forInStmt(
 ) *ForInStmt {
 	return &ForInStmt{
 		Key: key, Value: value, Iterable: seq, Body: body, ForPos: pos,
+	}
+}
+
+func breakStmt(pos Pos) *BranchStmt {
+	return &BranchStmt{
+		Token:    token.Break,
+		TokenPos: pos,
+	}
+}
+
+func continueStmt(pos Pos) *BranchStmt {
+	return &BranchStmt{
+		Token:    token.Continue,
+		TokenPos: pos,
 	}
 }
 
