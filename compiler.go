@@ -1021,8 +1021,12 @@ func (c *Compiler) compileAssign(node parser.Node, lhs, rhs []parser.Expr,
 
 	var tempArrSymbol *Symbol
 	if isArrDestruct {
-		tempArrSymbol, _ = c.symbolTable.DefineLocal(":arr")
-		c.emit(node, OpGetBuiltin, int(pBuiltinArrayDestruct))
+		// ignore redefinition of :array symbol, it can be used multiple times
+		// within a block.
+		tempArrSymbol, _ = c.symbolTable.DefineLocal(":array")
+		// ignore disabled builtins of symbol table for BuiltinMakeArray because
+		// it is required to handle destructuring assignment.
+		c.emit(node, OpGetBuiltin, int(BuiltinMakeArray))
 		c.emit(node, OpConstant, c.addConstant(Int(len(lhs))))
 	}
 
@@ -1653,7 +1657,7 @@ func MakeInstruction(op Opcode, args ...int) ([]byte, error) {
 	case OpEqual, OpNotEqual, OpNull,
 		OpPop, OpSliceIndex, OpSetIndex,
 		OpIterInit, OpIterNext, OpIterKey, OpIterValue,
-		OpSetupCatch, OpSetupFinally:
+		OpSetupCatch, OpSetupFinally, OpNoOp:
 		return []byte{op}, nil
 	default:
 		panic(fmt.Errorf("MakeInstruction: unknown Opcode %d %s",

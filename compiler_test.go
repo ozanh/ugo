@@ -1584,6 +1584,58 @@ func TestCompiler_Compile(t *testing.T) {
 	})()	
 	`, `Compile Error: unresolved reference "fn"`)
 
+	expectCompile(t, `x, y := []`,
+		bytecode(
+			// 2: number of LHS idents
+			// 0: array index to assign to x
+			// 1: array index to assign to y
+			Array{Int(2), Int(0), Int(1)},
+			compFunc(concatInsts(
+				makeInst(OpGetBuiltin,
+					int(BuiltinMakeArray)), // load builtin to call
+				makeInst(OpConstant, 0), // load lhs length
+				makeInst(OpArray, 0),    // rhs empty array
+				makeInst(OpCall, 2, 0),  // call builtin :makeArray(2, [])
+				makeInst(OpSetLocal, 0), // set builtin call result to :array
+				makeInst(OpGetLocal, 0), // load :array
+				makeInst(OpConstant, 1), // load 0 (array index)
+				makeInst(OpGetIndex, 1), // :array[0]
+				makeInst(OpSetLocal, 1), // x = :array[0]
+				makeInst(OpGetLocal, 0), // load :array
+				makeInst(OpConstant, 2), // load 1 (array index)
+				makeInst(OpGetIndex, 1), // :array[1]
+				makeInst(OpSetLocal, 2), // y = :array[1]
+				makeInst(OpNull),        // load undefined
+				makeInst(OpSetLocal, 0), // cleanup -> :array = undefined
+				makeInst(OpReturn, 0),
+			),
+				// x,y and :array hidden variable
+				withLocals(3),
+			),
+		),
+	)
+
+	expectCompile(t, `func() { return 1, 2 }`,
+		bytecode(
+			Array{
+				Int(1),
+				Int(2),
+				compFunc(concatInsts(
+					makeInst(OpConstant, 0),
+					makeInst(OpConstant, 1),
+					makeInst(OpArray, 2),
+					makeInst(OpReturn, 1),
+				),
+				),
+			},
+			compFunc(concatInsts(
+				makeInst(OpConstant, 2),
+				makeInst(OpPop),
+				makeInst(OpReturn, 0),
+			),
+			),
+		),
+	)
 }
 
 func TestCompilerScopes(t *testing.T) {
