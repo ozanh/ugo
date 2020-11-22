@@ -96,7 +96,7 @@ func TestEval(t *testing.T) {
 	// test error
 	t.Run("parser error", func(t *testing.T) {
 		eval := NewEval(DefaultCompilerOptions, nil)
-		ret, bc, err := eval.Run(nil, []byte(`...`))
+		ret, bc, err := eval.Run(context.Background(), []byte(`...`))
 		require.Nil(t, ret)
 		require.Nil(t, bc)
 		require.Contains(t, err.Error(),
