@@ -9,7 +9,8 @@ import (
 )
 
 // Eval compiles and runs scripts within same scope.
-// Eval returns last value on stack instead of printing.
+// If executed script's return statement has no value to return or return is
+// omitted, it returns last value on stack.
 // Warning: Eval is not safe to use concurrently.
 type Eval struct {
 	Locals       []Object
