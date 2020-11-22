@@ -2,13 +2,12 @@
 // Use of this source code is governed by a MIT License
 // that can be found in the LICENSE file.
 
-// Copyright (c) 2019 Daniel Kang.
-// Use of this source code is governed by a MIT License
-// that can be found in the LICENSE.tengo file.
-
 package ugo
 
-import "errors"
+import (
+	"errors"
+	"sync"
+)
 
 // Importable interface represents importable module instance.
 type Importable interface {
@@ -19,7 +18,8 @@ type Importable interface {
 // ModuleMap represents a set of named modules. Use NewModuleMap to create a
 // new module map.
 type ModuleMap struct {
-	m map[string]Importable
+	mu sync.Mutex
+	m  map[string]Importable
 }
 
 // NewModuleMap creates a new module map.
@@ -29,48 +29,61 @@ func NewModuleMap() *ModuleMap {
 	}
 }
 
-// Add adds an import module.
-func (m *ModuleMap) Add(name string, module Importable) {
+// Add adds an importable module.
+func (m *ModuleMap) Add(name string, module Importable) *ModuleMap {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	m.m[name] = module
+	return m
 }
 
 // AddBuiltinModule adds a builtin module.
-func (m *ModuleMap) AddBuiltinModule(name string, attrs map[string]Object) {
+func (m *ModuleMap) AddBuiltinModule(
+	name string,
+	attrs map[string]Object,
+) *ModuleMap {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	m.m[name] = &BuiltinModule{Attrs: attrs}
+	return m
 }
 
 // AddSourceModule adds a source module.
-func (m *ModuleMap) AddSourceModule(name string, src []byte) {
+func (m *ModuleMap) AddSourceModule(name string, src []byte) *ModuleMap {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	m.m[name] = &SourceModule{Src: src}
+	return m
 }
 
 // Remove removes a named module.
 func (m *ModuleMap) Remove(name string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	delete(m.m, name)
 }
 
-// Get returns an import module identified by name. It returns if the name is
-// not found.
+// Get returns an import module identified by name.
+// It returns nil if the name is not found.
 func (m *ModuleMap) Get(name string) Importable {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	return m.m[name]
 }
 
-// GetBuiltinModule returns a builtin module identified by name. It returns
-// if the name is not found or the module is not a builtin module.
-func (m *ModuleMap) GetBuiltinModule(name string) *BuiltinModule {
-	mod, _ := m.m[name].(*BuiltinModule)
-	return mod
-}
-
-// GetSourceModule returns a source module identified by name. It returns if
-// the name is not found or the module is not a source module.
-func (m *ModuleMap) GetSourceModule(name string) *SourceModule {
-	mod, _ := m.m[name].(*SourceModule)
-	return mod
+// Range calls given function for each module.
+func (m *ModuleMap) Range(fn func(name string, mod Importable) bool) {
+	for name, mod := range m.m {
+		if !fn(name, mod) {
+			break
+		}
+	}
 }
 
 // Copy creates a copy of the module map.
 func (m *ModuleMap) Copy() *ModuleMap {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	c := &ModuleMap{
 		m: make(map[string]Importable),
 	}
@@ -80,14 +93,18 @@ func (m *ModuleMap) Copy() *ModuleMap {
 	return c
 }
 
-// Len returns the number of named modules.
+// Len returns the number of modules.
 func (m *ModuleMap) Len() int {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	return len(m.m)
 }
 
-// AddMap adds named modules from another module map.
-func (m *ModuleMap) AddMap(o *ModuleMap) {
-	for name, mod := range o.m {
+// Merge merges modules from other ModuleMap.
+func (m *ModuleMap) Merge(other *ModuleMap) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	for name, mod := range other.m {
 		m.m[name] = mod
 	}
 }

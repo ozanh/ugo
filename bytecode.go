@@ -72,17 +72,18 @@ func (bc *Bytecode) fixObjects(modules *ModuleMap) error {
 				if !ok {
 					continue
 				}
-				bmod := modules.GetBuiltinModule(string(name))
+				bmod := modules.Get(string(name))
 				if bmod == nil {
 					return fmt.Errorf("module '%s' not found", name)
 				}
+
 				// copy items from given module to decoded object if key exists in obj
 				for item := range obj {
 					if item == moduleNameKey {
 						// module name may not present in given map, skip it.
 						continue
 					}
-					o := bmod.Attrs[item]
+					o := bmod.(*BuiltinModule).Attrs[item]
 					// if item not exists in module, nil will not pass type check
 					want := reflect.TypeOf(obj[item])
 					got := reflect.TypeOf(o)
