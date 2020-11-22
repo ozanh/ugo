@@ -70,17 +70,16 @@ time := import("time")
 time.Now() + 10 * time.Second
 c := counter ? v3 : undefined
 `
-	openGolden := func() (*os.File, error) {
-		return os.OpenFile("testdata/trace.golden", os.O_CREATE|os.O_RDWR, 0644)
-	}
-
-	f, err := openGolden()
+	goldenFile := "testdata/trace.golden"
+	f, err := os.Open(goldenFile)
 	require.NoError(t, err)
-	defer f.Close()
+	defer func() {
+		require.NoError(t, f.Close())
+	}()
 	if *update {
 		parse(sample, f)
-		f.Close()
-		f, err = openGolden()
+		require.NoError(t, f.Close())
+		f, err = os.OpenFile(goldenFile, os.O_CREATE|os.O_RDWR, 0644)
 		require.NoError(t, err)
 	}
 	golden, err := ioutil.ReadAll(f)
