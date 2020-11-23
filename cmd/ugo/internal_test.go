@@ -5,6 +5,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"flag"
 	"io"
 	"io/ioutil"
 	"strings"
@@ -17,7 +18,7 @@ import (
 )
 
 // FIXME: prompt package requires /dev/tty so it is not testable with Go tests
-// although given Renderer with options because contructor tries to
+// although Renderer can be given with options, because contructor tries to
 // open /dev/tty before setting custom renderer.
 
 func TestREPL(t *testing.T) {
@@ -95,6 +96,69 @@ func TestREPL(t *testing.T) {
 
 	require.Empty(t, cw.consume())
 	require.Empty(t, testReadAll(t, stdout))
+}
+
+func TestFlags(t *testing.T) {
+
+	testCases1 := []struct {
+		args            []string
+		expectEnabled   bool
+		expectParser    bool
+		expectOptimizer bool
+		expectCompiler  bool
+	}{
+		{[]string{"-trace", "parser"}, true, true, false, false},
+		{[]string{"-trace", "optimizer"}, true, false, true, false},
+		{[]string{"-trace", "compiler"}, true, false, false, true},
+
+		{[]string{"-trace", "parser,optimizer"}, true, true, true, false},
+		{[]string{"-trace", "parser,compiler"}, true, true, false, true},
+		{[]string{"-trace", "compiler,optimizer"}, true, false, true, true},
+	}
+	for _, tC := range testCases1 {
+		t.Run("", func(t *testing.T) {
+			// trace flags are global variables, set to defaults at each run
+			traceEnabled = false
+			traceParser = false
+			traceOptimizer = false
+			traceCompiler = false
+
+			fs := flag.NewFlagSet("test tracers", flag.ExitOnError)
+			fp, to, err := parseFlags(fs, tC.args)
+			require.NoError(t, err)
+			require.Empty(t, fp)
+			require.Empty(t, to)
+			require.Equal(t, tC.expectEnabled, traceEnabled)
+			require.Equal(t, tC.expectParser, traceParser)
+			require.Equal(t, tC.expectOptimizer, traceOptimizer)
+			require.Equal(t, tC.expectCompiler, traceCompiler)
+		})
+	}
+
+	fs := flag.NewFlagSet("script file", flag.ExitOnError)
+	fp, to, err := parseFlags(fs, []string{"testdata/fibtc.ugo"})
+	require.NoError(t, err)
+	require.Empty(t, to)
+	require.Equal(t, "testdata/fibtc.ugo", fp)
+
+	fs = flag.NewFlagSet("stdin", flag.ExitOnError)
+	fp, to, err = parseFlags(fs, []string{"-"})
+	require.NoError(t, err)
+	require.Empty(t, to)
+	require.Equal(t, "-", fp)
+
+	fs = flag.NewFlagSet("file does not exist", flag.ExitOnError)
+	_, _, err = parseFlags(fs, []string{"testdata/doesnotexist"})
+	require.Error(t, err)
+}
+
+func TestExecuteScript(t *testing.T) {
+	scr, err := ioutil.ReadFile("testdata/fibtc.ugo")
+	require.NoError(t, err)
+	require.NoError(t, executeScript(context.Background(), scr, nil))
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	require.Equal(t, context.Canceled, executeScript(ctx, scr, nil))
 }
 
 func testHasPrefix(t *testing.T, s, pref string) {

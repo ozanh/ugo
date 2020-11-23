@@ -1,0 +1,22 @@
+var fib
+fib = func(n, a, b) {
+	if n == 0 {
+		return a
+	} else if n == 1 {
+		return b
+	}
+	return fib(n-1, b, a+b)
+}
+
+try {
+	if v := fib(35, 0, 1); v != int("9_227_465") {
+		throw sprintf("fibonacci(35) result is wrong: %s", v)
+	}
+} catch err {
+	// re-throw error for non-zero exit code
+	throw sprintf("fibonacci test failed\n %+v\n", err)
+} finally {
+	if err == undefined {
+		println("fibonacci test ok")
+	}
+}

@@ -11,10 +11,12 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"os"
 	"runtime"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/c-bata/go-prompt"
 
@@ -355,12 +357,28 @@ func newPrompt(
 	)
 }
 
-func parseFlags() {
+func parseFlags(flagset *flag.FlagSet, args []string,
+) (filePath string, timeout time.Duration, err error) {
+
 	var trace string
-	flag.StringVar(&trace, "trace", "",
-		`comma separated units: -trace parser,optimizer,compiler`)
-	flag.BoolVar(&noOptimizer, "no-optimizer", false, `disable optimization`)
-	flag.Parse()
+	flagset.StringVar(&trace, "trace", "",
+		`Comma separated units: -trace parser,optimizer,compiler`)
+	flagset.BoolVar(&noOptimizer, "no-optimizer", false, `Disable optimization`)
+	flagset.DurationVar(&timeout, "timeout", 0,
+		"Program timeout. It is applicable if a script file is provided and "+
+			"must be non-zero duration")
+	flagset.Usage = func() {
+		_, _ = fmt.Fprint(flagset.Output(),
+			"Usage: ugo [flags] [uGO script file]\n\n",
+			"If script file is not provided, REPL terminal application is started\n",
+			"Use - to read from stdin\n\n",
+			"\nFlags:\n",
+		)
+		flagset.PrintDefaults()
+	}
+	if err = flagset.Parse(args); err != nil {
+		return
+	}
 	if trace != "" {
 		traceEnabled = true
 		trace = "," + trace + ","
@@ -374,12 +392,86 @@ func parseFlags() {
 			traceCompiler = true
 		}
 	}
+	if flagset.NArg() != 1 {
+		return
+	}
+	filePath = flagset.Arg(0)
+	if filePath == "-" {
+		return
+	}
+	if _, err = os.Stat(filePath); err != nil {
+		return
+	}
+	return
+}
+
+func executeScript(ctx context.Context, scr []byte, traceOut io.Writer) error {
+	opts := ugo.DefaultCompilerOptions
+	if traceEnabled {
+		opts.Trace = traceOut
+		opts.TraceParser = traceParser
+		opts.TraceCompiler = traceCompiler
+		opts.TraceOptimizer = traceOptimizer
+	}
+	opts.ModuleMap = ugo.NewModuleMap().
+		AddBuiltinModule("time", ugotime.Module).
+		AddBuiltinModule("strings", ugostrings.Module)
+
+	bc, err := ugo.Compile(scr, opts)
+	if err != nil {
+		return err
+	}
+	vm := ugo.NewVM(bc)
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		_, err = vm.Run(nil)
+	}()
+	select {
+	case <-done:
+	case <-ctx.Done():
+		vm.Abort()
+		<-done
+		if err == nil {
+			err = ctx.Err()
+		}
+	}
+	return err
+}
+
+func checkErr(err error, f func()) {
+	if err == nil {
+		return
+	}
+	defer os.Exit(1)
+	_, _ = fmt.Fprintln(os.Stderr, err.Error())
+	if f != nil {
+		f()
+	}
 }
 
 func main() {
-	parseFlags()
+	filePath, timeout, err := parseFlags(flag.CommandLine, os.Args[1:])
+	checkErr(err, nil)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+	if filePath != "" {
+		if timeout > 0 {
+			var c func()
+			ctx, c = context.WithTimeout(ctx, timeout)
+			defer c()
+		}
+		var script []byte
+		if filePath == "-" {
+			script, err = ioutil.ReadAll(os.Stdin)
+		} else {
+			script, err = ioutil.ReadFile(filePath)
+		}
+		checkErr(err, cancel)
+		err = executeScript(ctx, script, os.Stdout)
+		checkErr(err, cancel)
+		return
+	}
 	cw := prompt.NewStdoutWriter()
 	grepl = newREPL(ctx, os.Stdout, cw)
 	newPrompt(

@@ -74,7 +74,9 @@ func (r *Eval) run(ctx context.Context) (ret Object, err error) {
 	case <-ctx.Done():
 		r.VM.Abort()
 		<-doneCh
-		err = ctx.Err()
+		if err == nil {
+			err = ctx.Err()
+		}
 	case <-doneCh:
 	}
 	return
