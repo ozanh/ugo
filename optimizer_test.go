@@ -325,7 +325,9 @@ func TestOptimizerTryThrow(t *testing.T) {
 			1 + 2 
 		} catch { 
 			3.0 + 4.0 
-		} finally { throw "a" + string(1) + "b" }`,
+		} finally {
+			throw "a" + string(1) + "b"
+		}`,
 		bytecode(
 			Array{Int(3), Float(7), String("a1b")},
 			compFunc(concatInsts(
@@ -344,7 +346,6 @@ func TestOptimizerTryThrow(t *testing.T) {
 				makeInst(OpReturn, 0),
 			)),
 		))
-
 }
 
 func TestOptimizerMapSliceExpr(t *testing.T) {
@@ -530,6 +531,40 @@ func TestOptimizerCondExpr(t *testing.T) {
 	}
 }
 
+func TestOptimizerError(t *testing.T) {
+	expectEvalError(t, `
+	try { 1 / 0 } catch err { } finally { }
+	`, "Optimizer Error: ZeroDivisionError: \n\tat")
+
+	// two errors found by optimizer is reported as multipleErr but
+	// Error() method returns first error's message.
+	// Errors on the same line are discarded by optimizer.
+	bc, err := Compile([]byte(`
+	1/0;2/0
+	1/0;`), DefaultCompilerOptions)
+	require.Nil(t, bc)
+	require.Error(t, err)
+	require.Equal(t,
+		"Optimizer Error: ZeroDivisionError: \n\tat (main):2:2",
+		err.Error(),
+	)
+	// test + flag gets all
+	require.Equal(t,
+		"multiple errors:\n Optimizer Error: ZeroDivisionError:"+
+			" \n\tat (main):2:2\n Optimizer Error: ZeroDivisionError:"+
+			" \n\tat (main):3:2",
+		fmt.Sprintf("%+v", err),
+	)
+	// test error implements interface { Errors() []error }
+	if m, ok := err.(interface {
+		Errors() []error
+	}); !ok {
+		t.Fatalf("error does not implement interface { Errors() []error }")
+	} else {
+		require.Equal(t, 2, len(m.Errors()))
+	}
+}
+
 func expectEval(t *testing.T, script string, expected *Bytecode) {
 	t.Helper()
 	opts := DefaultCompilerOptions
@@ -537,4 +572,13 @@ func expectEval(t *testing.T, script string, expected *Bytecode) {
 	require.True(t, opts.OptimizeExpr)
 	opts.OptimizerMaxCycle = 1<<8 - 1
 	expectCompileWithOpts(t, script, opts, expected)
+}
+
+func expectEvalError(t *testing.T, script, errStr string) {
+	t.Helper()
+	opts := DefaultCompilerOptions
+	require.True(t, opts.OptimizeConst)
+	require.True(t, opts.OptimizeExpr)
+	opts.OptimizerMaxCycle = 1<<8 - 1
+	expectCompileErrorWithOpts(t, script, opts, errStr)
 }

@@ -11,7 +11,6 @@ import (
 	"io"
 	"reflect"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/ozanh/ugo/parser"
@@ -20,14 +19,13 @@ import (
 
 // OptimizerError represents an optimizer error.
 type OptimizerError struct {
-	FileSet *parser.SourceFileSet
+	FilePos parser.SourceFilePos
 	Node    parser.Node
 	Err     error
 }
 
 func (e *OptimizerError) Error() string {
-	filePos := e.FileSet.Position(e.Node.Pos())
-	return fmt.Sprintf("Optimizer Error: %s\n\tat %s", e.Err.Error(), filePos)
+	return fmt.Sprintf("Optimizer Error: %s\n\tat %s", e.Err.Error(), e.FilePos)
 }
 
 func (e *OptimizerError) Unwrap() error {
@@ -150,8 +148,15 @@ func (opt *SimpleOptimizer) evalExpr(expr parser.Expr) (parser.Expr, bool) {
 	if !opt.optimExpr {
 		return nil, false
 	}
+	if len(opt.errors) > 0 {
+		// do not evaluate erroneous line again
+		prevPos := opt.errors[len(opt.errors)-1].(*OptimizerError).FilePos
+		if opt.file.InputFile.Set().Position(expr.Pos()).Line == prevPos.Line {
+			return nil, false
+		}
+	}
 	if opt.trace != nil {
-		opt.printTraceMsg(fmt.Sprintf("Eval:%s", expr))
+		opt.printTraceMsg(fmt.Sprintf("eval: %s", expr))
 	}
 	if !opt.canOptimizeExpr(expr) {
 		if opt.trace != nil {
@@ -159,7 +164,11 @@ func (opt *SimpleOptimizer) evalExpr(expr parser.Expr) (parser.Expr, bool) {
 		}
 		return nil, false
 	}
-	return opt.slowEvalExpr(expr)
+	x, ok := opt.slowEvalExpr(expr)
+	if !ok && opt.trace != nil {
+		opt.printTraceMsg("cannot optimize code")
+	}
+	return x, ok
 }
 
 func (opt *SimpleOptimizer) slowEvalExpr(expr parser.Expr) (parser.Expr, bool) {
@@ -293,7 +302,7 @@ func (opt *SimpleOptimizer) Optimize() error {
 		if opt.count == 0 {
 			break
 		}
-		if len(opt.errors) == 3 {
+		if len(opt.errors) > 2 { // bailout
 			break
 		}
 		opt.total += opt.count
@@ -528,6 +537,7 @@ func (opt *SimpleOptimizer) optimize(node parser.Node) (parser.Expr, bool) {
 			defer untraceoptim(traceoptim(opt, "<nil>"))
 		}
 	}
+
 	var (
 		expr parser.Expr
 		ok   bool
@@ -793,8 +803,9 @@ func (opt *SimpleOptimizer) Duration() time.Duration {
 }
 
 func (opt *SimpleOptimizer) error(node parser.Node, err error) error {
+	pos := opt.file.InputFile.Set().Position(node.Pos())
 	return &OptimizerError{
-		FileSet: opt.file.InputFile.Set(),
+		FilePos: pos,
 		Node:    node,
 		Err:     err,
 	}
@@ -875,18 +886,39 @@ func isLitFalsy(expr parser.Expr) (bool, bool) {
 
 type multipleErr []error
 
+func (m multipleErr) Errors() []error {
+	return m
+}
+
 func (m multipleErr) Error() string {
 	if len(m) == 0 {
 		return ""
 	}
-	if len(m) == 1 {
-		return m[0].Error()
+	return m[0].Error()
+}
+
+func (m multipleErr) Format(s fmt.State, verb rune) {
+	switch verb {
+	case 'v', 's':
+		if len(m) == 0 {
+			return
+		}
+		if len(m) > 1 {
+			_, _ = fmt.Fprint(s, "multiple errors:\n ")
+		}
+		switch {
+		case s.Flag('+'):
+			_, _ = fmt.Fprint(s, m[0].Error())
+			for _, err := range m[1:] {
+				_, _ = fmt.Fprint(s, "\n ")
+				_, _ = fmt.Fprint(s, err.Error())
+			}
+		case s.Flag('#'):
+			_, _ = fmt.Fprintf(s, "%#v", []error(m))
+		default:
+			_, _ = fmt.Fprint(s, m.Error())
+		}
+	case 'q':
+		_, _ = fmt.Fprintf(s, "%q", m.Error())
 	}
-	var sb strings.Builder
-	sb.WriteString(m[0].Error())
-	for _, err := range m[1:] {
-		sb.WriteString("\n")
-		sb.WriteString(err.Error())
-	}
-	return sb.String()
 }
