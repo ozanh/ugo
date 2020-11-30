@@ -135,6 +135,17 @@ func TestParseDecl(t *testing.T) {
 			),
 		)
 	})
+	expectParse(t, `param (a
+...b)`, func(p pfn) []Stmt {
+		return stmts(
+			declStmt(
+				genDecl(token.Param, p(1, 1), p(1, 7), p(2, 5),
+					paramSpec(false, ident("a", p(1, 8))),
+					paramSpec(true, ident("b", p(2, 4))),
+				),
+			),
+		)
+	})
 	expectParse(t, `global a`, func(p pfn) []Stmt {
 		return stmts(
 			declStmt(
@@ -171,6 +182,17 @@ global b`, func(p pfn) []Stmt {
 		)
 	})
 	expectParse(t, `global (a, 
+b)`, func(p pfn) []Stmt {
+		return stmts(
+			declStmt(
+				genDecl(token.Global, p(1, 1), p(1, 8), p(2, 2),
+					paramSpec(false, ident("a", p(1, 9))),
+					paramSpec(false, ident("b", p(2, 1))),
+				),
+			),
+		)
+	})
+	expectParse(t, `global (a 
 b)`, func(p pfn) []Stmt {
 		return stmts(
 			declStmt(
@@ -310,6 +332,21 @@ var b=2
 		)
 	})
 	expectParse(t, `var (a=1,
+b=2)`, func(p pfn) []Stmt {
+		return stmts(
+			declStmt(
+				genDecl(token.Var, p(1, 1), p(1, 5), p(2, 4),
+					valueSpec(
+						[]*Ident{ident("a", p(1, 6))},
+						[]Expr{intLit(1, p(1, 8))}),
+					valueSpec(
+						[]*Ident{ident("b", p(2, 1))},
+						[]Expr{intLit(2, p(2, 3))}),
+				),
+			),
+		)
+	})
+	expectParse(t, `var (a=1
 b=2)`, func(p pfn) []Stmt {
 		return stmts(
 			declStmt(

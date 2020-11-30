@@ -479,6 +479,11 @@ var foo               // foo == undefined
 var (bar, baz = 1)    // bar == undefined, baz == 1
 var (bar,
      baz = 1)         // valid
+var (
+    foo = 1
+    bar
+    baz = "baz"
+)                     // valid
 ```
 
 A value can be assigned to a variable using short variable declaration `:=` and
