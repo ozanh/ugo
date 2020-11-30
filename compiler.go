@@ -299,7 +299,7 @@ func (c *Compiler) Compile(node parser.Node) error {
 			op = token.SubAssign
 		}
 		return c.compileAssign(node, []parser.Expr{node.Expr},
-			[]parser.Expr{&parser.IntLit{Value: 1}}, op)
+			[]parser.Expr{&parser.IntLit{Value: 1, ValuePos: node.TokenPos}}, op)
 	case *parser.ParenExpr:
 		if err := c.Compile(node.Expr); err != nil {
 			return err
@@ -511,11 +511,13 @@ func (c *Compiler) Compile(node parser.Node) error {
 		}
 		c.tryCatchIndex--
 		// always emit OpSetupFinally to cleanup
-		finallyPos = c.emit(node, OpSetupFinally)
 		if node.Finally != nil {
+			finallyPos = c.emit(node.Finally, OpSetupFinally)
 			if err := c.Compile(node.Finally); err != nil {
 				return err
 			}
+		} else {
+			finallyPos = c.emit(node, OpSetupFinally)
 		}
 		c.changeOperand(optry, catchPos, finallyPos)
 		if node.Catch != nil {
