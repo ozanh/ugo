@@ -789,8 +789,6 @@ func (p *Parser) parseValueSpec(keyword token.Token, multi bool) Spec {
 		if p.token == token.Assign {
 			p.next()
 			expr = p.parseExpr()
-		} else {
-			expr = &UndefinedLit{TokenPos: pos}
 		}
 		idents = append(idents, ident)
 		values = append(values, expr)

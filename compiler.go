@@ -697,7 +697,8 @@ func (c *Compiler) Compile(node parser.Node) error {
 					var v parser.Expr
 					if i < len(spec.Values) {
 						v = spec.Values[i]
-					} else {
+					}
+					if v == nil {
 						v = &parser.UndefinedLit{TokenPos: ident.Pos()}
 					}
 					rightExpr := []parser.Expr{v}

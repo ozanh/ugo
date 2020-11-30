@@ -679,7 +679,7 @@ func (opt *SimpleOptimizer) optimize(node parser.Node) (parser.Expr, bool) {
 				}
 				for i := range spec.Idents {
 					var v parser.Expr
-					if i < len(spec.Values) {
+					if i < len(spec.Values) && spec.Values[i] != nil {
 						v = spec.Values[i]
 						if expr, ok = opt.optimize(v); ok {
 							spec.Values[i] = expr

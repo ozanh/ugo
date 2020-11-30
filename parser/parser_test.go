@@ -209,7 +209,7 @@ b)`, func(p pfn) []Stmt {
 				genDecl(token.Var, p(1, 1), 0, 0,
 					valueSpec(
 						[]*Ident{ident("a", p(1, 5))},
-						[]Expr{&UndefinedLit{TokenPos: p(1, 5)}}),
+						[]Expr{nil}),
 				),
 			),
 		)
@@ -231,14 +231,14 @@ b)`, func(p pfn) []Stmt {
 				genDecl(token.Var, p(1, 1), 0, 0,
 					valueSpec(
 						[]*Ident{ident("a", p(1, 5))},
-						[]Expr{&UndefinedLit{TokenPos: p(1, 5)}}),
+						[]Expr{nil}),
 				),
 			),
 			declStmt(
 				genDecl(token.Var, p(1, 7), 0, 0,
 					valueSpec(
 						[]*Ident{ident("b", p(1, 11))},
-						[]Expr{&UndefinedLit{TokenPos: p(1, 11)}}),
+						[]Expr{nil}),
 				),
 			),
 		)
@@ -256,7 +256,7 @@ b)`, func(p pfn) []Stmt {
 				genDecl(token.Var, p(1, 11), 0, 0,
 					valueSpec(
 						[]*Ident{ident("b", p(1, 15))},
-						[]Expr{&UndefinedLit{TokenPos: p(1, 15)}}),
+						[]Expr{nil}),
 				),
 			),
 		)
@@ -270,14 +270,14 @@ var b
 				genDecl(token.Var, p(2, 1), 0, 0,
 					valueSpec(
 						[]*Ident{ident("a", p(2, 5))},
-						[]Expr{&UndefinedLit{TokenPos: p(2, 5)}}),
+						[]Expr{nil}),
 				),
 			),
 			declStmt(
 				genDecl(token.Var, p(3, 1), 0, 0,
 					valueSpec(
 						[]*Ident{ident("b", p(3, 5))},
-						[]Expr{&UndefinedLit{TokenPos: p(3, 5)}}),
+						[]Expr{nil}),
 				),
 			),
 		)
@@ -291,7 +291,7 @@ var b=2
 				genDecl(token.Var, p(2, 1), 0, 0,
 					valueSpec(
 						[]*Ident{ident("a", p(2, 5))},
-						[]Expr{&UndefinedLit{TokenPos: p(2, 5)}}),
+						[]Expr{nil}),
 				),
 			),
 			declStmt(
@@ -309,7 +309,7 @@ var b=2
 				genDecl(token.Var, p(1, 1), p(1, 5), p(1, 12),
 					valueSpec(
 						[]*Ident{ident("a", p(1, 6))},
-						[]Expr{&UndefinedLit{TokenPos: p(1, 6)}}),
+						[]Expr{nil}),
 					valueSpec(
 						[]*Ident{ident("b", p(1, 9))},
 						[]Expr{intLit(2, p(1, 11))}),
