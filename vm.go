@@ -927,7 +927,6 @@ func (vm *VM) throw(err *RuntimeError, noTrace bool) error {
 
 func (vm *VM) handleThrownError(frame *frame, err *RuntimeError) error {
 	frame.errHandlers.err = err
-	// pop last ip from block
 	handler := frame.errHandlers.last()
 	// if we have catch>0 goto catch else follow finally (one of them must be set)
 	if handler.catch > 0 {
@@ -964,18 +963,18 @@ func (vm *VM) execOpCall() error {
 				}
 			} else {
 				if numArgs < numParams-1 {
-					// f := func(a, b..) {}
+					// f := func(a, ...b) {}
 					// f()
 					return ErrWrongNumArguments.NewError(
 						wantGEqXGotY(numParams-1, numArgs),
 					)
 				}
 				if numArgs == numParams-1 {
-					// f := func(a, b..) {} // a==1 b==[]
+					// f := func(a, ...b) {} // a==1 b==[]
 					// f(1)
 					vm.stack[basePointer+numArgs] = Array{}
 				} else {
-					// f := func(a, b..) {} // a == 1  b == [] // a == 1  b == [2, 3]
+					// f := func(a, ...b) {} // a == 1  b == [] // a == 1  b == [2, 3]
 					// f(1, 2) // f(1, 2, 3)
 					arr := vm.stack[basePointer+numParams-1 : basePointer+numArgs]
 					vm.stack[basePointer+numParams-1] = append(Array{}, arr...)
@@ -991,11 +990,11 @@ func (vm *VM) execOpCall() error {
 			}
 			if compFunc.Variadic {
 				if numArgs < numParams {
-					// f := func(a, b..) {}
-					// f([1]...) // f([1, 2]...)
+					// f := func(a, ...b) {}
+					// f(...[1]) // f(...[1, 2])
 					if arrSize+numArgs < numParams {
-						// f := func(a, b..) {}
-						// f([]...)
+						// f := func(a, ...b) {}
+						// f(...[])
 						return ErrWrongNumArguments.NewError(
 							wantGEqXGotY(numParams-1, arrSize+numArgs-1),
 						)
@@ -1009,8 +1008,8 @@ func (vm *VM) execOpCall() error {
 					arr := tempBuf[numParams-1:]
 					vm.stack[basePointer+numParams-1] = append(Array{}, arr...)
 				} else if numArgs > numParams {
-					// f := func(a, b..) {} // a == 1  b == [2, 3]
-					// f(1, 2, [3]...)
+					// f := func(a, ...b) {} // a == 1  b == [2, 3]
+					// f(1, 2, ...[3])
 					arr := append(Array{},
 						vm.stack[basePointer+numParams-1:basePointer+numArgs-1]...)
 					arr = append(arr, vm.stack[basePointer+numArgs-1].(Array)...)
@@ -1019,13 +1018,13 @@ func (vm *VM) execOpCall() error {
 			} else {
 				if arrSize+numArgs-1 != numParams {
 					// f := func(a, b) {}
-					// f(1, [2, 3, 4]...)
+					// f(1, ...[2, 3, 4])
 					return ErrWrongNumArguments.NewError(
 						wantEqXGotY(numParams, arrSize+numArgs-1),
 					)
 				}
 				// f := func(a, b) {}
-				// f([1, 2]...)
+				// f(...[1, 2])
 				arr := vm.stack[basePointer+numArgs-1].(Array)
 				copy(vm.stack[basePointer+numArgs-1:], arr)
 			}
