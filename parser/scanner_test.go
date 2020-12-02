@@ -128,6 +128,7 @@ func TestScanner_Scan(t *testing.T) {
 		{token.Param, "param"},
 		{token.Global, "global"},
 		{token.Var, "var"},
+		{token.Const, "const"},
 		{token.Try, "try"},
 		{token.Catch, "catch"},
 		{token.Finally, "finally"},

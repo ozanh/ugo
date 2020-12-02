@@ -33,12 +33,19 @@ type Symbol struct {
 	Index    int
 	Scope    SymbolScope
 	Assigned bool
+	Constant bool
 	Original *Symbol
 }
 
 func (s *Symbol) String() string {
-	return fmt.Sprintf("Symbol{Name:%s Index:%d Scope:%s Assigned:%v Original:%s}",
-		s.Name, s.Index, s.Scope, s.Assigned, s.Original)
+	return fmt.Sprintf("Symbol{Name:%s Index:%d Scope:%s Assigned:%v "+
+		"Original:%s Constant:%t}",
+		s.Name, s.Index, s.Scope, s.Assigned, s.Original, s.Constant)
+}
+
+// IsConstant reports whether this symbol or its parent symbol is a constant.
+func (s *Symbol) IsConstant() bool {
+	return s.Constant || s.Original != nil && s.Original.IsConstant()
 }
 
 // SymbolTable represents a symbol table.
@@ -115,6 +122,21 @@ func (st *SymbolTable) SetParams(params ...string) error {
 		st.shadowBuiltin(param)
 	}
 	return nil
+}
+
+func (st *SymbolTable) find(name string, scopes ...SymbolScope) (*Symbol, bool) {
+	if symbol, ok := st.store[name]; ok {
+		for _, s := range scopes {
+			if s == symbol.Scope {
+				return symbol, true
+			}
+		}
+		return nil, false
+	}
+	if st.parent != nil {
+		return st.parent.find(name, scopes...)
+	}
+	return nil, false
 }
 
 // Resolve resolves a symbol with a given name.

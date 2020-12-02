@@ -296,8 +296,13 @@ func (c *Compiler) Compile(node parser.Node) error {
 		if node.Token == token.Dec {
 			op = token.SubAssign
 		}
-		return c.compileAssign(node, []parser.Expr{node.Expr},
-			[]parser.Expr{&parser.IntLit{Value: 1, ValuePos: node.TokenPos}}, op)
+		return c.compileAssign(
+			node,
+			[]parser.Expr{node.Expr},
+			[]parser.Expr{&parser.IntLit{Value: 1, ValuePos: node.TokenPos}},
+			token.Var,
+			op,
+		)
 	case *parser.ParenExpr:
 		if err := c.Compile(node.Expr); err != nil {
 			return err
@@ -606,109 +611,14 @@ func (c *Compiler) Compile(node parser.Node) error {
 			}
 		}
 	case *parser.AssignStmt:
-		err := c.compileAssign(node, node.LHS, node.RHS, node.Token)
+		err := c.compileAssign(node, node.LHS, node.RHS, token.Var, node.Token)
 		if err != nil {
 			return err
 		}
 	case *parser.DeclStmt:
-		decl, ok := node.Decl.(*parser.GenDecl)
-		if !ok {
-			return c.errorf(node, "only GenDecl is supported in DeclStmt")
+		if err := c.compileDeclStmt(node); err != nil {
+			return err
 		}
-		switch decl.Tok {
-		case token.Param:
-			if len(decl.Specs) == 0 {
-				return c.errorf(node, "empty param declaration not allowed")
-			}
-			if c.symbolTable.parent != nil {
-				return c.errorf(node, "param not allowed in this scope")
-			}
-			names := make([]string, 0)
-			var variadic bool
-			for _, sp := range decl.Specs {
-				spec, ok := sp.(*parser.ParamSpec)
-				if !ok {
-					return c.errorf(node,
-						"ParamSpec is expected but got %T at GenDecl.Specs",
-						decl.Specs[0],
-					)
-				}
-				if spec.Ident == nil {
-					return c.errorf(node, "param ident not defined")
-				}
-				names = append(names, spec.Ident.Name)
-				if spec.Variadic {
-					if variadic {
-						return c.errorf(node,
-							"multiple variadic param declaration")
-					}
-					variadic = true
-				}
-			}
-			c.variadic = variadic
-			err := c.symbolTable.SetParams(names...)
-			if err != nil {
-				return c.error(node, err)
-			}
-			return nil
-		case token.Global:
-			if len(decl.Specs) == 0 {
-				return c.errorf(node, "empty global declaration not allowed")
-			}
-			if c.symbolTable.parent != nil {
-				return c.errorf(node, "global not allowed in this scope")
-			}
-			for _, sp := range decl.Specs {
-				spec, ok := sp.(*parser.ParamSpec)
-				if !ok {
-					return c.errorf(node,
-						"ParamSpec is expected but got %T at GenDecl.Specs", sp)
-				}
-				if spec.Ident != nil {
-					if c.symbolTable.IsGlobal(spec.Ident.Name) {
-						return c.errorf(node,
-							"duplicate global variable declaration or shadowed variable")
-					}
-					symbol, err := c.symbolTable.DefineGlobal(spec.Ident.Name)
-					if err != nil {
-						return c.error(node, err)
-					}
-					idx := c.addConstant(String(spec.Ident.Name))
-					symbol.Index = idx
-				} else {
-					return c.errorf(node, "global ident not defined")
-				}
-			}
-			return nil
-		case token.Var:
-			if len(decl.Specs) == 0 {
-				return c.errorf(node, "empty var declaration not allowed")
-			}
-			for _, sp := range decl.Specs {
-				spec, ok := sp.(*parser.ValueSpec)
-				if !ok {
-					return c.errorf(node,
-						"ValueSpec is expected but got %T at GenDecl.Specs", sp)
-				}
-				for i, ident := range spec.Idents {
-					leftExpr := []parser.Expr{ident}
-					var v parser.Expr
-					if i < len(spec.Values) {
-						v = spec.Values[i]
-					}
-					if v == nil {
-						v = &parser.UndefinedLit{TokenPos: ident.Pos()}
-					}
-					rightExpr := []parser.Expr{v}
-					err := c.compileAssign(node, leftExpr, rightExpr, token.Define)
-					if err != nil {
-						return err
-					}
-				}
-			}
-			return nil
-		}
-
 	case *parser.Ident:
 		symbol, ok := c.symbolTable.Resolve(node.Name)
 		if !ok {
@@ -974,55 +884,116 @@ func (c *Compiler) replaceInstruction(pos int, inst []byte) {
 	}
 }
 
-func (c *Compiler) compileAssign(node parser.Node, lhs, rhs []parser.Expr,
-	op token.Token) error {
+func (c *Compiler) compileDeclStmt(node *parser.DeclStmt) error {
+	decl := node.Decl.(*parser.GenDecl)
+	if len(decl.Specs) == 0 {
+		return c.errorf(node, "empty declaration not allowed")
+	}
+	switch decl.Tok {
+	case token.Param:
+		if c.symbolTable.parent != nil {
+			return c.errorf(node, "param not allowed in this scope")
+		}
+		names := make([]string, 0, len(decl.Specs))
+		for _, sp := range decl.Specs {
+			spec := sp.(*parser.ParamSpec)
+			names = append(names, spec.Ident.Name)
+			if spec.Variadic {
+				if c.variadic {
+					return c.errorf(node,
+						"multiple variadic param declaration")
+				}
+				c.variadic = true
+			}
+		}
+		if err := c.symbolTable.SetParams(names...); err != nil {
+			return c.error(node, err)
+		}
+	case token.Global:
+		if c.symbolTable.parent != nil {
+			return c.errorf(node, "global not allowed in this scope")
+		}
+		for _, sp := range decl.Specs {
+			spec := sp.(*parser.ParamSpec)
+			if c.symbolTable.IsGlobal(spec.Ident.Name) {
+				return c.errorf(node,
+					"duplicate global variable declaration or shadowed variable")
+			}
+			symbol, err := c.symbolTable.DefineGlobal(spec.Ident.Name)
+			if err != nil {
+				return c.error(node, err)
+			}
+			idx := c.addConstant(String(spec.Ident.Name))
+			symbol.Index = idx
+		}
+	case token.Var, token.Const:
+		for _, sp := range decl.Specs {
+			spec := sp.(*parser.ValueSpec)
+			for i, ident := range spec.Idents {
+				leftExpr := []parser.Expr{ident}
+				var v parser.Expr
+				if i < len(spec.Values) {
+					v = spec.Values[i]
+				}
+				if v == nil {
+					v = &parser.UndefinedLit{TokenPos: ident.Pos()}
+				}
+				rightExpr := []parser.Expr{v}
+				err := c.compileAssign(node, leftExpr, rightExpr,
+					decl.Tok, token.Define)
+				if err != nil {
+					return err
+				}
+			}
+		}
+	}
+	return nil
+}
+
+func (c *Compiler) compileAssign(
+	node parser.Node,
+	lhs []parser.Expr,
+	rhs []parser.Expr,
+	decl token.Token,
+	op token.Token,
+) error {
 
 	numLHS, numRHS := len(lhs), len(rhs)
 	if numRHS > 1 {
 		return c.errorf(node,
 			"multiple expressions on the right side not supported")
 	}
-	var isArrDestruct bool
-	if numLHS > 1 && (op == token.Define || op == token.Assign) {
-		isArrDestruct = true
-	}
 
-	var totNumSel int
-	for _, expr := range lhs {
-		_, s := resolveAssignLHS(expr)
-		totNumSel += len(s)
-	}
-
-	if op == token.Define && totNumSel > 0 {
-		// using selector on new variable does not make sense
-		return c.errorf(node, "operator ':=' not allowed with selector")
-	} else if op == token.Define &&
-		totNumSel == 0 &&
-		numLHS == 1 &&
-		numRHS == 1 {
+	if isSelectorIndexExpr(lhs...) {
+		if op == token.Define {
+			// using selector on new variable does not make sense
+			return c.errorf(node, "operator ':=' not allowed with selector")
+		}
+	} else if op == token.Define && numLHS == 1 && numRHS == 1 {
 		// exception for variable := undefined
 		// all local variables are inited as undefined at VM, ignore if rhs[0] == undefined
 
-		ident, _ := resolveAssignLHS(lhs[0])
 		if _, ok := rhs[0].(*parser.UndefinedLit); ok {
-			symbol, ok := c.symbolTable.DefineLocal(ident)
+			ident := lhs[0].(*parser.Ident) // must be Ident if it is not selector or index expr
+			symbol, ok := c.symbolTable.DefineLocal(ident.Name)
 			if ok {
-				return c.errorf(node, "%q ", ident)
+				return c.errorf(node, "%q redeclared in this block", ident)
 			}
 			symbol.Assigned = true
+			symbol.Constant = decl == token.Const
 			return nil
 		}
 	}
 
+	var isArrDestruct bool
+	var tempArrSymbol *Symbol
 	// +=, -=, *=, /=
 	if op != token.Assign && op != token.Define {
 		if err := c.Compile(lhs[0]); err != nil {
 			return err
 		}
-	}
-
-	var tempArrSymbol *Symbol
-	if isArrDestruct {
+	} else if numLHS > 1 {
+		isArrDestruct = true
 		// ignore redefinition of :array symbol, it can be used multiple times
 		// within a block.
 		tempArrSymbol, _ = c.symbolTable.DefineLocal(":array")
@@ -1037,6 +1008,9 @@ func (c *Compiler) compileAssign(node parser.Node, lhs, rhs []parser.Expr,
 		if err := c.Compile(expr); err != nil {
 			return err
 		}
+	}
+	if isArrDestruct {
+		return c.destructuring(node, lhs, tempArrSymbol, decl, op)
 	}
 
 	switch op {
@@ -1063,31 +1037,39 @@ func (c *Compiler) compileAssign(node parser.Node, lhs, rhs []parser.Expr,
 	case token.ShrAssign:
 		c.emit(node, OpBinaryOp, int(token.Shr))
 	}
-	if !isArrDestruct {
-		return c.assign(node, lhs[0], op, false)
-	}
-	if op == token.Define {
-		var resolved int
-		for _, expr := range lhs {
-			switch term := expr.(type) {
-			case *parser.Ident:
-				if _, ok := c.symbolTable.Resolve(term.Name); ok {
-					resolved++
-				}
-			}
-		}
-		if resolved == numLHS {
-			return c.errorf(node, "no new variable on left side")
-		}
-	}
+	return c.assign(node, lhs[0], decl, op, false)
+}
 
+func (c *Compiler) destructuring(
+	node parser.Node,
+	lhs []parser.Expr,
+	tempArrSymbol *Symbol,
+	decl token.Token,
+	op token.Token,
+) error {
 	c.emit(node, OpCall, 2, 0)
 	c.emit(node, OpSetLocal, tempArrSymbol.Index)
-	for i, expr := range lhs {
+	numLHS := len(lhs)
+	var found int
+	for lhsIndex, expr := range lhs {
+		if op == token.Define {
+			if term, ok := expr.(*parser.Ident); ok {
+				_, ok = c.symbolTable.find(
+					term.Name,
+					ScopeLocal, ScopeGlobal, ScopeFree,
+				)
+				if ok {
+					found++
+				}
+			}
+			if found == numLHS {
+				return c.errorf(node, "no new variable on left side")
+			}
+		}
 		c.emit(node, OpGetLocal, tempArrSymbol.Index)
-		c.emit(node, OpConstant, c.addConstant(Int(i)))
+		c.emit(node, OpConstant, c.addConstant(Int(lhsIndex)))
 		c.emit(node, OpGetIndex, 1)
-		err := c.assign(node, expr, op, true)
+		err := c.assign(node, expr, decl, op, decl != token.Const)
 		if err != nil {
 			return err
 		}
@@ -1099,26 +1081,33 @@ func (c *Compiler) compileAssign(node parser.Node, lhs, rhs []parser.Expr,
 
 func (c *Compiler) assign(
 	node parser.Node,
-	lhsExpr parser.Expr,
+	lhs parser.Expr,
+	decl token.Token,
 	op token.Token,
 	allowRedefine bool,
 ) error {
-	ident, selectors := resolveAssignLHS(lhsExpr)
+	ident, selectors := resolveAssignLHS(lhs)
 	numSel := len(selectors)
 	if numSel == 0 && op == token.Define {
 		symbol, ok := c.symbolTable.DefineLocal(ident)
 		if !allowRedefine && ok {
 			return c.errorf(node, "%q redeclared in this block", ident)
 		}
+		if symbol.IsConstant() {
+			return c.errorf(node, "assignment to constant variable %q", ident)
+		}
 		c.emit(node, OpSetLocal, symbol.Index)
 		symbol.Assigned = true
+		symbol.Constant = decl == token.Const
 		return nil
 	}
 	symbol, ok := c.symbolTable.Resolve(ident)
 	if !ok {
 		return c.errorf(node, "unresolved reference %q", ident)
 	}
-
+	if symbol.IsConstant() && numSel == 0 {
+		return c.errorf(node, "assignment to constant variable %q", ident)
+	}
 	if numSel == 0 {
 		switch symbol.Scope {
 		case ScopeLocal:
@@ -1180,6 +1169,16 @@ func resolveAssignLHS(expr parser.Expr) (name string, selectors []parser.Expr) {
 		name = term.Name
 	}
 	return
+}
+
+func isSelectorIndexExpr(exprs ...parser.Expr) bool {
+	for _, expr := range exprs {
+		switch expr.(type) {
+		case *parser.SelectorExpr, *parser.IndexExpr:
+			return true
+		}
+	}
+	return false
 }
 
 func (c *Compiler) addConstant(obj Object) (index int) {
