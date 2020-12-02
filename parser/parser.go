@@ -30,6 +30,7 @@ var stmtStart = map[token.Token]bool{
 	token.Param:    true,
 	token.Global:   true,
 	token.Var:      true,
+	token.Const:    true,
 	token.Break:    true,
 	token.Continue: true,
 	token.For:      true,
@@ -665,7 +666,7 @@ func (p *Parser) parseStmt() (stmt Stmt) {
 	}
 
 	switch p.token {
-	case token.Param, token.Global, token.Var:
+	case token.Var, token.Const, token.Global, token.Param:
 		return &DeclStmt{Decl: p.parseDecl()}
 	case // simple statements
 		token.Func, token.Ident, token.Int, token.Uint, token.Float,
@@ -709,7 +710,7 @@ func (p *Parser) parseDecl() Decl {
 	switch p.token {
 	case token.Global, token.Param:
 		return p.parseGenDecl(p.token, p.parseParamSpec)
-	case token.Var:
+	case token.Var, token.Const:
 		return p.parseGenDecl(p.token, p.parseValueSpec)
 	default:
 		p.error(p.pos, "only \"param, global, var\" declarations supported")
@@ -784,11 +785,13 @@ func (p *Parser) parseValueSpec(keyword token.Token, multi bool) Spec {
 	var values []Expr
 	if p.token == token.Ident {
 		ident := p.parseIdent()
-		//pos := p.pos
 		var expr Expr
 		if p.token == token.Assign {
 			p.next()
 			expr = p.parseExpr()
+		}
+		if keyword == token.Const && expr == nil {
+			p.error(p.pos, "missing initializer in const declaration")
 		}
 		idents = append(idents, ident)
 		values = append(values, expr)

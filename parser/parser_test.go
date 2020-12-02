@@ -361,6 +361,67 @@ b=2)`, func(p pfn) []Stmt {
 			),
 		)
 	})
+	expectParse(t, `const a = 1`, func(p pfn) []Stmt {
+		return stmts(
+			declStmt(
+				genDecl(token.Const, p(1, 1), 0, 0,
+					valueSpec(
+						[]*Ident{ident("a", p(1, 7))},
+						[]Expr{intLit(1, p(1, 11))}),
+				),
+			),
+		)
+	})
+	expectParse(t, `const a = 1; const b = 2`, func(p pfn) []Stmt {
+		return stmts(
+			declStmt(
+				genDecl(token.Const, p(1, 1), 0, 0,
+					valueSpec(
+						[]*Ident{ident("a", p(1, 7))},
+						[]Expr{intLit(1, p(1, 11))}),
+				),
+			),
+			declStmt(
+				genDecl(token.Const, p(1, 14), 0, 0,
+					valueSpec(
+						[]*Ident{ident("b", p(1, 20))},
+						[]Expr{intLit(2, p(1, 24))}),
+				),
+			),
+		)
+	})
+	expectParse(t, `const (a = 1, b = 2)`, func(p pfn) []Stmt {
+		return stmts(
+			declStmt(
+				genDecl(token.Const, p(1, 1), p(1, 7), p(1, 20),
+					valueSpec(
+						[]*Ident{ident("a", p(1, 8))},
+						[]Expr{intLit(1, p(1, 12))}),
+					valueSpec(
+						[]*Ident{ident("b", p(1, 15))},
+						[]Expr{intLit(2, p(1, 19))}),
+				),
+			),
+		)
+	})
+	expectParse(t, `
+const (
+    a = 1
+    b = 2
+)`, func(p pfn) []Stmt {
+		return stmts(
+			declStmt(
+				genDecl(token.Const, p(2, 1), p(2, 7), p(5, 1),
+					valueSpec(
+						[]*Ident{ident("a", p(3, 5))},
+						[]Expr{intLit(1, p(3, 9))}),
+					valueSpec(
+						[]*Ident{ident("b", p(4, 5))},
+						[]Expr{intLit(2, p(4, 9))}),
+				),
+			),
+		)
+	})
 	expectParseError(t, `param a,b`)
 	expectParseError(t, `param (a... ,b)`)
 	expectParseError(t, `param (... ,b)`)
@@ -386,6 +447,15 @@ b=2)`, func(p pfn) []Stmt {
 	expectParseError(t, `var (a,b`)
 	expectParseError(t, `var a,`)
 	expectParseError(t, `var ,a`)
+	expectParseError(t, `const a=1,b=2`)
+	expectParseError(t, `const (a=1,b)`)
+	expectParseError(t, `const a`)
+	expectParseError(t, `const (a)`)
+	expectParseError(t, `const (a,b)`)
+	expectParseError(t, `const (a=1`)
+	expectParseError(t, `const (a`)
+	expectParseError(t, `const a=1,`)
+	expectParseError(t, `const ,a=2`)
 }
 
 func TestCommaSepReturn(t *testing.T) {

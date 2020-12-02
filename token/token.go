@@ -95,6 +95,7 @@ const (
 	Param
 	Global
 	Var
+	Const
 	Try
 	Catch
 	Finally
@@ -174,6 +175,7 @@ var tokens = [...]string{
 	Param:        "param",
 	Global:       "global",
 	Var:          "var",
+	Const:        "const",
 	Try:          "try",
 	Catch:        "catch",
 	Finally:      "finally",
