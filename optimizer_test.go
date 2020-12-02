@@ -531,6 +531,159 @@ func TestOptimizerCondExpr(t *testing.T) {
 	}
 }
 
+func TestOptimizerShadowing(t *testing.T) {
+	// int is shadowed by a param declaration, should not evalute int("1") to 1
+	expectEval(t, `param int; return int("1")`,
+		bytecode(
+			Array{String("1")},
+			compFunc(concatInsts(
+				makeInst(OpGetLocal, 0),
+				makeInst(OpConstant, 0),
+				makeInst(OpCall, 1, 0),
+				makeInst(OpReturn, 1),
+			),
+				withParams(1),
+				withLocals(1),
+			),
+		))
+	// int is shadowed by a var declaration, should not evalute int("1") to 1
+	expectEval(t, `var int; return int("1")`,
+		bytecode(
+			Array{String("1")},
+			compFunc(concatInsts(
+				makeInst(OpGetLocal, 0),
+				makeInst(OpConstant, 0),
+				makeInst(OpCall, 1, 0),
+				makeInst(OpReturn, 1),
+			),
+				withLocals(1),
+			),
+		))
+	// int is shadowed by a var declaration in upper scope,
+	// should not evalute int("1") to 1 within function
+	expectEval(t, `var int; return func() {return int("1")}`,
+		bytecode(
+			Array{
+				String("1"),
+				compFunc(concatInsts(
+					makeInst(OpGetFree, 0),
+					makeInst(OpConstant, 0),
+					makeInst(OpCall, 1, 0),
+					makeInst(OpReturn, 1),
+				)),
+			},
+			compFunc(concatInsts(
+				makeInst(OpGetLocalPtr, 0),
+				makeInst(OpClosure, 1, 1),
+				makeInst(OpReturn, 1),
+			),
+				withLocals(1),
+			),
+		))
+
+	opts := DefaultCompilerOptions
+	opts.OptimizeConst = true
+	opts.OptimizeExpr = true
+
+	st := NewSymbolTable()
+	require.NoError(t, st.SetParams("int"))
+	opts.SymbolTable = st
+	expectCompileWithOpts(t, `return int("1")`, opts,
+		bytecode(
+			Array{String("1")},
+			compFunc(concatInsts(
+				makeInst(OpGetLocal, 0),
+				makeInst(OpConstant, 0),
+				makeInst(OpCall, 1, 0),
+				makeInst(OpReturn, 1),
+			),
+				withParams(1),
+				withLocals(1),
+			),
+		),
+	)
+
+	st = NewSymbolTable()
+	sym, err := st.DefineGlobal("int")
+	require.NoError(t, err)
+	sym.Index = 0
+	opts.Constants = Array{String(sym.Name)}
+	opts.SymbolTable = st
+	expectCompileWithOpts(t, `return int("1")`, opts,
+		bytecode(
+			Array{String("int"), String("1")},
+			compFunc(concatInsts(
+				makeInst(OpGetGlobal, 0),
+				makeInst(OpConstant, 1),
+				makeInst(OpCall, 1, 0),
+				makeInst(OpReturn, 1),
+			),
+			),
+		),
+	)
+
+	st = NewSymbolTable()
+	sym, err = st.DefineGlobal("int")
+	require.NoError(t, err)
+	sym.Index = 0
+	opts.Constants = Array{String(sym.Name)}
+	opts.SymbolTable = st
+	expectCompileWithOpts(t, `return func() {return  int("1")}()`, opts,
+		bytecode(
+			Array{
+				String("int"),
+				String("1"),
+				compFunc(concatInsts(
+					makeInst(OpGetGlobal, 0),
+					makeInst(OpConstant, 1),
+					makeInst(OpCall, 1, 0),
+					makeInst(OpReturn, 1),
+				)),
+			},
+			compFunc(concatInsts(
+				makeInst(OpConstant, 2),
+				makeInst(OpCall, 0, 0),
+				makeInst(OpReturn, 1),
+			),
+			),
+		),
+	)
+
+	opts.Constants = nil
+	opts.SymbolTable = nil
+	expectCompileWithOpts(t, `func(int) {return  int("1")}; return int("1")`,
+		opts,
+		bytecode(
+			Array{
+				String("1"),
+				compFunc(concatInsts(
+					makeInst(OpGetLocal, 0),
+					makeInst(OpConstant, 0),
+					makeInst(OpCall, 1, 0),
+					makeInst(OpReturn, 1),
+				),
+					withParams(1),
+					withLocals(1),
+				),
+				Int(1),
+			},
+			compFunc(concatInsts(
+				makeInst(OpConstant, 1),
+				makeInst(OpPop),
+				makeInst(OpConstant, 2),
+				makeInst(OpReturn, 1),
+			),
+			),
+		),
+	)
+
+	// https://github.com/ozanh/ugo/issues/2
+	expectRun(t, `
+	string := func(x) { return "ok" }
+	return string(1)
+	`, nil, String("ok"))
+}
+
 func TestOptimizerError(t *testing.T) {
 	expectEvalError(t, `
 	try { 1 / 0 } catch err { } finally { }

@@ -212,20 +212,13 @@ func (c *Compiler) optimize(file *parser.File) (*SimpleOptimizer, error) {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
-	var trace io.Writer
-	if c.opts.TraceOptimizer {
-		trace = c.opts.Trace
-	}
 	o := NewOptimizer(
 		ctx,
 		file,
-		c.opts.OptimizeConst,
-		c.opts.OptimizeExpr,
-		c.opts.OptimizerMaxCycle,
-		trace,
+		c.symbolTable,
+		c.opts,
 	)
-	dis := c.symbolTable.DisabledBuiltins()
-	if err := o.DisableBuiltins(dis).Optimize(); err != nil {
+	if err := o.Optimize(); err != nil {
 		return o, err
 	}
 	c.opts.OptimizerMaxCycle -= o.Total()

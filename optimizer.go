@@ -32,6 +32,28 @@ func (e *OptimizerError) Unwrap() error {
 	return e.Err
 }
 
+type optimizerScope struct {
+	parent   *optimizerScope
+	shadowed []string
+}
+
+func (s *optimizerScope) define(ident string) {
+	if _, ok := BuiltinsMap[ident]; ok {
+		s.shadowed = append(s.shadowed, ident)
+	}
+}
+
+func (s *optimizerScope) shadowedBuiltins() []string {
+	var out []string
+	if len(s.shadowed) > 0 {
+		out = append(out, s.shadowed...)
+	}
+	if s.parent != nil {
+		out = append(out, s.parent.shadowedBuiltins()...)
+	}
+	return out
+}
+
 // SimpleOptimizer optimizes given parsed file by evaluating constants and expressions.
 type SimpleOptimizer struct {
 	ctx              context.Context
@@ -44,6 +66,7 @@ type SimpleOptimizer struct {
 	optimConsts      bool
 	optimExpr        bool
 	disabledBuiltins []string
+	scope            *optimizerScope
 	duration         time.Duration
 	errors           multipleErr
 	trace            io.Writer
@@ -53,27 +76,31 @@ type SimpleOptimizer struct {
 func NewOptimizer(
 	ctx context.Context,
 	file *parser.File,
-	optimConst bool,
-	optimExpr bool,
-	maxCycle int,
-	trace io.Writer,
+	base *SymbolTable,
+	opts CompilerOptions,
 ) *SimpleOptimizer {
-
-	return &SimpleOptimizer{
-		ctx:         ctx,
-		file:        file,
-		vm:          NewVM(nil),
-		trace:       trace,
-		maxCycle:    maxCycle,
-		optimConsts: optimConst,
-		optimExpr:   optimExpr,
+	var disabled []string
+	if base != nil {
+		disabled = base.DisabledBuiltins()
+		disabled = append(
+			disabled,
+			base.ShadowedBuiltins()...,
+		)
 	}
-}
-
-// DisableBuiltins passes disabled builtins to symbol table.
-func (opt *SimpleOptimizer) DisableBuiltins(names []string) *SimpleOptimizer {
-	opt.disabledBuiltins = names
-	return opt
+	var trace io.Writer
+	if opts.TraceOptimizer {
+		trace = opts.Trace
+	}
+	return &SimpleOptimizer{
+		ctx:              ctx,
+		file:             file,
+		vm:               NewVM(nil),
+		maxCycle:         opts.OptimizerMaxCycle,
+		optimConsts:      opts.OptimizeConst,
+		optimExpr:        opts.OptimizeExpr,
+		disabledBuiltins: disabled,
+		trace:            trace,
+	}
 }
 
 // File returns parsed file which is modified after calling Optimize().
@@ -178,7 +205,8 @@ func (opt *SimpleOptimizer) slowEvalExpr(expr parser.Expr) (parser.Expr, bool) {
 	}
 	st := NewSymbolTable().
 		EnableParams(false).
-		DisableBuiltin(opt.disabledBuiltins...)
+		DisableBuiltin(opt.disabledBuiltins...).
+		DisableBuiltin(opt.scope.shadowedBuiltins()...)
 
 	compiler := NewCompiler(
 		opt.file.InputFile,
@@ -298,7 +326,9 @@ func (opt *SimpleOptimizer) Optimize() error {
 		if opt.trace != nil {
 			opt.printTraceMsg(fmt.Sprintf("%d. pass", i))
 		}
+		opt.enterScope()
 		opt.optimize(opt.file)
+		opt.leaveScope()
 		if opt.count == 0 {
 			break
 		}
@@ -655,6 +685,11 @@ func (opt *SimpleOptimizer) optimize(node parser.Node) (parser.Expr, bool) {
 			_, _ = opt.optimize(stmt)
 		}
 	case *parser.AssignStmt:
+		for _, lhs := range node.LHS {
+			if ident, ok := lhs.(*parser.Ident); ok {
+				opt.scope.define(ident.Name)
+			}
+		}
 		for i, rhs := range node.RHS {
 			if expr, ok = opt.optimize(rhs); ok {
 				node.RHS[i] = expr
@@ -671,6 +706,20 @@ func (opt *SimpleOptimizer) optimize(node parser.Node) (parser.Expr, bool) {
 			panic("only GenDecl is supported in DeclStmt")
 		}
 		switch decl.Tok {
+		case token.Param:
+			for _, sp := range decl.Specs {
+				spec, ok := sp.(*parser.ParamSpec)
+				if ok {
+					opt.scope.define(spec.Ident.Name)
+				}
+			}
+		case token.Global:
+			for _, sp := range decl.Specs {
+				spec, ok := sp.(*parser.ParamSpec)
+				if ok {
+					opt.scope.define(spec.Ident.Name)
+				}
+			}
 		case token.Var:
 			for _, sp := range decl.Specs {
 				spec, ok := sp.(*parser.ValueSpec)
@@ -678,6 +727,7 @@ func (opt *SimpleOptimizer) optimize(node parser.Node) (parser.Expr, bool) {
 					return nil, false
 				}
 				for i := range spec.Idents {
+					opt.scope.define(spec.Idents[i].Name)
 					var v parser.Expr
 					if i < len(spec.Values) && spec.Values[i] != nil {
 						v = spec.Values[i]
@@ -735,6 +785,11 @@ func (opt *SimpleOptimizer) optimize(node parser.Node) (parser.Expr, bool) {
 			}
 		}
 	case *parser.FuncLit:
+		opt.enterScope()
+		defer opt.leaveScope()
+		for _, ident := range node.Type.Params.List {
+			opt.scope.define(ident.Name)
+		}
 		if node.Body != nil {
 			_, _ = opt.optimize(node.Body)
 		}
@@ -790,6 +845,16 @@ func (opt *SimpleOptimizer) optimize(node parser.Node) (parser.Expr, bool) {
 		}
 	}
 	return nil, false
+}
+
+func (opt *SimpleOptimizer) enterScope() {
+	opt.scope = &optimizerScope{
+		parent: opt.scope,
+	}
+}
+
+func (opt *SimpleOptimizer) leaveScope() {
+	opt.scope = opt.scope.parent
 }
 
 // Total returns total number of evaluated constants and expressions.

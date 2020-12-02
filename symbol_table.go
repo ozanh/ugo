@@ -53,6 +53,7 @@ type SymbolTable struct {
 	block            bool
 	disableParams    bool
 	disabledBuiltins map[string]struct{}
+	shadowedBuiltins []string
 }
 
 // NewSymbolTable creates new symbol table object.
@@ -112,6 +113,7 @@ func (st *SymbolTable) SetParams(params ...string) error {
 		st.numDefinition++
 		st.store[param] = symbol
 		st.updateMaxDefs(symbol.Index + 1)
+		st.shadowBuiltin(param)
 	}
 	return nil
 }
@@ -172,6 +174,7 @@ func (st *SymbolTable) DefineLocal(name string) (*Symbol, bool) {
 	st.numDefinition++
 	st.store[name] = symbol
 	st.updateMaxDefs(symbol.Index + 1)
+	st.shadowBuiltin(name)
 	return symbol, false
 }
 
@@ -186,6 +189,7 @@ func (st *SymbolTable) defineFree(original *Symbol) *Symbol {
 		Original: original,
 	}
 	st.store[original.Name] = symbol
+	st.shadowBuiltin(original.Name)
 	return symbol
 }
 
@@ -224,6 +228,7 @@ func (st *SymbolTable) DefineGlobal(name string) (*Symbol, error) {
 		Scope: ScopeGlobal,
 	}
 	st.store[name] = s
+	st.shadowBuiltin(name)
 	return s, nil
 }
 
@@ -312,4 +317,23 @@ func (st *SymbolTable) isBuiltinDisabled(name string) bool {
 	}
 	_, ok := st.disabledBuiltins[name]
 	return ok
+}
+
+// ShadowedBuiltins returns all shadowed builtin names including parent symbol
+// tables'. Returing slice may contain duplicate names.
+func (st *SymbolTable) ShadowedBuiltins() []string {
+	var out []string
+	if len(st.shadowedBuiltins) > 0 {
+		out = append(out, st.shadowedBuiltins...)
+	}
+	if st.parent != nil {
+		out = append(out, st.parent.ShadowedBuiltins()...)
+	}
+	return out
+}
+
+func (st *SymbolTable) shadowBuiltin(name string) {
+	if _, ok := BuiltinsMap[name]; ok {
+		st.shadowedBuiltins = append(st.shadowedBuiltins, name)
+	}
 }
