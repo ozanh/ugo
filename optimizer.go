@@ -66,7 +66,10 @@ type SimpleOptimizer struct {
 	optimConsts      bool
 	optimExpr        bool
 	disabledBuiltins []string
+	constants        []Object
 	scope            *optimizerScope
+	moduleIndexes    *ModuleIndexes
+	returnStmt       parser.ReturnStmt
 	duration         time.Duration
 	errors           multipleErr
 	trace            io.Writer
@@ -99,6 +102,7 @@ func NewOptimizer(
 		optimConsts:      opts.OptimizeConst,
 		optimExpr:        opts.OptimizeExpr,
 		disabledBuiltins: disabled,
+		moduleIndexes:    NewModuleIndexes(),
 		trace:            trace,
 	}
 }
@@ -199,10 +203,6 @@ func (opt *SimpleOptimizer) evalExpr(expr parser.Expr) (parser.Expr, bool) {
 }
 
 func (opt *SimpleOptimizer) slowEvalExpr(expr parser.Expr) (parser.Expr, bool) {
-	var trace io.Writer
-	if opt.trace != nil {
-		trace = opt.trace
-	}
 	st := NewSymbolTable().
 		EnableParams(false).
 		DisableBuiltin(opt.disabledBuiltins...).
@@ -211,25 +211,22 @@ func (opt *SimpleOptimizer) slowEvalExpr(expr parser.Expr) (parser.Expr, bool) {
 	compiler := NewCompiler(
 		opt.file.InputFile,
 		CompilerOptions{
-			SymbolTable: st,
-			Trace:       trace,
+			SymbolTable:   st,
+			ModuleIndexes: opt.moduleIndexes.Reset(),
+			Constants:     opt.constants[:0],
+			Trace:         opt.trace,
 		},
 	)
 
 	compiler.indent = opt.indent
 
-	f := &parser.File{
-		Stmts: []parser.Stmt{
-			&parser.ReturnStmt{
-				Result: expr,
-			},
-		},
-	}
+	opt.returnStmt.Result = expr
 
-	if err := compiler.Compile(f); err != nil {
+	if err := compiler.Compile(&opt.returnStmt); err != nil {
 		return nil, false
 	}
 	bytecode := compiler.Bytecode()
+	opt.constants = bytecode.Constants
 	if !opt.canOptimizeInsts(bytecode.Constants, bytecode.Main.Instructions) {
 		if opt.trace != nil {
 			opt.printTraceMsg("cannot optimize instructions")
@@ -357,14 +354,9 @@ func (opt *SimpleOptimizer) abortVM() chan struct{} {
 	go func() {
 		select {
 		case <-opt.ctx.Done():
-			goto abort
 		case <-done:
-			goto abort
 		}
-	abort:
-		if opt.vm != nil {
-			opt.vm.Abort()
-		}
+		opt.vm.Abort()
 	}()
 	return done
 }

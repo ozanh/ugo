@@ -101,6 +101,15 @@ func NewModuleIndexes() *ModuleIndexes {
 	}
 }
 
+// Reset resets ModuleIndexes to initial state to re-use.
+func (mi *ModuleIndexes) Reset() *ModuleIndexes {
+	mi.Count = 0
+	for k := range mi.Indexes {
+		delete(mi.Indexes, k)
+	}
+	return mi
+}
+
 // Compiler compiles the AST into a bytecode.
 type Compiler struct {
 	parent        *Compiler
@@ -124,9 +133,8 @@ type Compiler struct {
 
 // NewCompiler creates a new Compiler object.
 func NewCompiler(file *parser.SourceFile, opts CompilerOptions) *Compiler {
-	st := opts.SymbolTable
-	if st == nil {
-		st = NewSymbolTable()
+	if opts.SymbolTable == nil {
+		opts.SymbolTable = NewSymbolTable()
 	}
 	if opts.constsCache == nil {
 		opts.constsCache = make(map[Object]int)
@@ -137,9 +145,6 @@ func NewCompiler(file *parser.SourceFile, opts CompilerOptions) *Compiler {
 				opts.constsCache[opts.Constants[i]] = i
 			}
 		}
-	}
-	if opts.ModuleMap == nil {
-		opts.ModuleMap = NewModuleMap()
 	}
 	if opts.ModuleIndexes == nil {
 		opts.ModuleIndexes = NewModuleIndexes()
@@ -152,7 +157,7 @@ func NewCompiler(file *parser.SourceFile, opts CompilerOptions) *Compiler {
 		file:          file,
 		constants:     opts.Constants,
 		constsCache:   opts.constsCache,
-		symbolTable:   st,
+		symbolTable:   opts.SymbolTable,
 		sourceMap:     make(map[int]int),
 		moduleMap:     opts.ModuleMap,
 		moduleIndexes: opts.ModuleIndexes,
@@ -1227,8 +1232,7 @@ func (c *Compiler) emit(node parser.Node, opcode Opcode, operands ...int) int {
 
 	if c.trace != nil {
 		c.printTrace(fmt.Sprintf("EMIT  %s",
-			FormatInstructions(
-				c.instructions[pos:], pos)[0]))
+			FormatInstructions(c.instructions[pos:], pos)[0]))
 	}
 	return pos
 }
@@ -1657,8 +1661,8 @@ func MakeInstruction(op Opcode, args ...int) ([]byte, error) {
 		OpSetupCatch, OpSetupFinally, OpNoOp:
 		return []byte{op}, nil
 	default:
-		panic(fmt.Errorf("MakeInstruction: unknown Opcode %d %s",
-			op, OpcodeNames[op]))
+		return nil, fmt.Errorf("MakeInstruction: unknown Opcode %d %s",
+			op, OpcodeNames[op])
 	}
 }
 

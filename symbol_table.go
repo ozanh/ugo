@@ -43,24 +43,23 @@ func (s *Symbol) String() string {
 
 // SymbolTable represents a symbol table.
 type SymbolTable struct {
-	store            map[string]*Symbol
-	skipIndex        map[int]struct{}
-	frees            []*Symbol
 	parent           *SymbolTable
-	numParams        int
 	maxDefinition    int
 	numDefinition    int
+	numParams        int
+	store            map[string]*Symbol
+	skipIndex        map[int]struct{}
+	disabledBuiltins map[string]struct{}
+	frees            []*Symbol
 	block            bool
 	disableParams    bool
-	disabledBuiltins map[string]struct{}
 	shadowedBuiltins []string
 }
 
 // NewSymbolTable creates new symbol table object.
 func NewSymbolTable() *SymbolTable {
 	return &SymbolTable{
-		store:     make(map[string]*Symbol),
-		skipIndex: make(map[int]struct{}),
+		store: make(map[string]*Symbol),
 	}
 }
 
@@ -270,6 +269,10 @@ func (st *SymbolTable) SkipIndex(idx int) {
 	if st.block {
 		st.parent.SkipIndex(idx)
 	}
+	// create map lazily for less allocation
+	if st.skipIndex == nil {
+		st.skipIndex = make(map[int]struct{})
+	}
 	st.skipIndex[idx] = struct{}{}
 }
 
@@ -283,6 +286,9 @@ func (st *SymbolTable) IsIndexSkipped(idx int) bool {
 // Compiler returns `Compile Error: unresolved reference "builtin name"`
 // if a disabled builtin is used.
 func (st *SymbolTable) DisableBuiltin(names ...string) *SymbolTable {
+	if len(names) == 0 {
+		return st
+	}
 	if st.parent != nil {
 		return st.parent.DisableBuiltin(names...)
 	}

@@ -66,6 +66,9 @@ func (m *ModuleMap) Remove(name string) {
 // Get returns an import module identified by name.
 // It returns nil if the name is not found.
 func (m *ModuleMap) Get(name string) Importable {
+	if m == nil {
+		return nil
+	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	return m.m[name]
@@ -73,6 +76,8 @@ func (m *ModuleMap) Get(name string) Importable {
 
 // Range calls given function for each module.
 func (m *ModuleMap) Range(fn func(name string, mod Importable) bool) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	for name, mod := range m.m {
 		if !fn(name, mod) {
 			break
