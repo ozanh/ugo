@@ -693,36 +693,20 @@ func (opt *SimpleOptimizer) optimize(node parser.Node) (parser.Expr, bool) {
 			}
 		}
 	case *parser.DeclStmt:
-		decl, ok := node.Decl.(*parser.GenDecl)
-		if !ok {
-			panic("only GenDecl is supported in DeclStmt")
-		}
+		decl := node.Decl.(*parser.GenDecl)
 		switch decl.Tok {
-		case token.Param:
+		case token.Param, token.Global:
 			for _, sp := range decl.Specs {
-				spec, ok := sp.(*parser.ParamSpec)
-				if ok {
-					opt.scope.define(spec.Ident.Name)
-				}
+				spec := sp.(*parser.ParamSpec)
+				opt.scope.define(spec.Ident.Name)
 			}
-		case token.Global:
+		case token.Var, token.Const:
 			for _, sp := range decl.Specs {
-				spec, ok := sp.(*parser.ParamSpec)
-				if ok {
-					opt.scope.define(spec.Ident.Name)
-				}
-			}
-		case token.Var:
-			for _, sp := range decl.Specs {
-				spec, ok := sp.(*parser.ValueSpec)
-				if !ok {
-					return nil, false
-				}
+				spec := sp.(*parser.ValueSpec)
 				for i := range spec.Idents {
 					opt.scope.define(spec.Idents[i].Name)
-					var v parser.Expr
 					if i < len(spec.Values) && spec.Values[i] != nil {
-						v = spec.Values[i]
+						v := spec.Values[i]
 						if expr, ok = opt.optimize(v); ok {
 							spec.Values[i] = expr
 							v = expr
