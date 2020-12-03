@@ -1,3 +1,5 @@
+// Put relatively new features' tests in this test file.
+
 package ugo_test
 
 import (
@@ -6,7 +8,7 @@ import (
 	. "github.com/ozanh/ugo"
 )
 
-func TestDestructuring(t *testing.T) {
+func TestVMDestructuring(t *testing.T) {
 	expectErrHas(t, `x, y = undefined; return x`,
 		newOpts().CompilerError(), `Compile Error: unresolved reference "x"`)
 	expectErrHas(t, `var (x, y); x, y := undefined; return x`,
@@ -376,4 +378,216 @@ func TestDestructuring(t *testing.T) {
 			},
 		}}),
 		String("IndexOutOfBoundsError: message"))
+}
+
+func TestVMConst(t *testing.T) {
+	expectErrHas(t, `const x = 1; x = 2`, newOpts().CompilerError(),
+		`Compile Error: assignment to constant variable "x"`)
+	expectErrHas(t, `const x = 1; x := 2`, newOpts().CompilerError(),
+		`Compile Error: "x" redeclared in this block`)
+	expectErrHas(t, `const (x = 1, x = 2)`, newOpts().CompilerError(),
+		`Compile Error: "x" redeclared in this block`)
+	expectErrHas(t, `const x`, newOpts().CompilerError(),
+		`Parse Error: missing initializer in const declaration`)
+	expectErrHas(t, `const (x, y = 2)`, newOpts().CompilerError(),
+		`Parse Error: missing initializer in const declaration`)
+	expectErrHas(t, `const (x = 1, y)`, newOpts().CompilerError(),
+		`Parse Error: missing initializer in const declaration`)
+	expectErrHas(t, `const (x, y)`, newOpts().CompilerError(),
+		`Parse Error: missing initializer in const declaration`)
+	expectErrHas(t, `
+	const x = 1
+	func() {
+		x = 2
+	}`, newOpts().CompilerError(),
+		`Compile Error: assignment to constant variable "x"`)
+	expectErrHas(t, `
+	const x = 1
+	if x > 0 {
+		x = 2
+	}`, newOpts().CompilerError(),
+		`Compile Error: assignment to constant variable "x"`)
+	expectErrHas(t, `
+	const x = 1
+	if x > 0 {
+		return func() {
+			x = 2
+		}
+	}`, newOpts().CompilerError(),
+		`Compile Error: assignment to constant variable "x"`)
+	expectErrHas(t, `
+	const x = 1
+	if x = 2; x > 0 {
+		return
+	}`, newOpts().CompilerError(),
+		`Compile Error: assignment to constant variable "x"`)
+	expectErrHas(t, `
+	const x = 1
+	for x = 1; x < 10; x++ {
+		return
+	}`, newOpts().CompilerError(),
+		`Compile Error: assignment to constant variable "x"`)
+	expectErrHas(t, `
+	const x = 1
+	func() {
+		var y
+		x, y = [1, 2]
+	}`, newOpts().CompilerError(),
+		`Compile Error: assignment to constant variable "x"`)
+	expectErrHas(t, `
+	x := 1
+	func() {
+		const y = 2
+		x, y = [1, 2]
+	}`, newOpts().CompilerError(),
+		`Compile Error: assignment to constant variable "y"`)
+	expectErrHas(t, `const x = 1;global x`, newOpts().CompilerError(),
+		`Compile Error: "x" redeclared in this block`)
+	expectErrHas(t, `const x = 1;param x`, newOpts().CompilerError(),
+		`Compile Error: "x" redeclared in this block`)
+	expectErrHas(t, `global x; const x = 1`, newOpts().CompilerError(),
+		`Compile Error: "x" redeclared in this block`)
+	expectErrHas(t, `param x; const x = 1`, newOpts().CompilerError(),
+		`Compile Error: "x" redeclared in this block`)
+	expectErrHas(t, `
+	const x = 1
+	if [2] { // not optimized
+		x = 2
+	}`, newOpts().CompilerError(),
+		`Compile Error: assignment to constant variable "x"`)
+	expectErrHas(t, `
+	const x = 1
+	if [2] { // not optimized
+		func() {
+			x = 2
+		}
+	}`, newOpts().CompilerError(),
+		`Compile Error: assignment to constant variable "x"`)
+
+	expectRun(t, `const x = 1; return x`, nil, Int(1))
+	expectRun(t, `const x = "1"; return x`, nil, String("1"))
+	expectRun(t, `const x = []; return x`, nil, Array{})
+	expectRun(t, `const x = []; return x`, nil, Array{})
+	expectRun(t, `const x = undefined; return x`, nil, Undefined)
+	expectRun(t, `const (x = 1, y = "2"); return x, y`, nil,
+		Array{Int(1), String("2")})
+	expectRun(t, `
+	const (
+		x = 1
+		y = "2"
+	)
+	return x, y`, nil, Array{Int(1), String("2")})
+	expectRun(t, `
+	const (
+		x = 1
+		y = x + 1
+	)
+	return x, y`, nil, Array{Int(1), Int(2)})
+	expectRun(t, `
+	const x = 1
+	return func() {
+		const x = x + 1
+		return x
+	}()`, nil, Int(2))
+	expectRun(t, `
+	const x = 1
+	return func() {
+		x := x + 1
+		return x
+	}()`, nil, Int(2))
+	expectRun(t, `
+	const x = 1
+	return func() {
+		return func() {
+			return x + 1
+		}()
+	}()`, nil, Int(2))
+	expectRun(t, `
+	const x = 1
+	for x := 10; x < 100; x++{
+		return x
+	}`, nil, Int(10))
+	expectRun(t, `
+	const (i = 1, v = 2)
+	for i,v in [10] {
+		v = -1
+		return i
+	}`, nil, Int(0))
+	expectRun(t, `
+	const x = 1
+	return func() {
+		const y = 2
+		const x = y
+		return x
+	}() + x
+	`, nil, Int(3))
+	expectRun(t, `
+	const x = 1
+	return func() {
+		const y = 2
+		var x = y
+		return x
+	}() + x
+	`, nil, Int(3))
+	expectRun(t, `
+	const x = 1
+	func() {
+		x, y := [2, 3]
+	}()
+	return x
+	`, nil, Int(1))
+	expectRun(t, `
+	const x = 1
+	for i := 0; i < 1; i++ {
+		x, y := [2, 3]
+		break
+	}
+	return x
+	`, nil, Int(1))
+	expectRun(t, `
+	const x = 1
+	if [1] {
+		x, y := [2, 3]
+	}
+	return x
+	`, nil, Int(1))
+
+	expectRun(t, `
+	return func() {
+		const x = 1
+		func() {
+			x, y := [2, 3]
+		}()
+		return x
+	}()
+	`, nil, Int(1))
+	expectRun(t, `
+	return func() {
+		const x = 1
+		for i := 0; i < 1; i++ {
+			x, y := [2, 3]
+			break
+		}
+		return x
+	}()
+	`, nil, Int(1))
+	expectRun(t, `
+	return func(){
+		const x = 1
+		if [1] {
+			x, y := [2, 3]
+		}
+		return x
+	}()
+	`, nil, Int(1))
+	expectRun(t, `
+	return func(){
+		const x = 1
+		if [1] {
+			var y
+			x, y := [2, 3]
+		}
+		return x
+	}()
+	`, nil, Int(1))
 }

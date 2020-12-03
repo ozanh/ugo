@@ -529,9 +529,12 @@ func (c *Compiler) Compile(node parser.Node) error {
 		}
 	case *parser.CatchStmt:
 		c.emit(node, OpSetupCatch)
-		var symbol *Symbol
 		if node.Ident != nil {
-			symbol, _ = c.symbolTable.DefineLocal(node.Ident.Name)
+			symbol, exists := c.symbolTable.DefineLocal(node.Ident.Name)
+			if exists {
+				return c.errorf(node,
+					"%q redeclared in this block", node.Ident.Name)
+			}
 			c.emit(node, OpSetLocal, symbol.Index)
 		} else {
 			c.emit(node, OpPop)
@@ -915,10 +918,6 @@ func (c *Compiler) compileDeclStmt(node *parser.DeclStmt) error {
 		}
 		for _, sp := range decl.Specs {
 			spec := sp.(*parser.ParamSpec)
-			if c.symbolTable.IsGlobal(spec.Ident.Name) {
-				return c.errorf(node,
-					"duplicate global variable declaration or shadowed variable")
-			}
 			symbol, err := c.symbolTable.DefineGlobal(spec.Ident.Name)
 			if err != nil {
 				return c.error(node, err)
@@ -975,8 +974,8 @@ func (c *Compiler) compileAssign(
 
 		if _, ok := rhs[0].(*parser.UndefinedLit); ok {
 			ident := lhs[0].(*parser.Ident) // must be Ident if it is not selector or index expr
-			symbol, ok := c.symbolTable.DefineLocal(ident.Name)
-			if ok {
+			symbol, exists := c.symbolTable.DefineLocal(ident.Name)
+			if exists {
 				return c.errorf(node, "%q redeclared in this block", ident)
 			}
 			symbol.Assigned = true
@@ -1054,11 +1053,7 @@ func (c *Compiler) destructuring(
 	for lhsIndex, expr := range lhs {
 		if op == token.Define {
 			if term, ok := expr.(*parser.Ident); ok {
-				_, ok = c.symbolTable.find(
-					term.Name,
-					ScopeLocal, ScopeGlobal, ScopeFree,
-				)
-				if ok {
+				if _, ok = c.symbolTable.find(term.Name); ok {
 					found++
 				}
 			}
@@ -1089,8 +1084,8 @@ func (c *Compiler) assign(
 	ident, selectors := resolveAssignLHS(lhs)
 	numSel := len(selectors)
 	if numSel == 0 && op == token.Define {
-		symbol, ok := c.symbolTable.DefineLocal(ident)
-		if !allowRedefine && ok {
+		symbol, exists := c.symbolTable.DefineLocal(ident)
+		if !allowRedefine && exists {
 			return c.errorf(node, "%q redeclared in this block", ident)
 		}
 		if symbol.IsConstant() {

@@ -124,6 +124,75 @@ func TestVMDecl(t *testing.T) {
 		nil, Array{Undefined, Undefined, Undefined})
 	expectRun(t, `return func(a) { var (b = 2,c); return [a, b, c] }(1)`,
 		nil, Array{Int(1), Int(2), Undefined})
+
+	expectErrHas(t, `param x; global x`, newOpts().CompilerError(),
+		`Compile Error: "x" redeclared in this block`)
+	expectErrHas(t, `param x; var x`, newOpts().CompilerError(),
+		`Compile Error: "x" redeclared in this block`)
+	expectErrHas(t, `var x; param x`, newOpts().CompilerError(),
+		`Compile Error: "x" redeclared in this block`)
+	expectErrHas(t, `var x; global x`, newOpts().CompilerError(),
+		`Compile Error: "x" redeclared in this block`)
+	expectErrHas(t, `a := 1; if a { param x }`, newOpts().CompilerError(),
+		`Compile Error: param not allowed in this scope`)
+	expectErrHas(t, `a := 1; if a { global x }`, newOpts().CompilerError(),
+		`Compile Error: global not allowed in this scope`)
+	expectErrHas(t, `func() { param x }`, newOpts().CompilerError(),
+		`Compile Error: param not allowed in this scope`)
+	expectErrHas(t, `func() { global x }`, newOpts().CompilerError(),
+		`Compile Error: global not allowed in this scope`)
+
+	expectRun(t, `param x; return func(x) { return x }(1)`, nil, Int(1))
+	expectRun(t, `
+	param x
+	return func(x) { 
+		for i := 0; i < 1; i++ {
+			return x
+		}
+	}(1)`, nil, Int(1))
+	expectRun(t, `
+	param x
+	func() {
+		if x || !x {
+			x = 2
+		}
+	}()
+	return x`, newOpts().Args(Int(0)), Int(2))
+	expectRun(t, `
+	param x
+	func() {
+		if x || !x {
+			func() {
+				x = 2
+			}()
+		}
+	}()
+	return x`, newOpts().Args(Int(0)), Int(2))
+	expectRun(t, `
+	param x
+	return func(x) { 
+		for i := 0; i < 1; i++ {
+			return x
+		}
+	}(1)`, nil, Int(1))
+	expectRun(t, `
+	global x
+	func() {
+		if x || !x {
+			x = 2
+		}
+	}()
+	return x`, nil, Int(2))
+	expectRun(t, `
+	global x
+	func() {
+		if x || !x {
+			func() {
+				x = 2
+			}()
+		}
+	}()
+	return x`, nil, Int(2))
 }
 
 func TestVMAssignment(t *testing.T) {

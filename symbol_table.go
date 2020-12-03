@@ -111,6 +111,9 @@ func (st *SymbolTable) SetParams(params ...string) error {
 	}
 	st.numParams = len(params)
 	for _, param := range params {
+		if _, ok := st.store[param]; ok {
+			return fmt.Errorf("%q redeclared in this block", param)
+		}
 		symbol := &Symbol{
 			Name:  param,
 			Index: st.NextIndex(),
@@ -126,15 +129,14 @@ func (st *SymbolTable) SetParams(params ...string) error {
 
 func (st *SymbolTable) find(name string, scopes ...SymbolScope) (*Symbol, bool) {
 	if symbol, ok := st.store[name]; ok {
+		if len(scopes) == 0 {
+			return symbol, ok
+		}
 		for _, s := range scopes {
 			if s == symbol.Scope {
 				return symbol, true
 			}
 		}
-		return nil, false
-	}
-	if st.parent != nil {
-		return st.parent.find(name, scopes...)
 	}
 	return nil, false
 }
@@ -171,9 +173,7 @@ func (st *SymbolTable) Resolve(name string) (symbol *Symbol, ok bool) {
 func (st *SymbolTable) DefineLocal(name string) (*Symbol, bool) {
 	symbol, ok := st.store[name]
 	if ok {
-		if symbol.Scope == ScopeLocal {
-			return symbol, true
-		}
+		return symbol, true
 	}
 	index := st.NextIndex()
 	if _, ok := st.skipIndex[index]; ok {
@@ -239,7 +239,7 @@ func (st *SymbolTable) DefineGlobal(name string) (*Symbol, error) {
 	sym, ok := st.store[name]
 	if ok {
 		if sym.Scope != ScopeGlobal {
-			return nil, fmt.Errorf("symbol %q cannot be global, already defined", name)
+			return nil, fmt.Errorf("%q redeclared in this block", name)
 		}
 		return sym, nil
 	}
@@ -251,12 +251,6 @@ func (st *SymbolTable) DefineGlobal(name string) (*Symbol, error) {
 	st.store[name] = s
 	st.shadowBuiltin(name)
 	return s, nil
-}
-
-// IsGlobal returns true if given name is registered global name.
-func (st *SymbolTable) IsGlobal(name string) bool {
-	sym, ok := st.Resolve(name)
-	return ok && sym.Scope == ScopeGlobal
 }
 
 // MaxSymbols returns the total number of symbols defined in the scope.
