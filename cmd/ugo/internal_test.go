@@ -70,7 +70,7 @@ func TestREPL(t *testing.T) {
 
 	r.executor(".symbols")
 	testHasPrefix(t, string(testReadAll(t, stdout)),
-		"[Symbol{Name:test Index:0 Scope:LOCAL Assigned:true Original:<nil>}]\n")
+		"[Symbol{Name:test Index:0 Scope:LOCAL Assigned:true Original:<nil> Constant:false}]\n")
 
 	r.executor(".modules_cache")
 	testHasPrefix(t, string(testReadAll(t, stdout)), "[]\n")
