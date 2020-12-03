@@ -226,6 +226,31 @@ func (tok Token) IsOperator() bool {
 	return _operatorBeg < tok && tok < _operatorEnd
 }
 
+// IsBinaryOperator reports whether token is a binary operator.
+func (tok Token) IsBinaryOperator() bool {
+	switch tok {
+	case Add,
+		Sub,
+		Mul,
+		Quo,
+		Rem,
+		Less,
+		LessEq,
+		Greater,
+		GreaterEq,
+		And,
+		Or,
+		Xor,
+		AndNot,
+		Shl,
+		Shr,
+		Equal,
+		NotEqual:
+		return true
+	}
+	return false
+}
+
 // IsKeyword returns true if the token is a keyword.
 func (tok Token) IsKeyword() bool {
 	return _keywordBeg < tok && tok < _keywordEnd
