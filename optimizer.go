@@ -97,7 +97,7 @@ func NewOptimizer(
 	return &SimpleOptimizer{
 		ctx:              ctx,
 		file:             file,
-		vm:               NewVM(nil),
+		vm:               NewVM(nil).SetRecover(true),
 		maxCycle:         opts.OptimizerMaxCycle,
 		optimConsts:      opts.OptimizeConst,
 		optimExpr:        opts.OptimizeExpr,
@@ -187,17 +187,17 @@ func (opt *SimpleOptimizer) evalExpr(expr parser.Expr) (parser.Expr, bool) {
 		}
 	}
 	if opt.trace != nil {
-		opt.printTraceMsg(fmt.Sprintf("eval: %s", expr))
+		opt.printTraceMsgf("eval: %s", expr)
 	}
 	if !opt.canOptimizeExpr(expr) {
 		if opt.trace != nil {
-			opt.printTraceMsg("cannot optimize expression")
+			opt.printTraceMsgf("cannot optimize expression")
 		}
 		return nil, false
 	}
 	x, ok := opt.slowEvalExpr(expr)
 	if !ok && opt.trace != nil {
-		opt.printTraceMsg("cannot optimize code")
+		opt.printTraceMsgf("cannot optimize code")
 	}
 	return x, ok
 }
@@ -229,14 +229,14 @@ func (opt *SimpleOptimizer) slowEvalExpr(expr parser.Expr) (parser.Expr, bool) {
 	opt.constants = bytecode.Constants
 	if !opt.canOptimizeInsts(bytecode.Constants, bytecode.Main.Instructions) {
 		if opt.trace != nil {
-			opt.printTraceMsg("cannot optimize instructions")
+			opt.printTraceMsgf("cannot optimize instructions")
 		}
 		return nil, false
 	}
 	obj, err := opt.vm.SetBytecode(bytecode).Clear().Run(nil)
 	if err != nil {
 		if opt.trace != nil {
-			opt.printTraceMsg(fmt.Sprintf("eval error: %s", err))
+			opt.printTraceMsgf("eval error: %s", err)
 		}
 		if !errors.Is(err, ErrVMAborted) {
 			opt.errors = append(opt.errors, opt.error(expr, err))
@@ -308,20 +308,14 @@ func (opt *SimpleOptimizer) Optimize() error {
 	}
 
 	if opt.trace != nil {
-		opt.printTraceMsg("Enter Optimizer")
-		defer func() {
-			opt.printTraceMsg(fmt.Sprintf("File: %s", opt.file))
-			opt.printTraceMsg(fmt.Sprintf("Duration: %s", opt.duration))
-			opt.printTraceMsg("Exit Optimizer")
-			opt.printTraceMsg("----------------------")
-		}()
+		opt.printTraceMsgf("Enter Optimizer")
 	}
 	start := time.Now()
 	i := 1
 	for i <= opt.maxCycle {
 		opt.count = 0
 		if opt.trace != nil {
-			opt.printTraceMsg(fmt.Sprintf("%d. pass", i))
+			opt.printTraceMsgf("%d. pass", i)
 		}
 		opt.enterScope()
 		opt.optimize(opt.file)
@@ -338,10 +332,14 @@ func (opt *SimpleOptimizer) Optimize() error {
 	opt.duration = time.Since(start)
 	if opt.trace != nil {
 		if opt.total > 0 {
-			opt.printTraceMsg(fmt.Sprintf("Total: %d", opt.total))
+			opt.printTraceMsgf("Total: %d", opt.total)
 		} else {
-			opt.printTraceMsg("No Optimization")
+			opt.printTraceMsgf("No Optimization")
 		}
+		opt.printTraceMsgf("File: %s", opt.file)
+		opt.printTraceMsgf("Duration: %s", opt.duration)
+		opt.printTraceMsgf("Exit Optimizer")
+		opt.printTraceMsgf("----------------------")
 	}
 	if opt.errors == nil {
 		return nil
@@ -867,7 +865,7 @@ func (opt *SimpleOptimizer) printTrace(a ...interface{}) {
 	_, _ = fmt.Fprintln(opt.trace, a...)
 }
 
-func (opt *SimpleOptimizer) printTraceMsg(a ...interface{}) {
+func (opt *SimpleOptimizer) printTraceMsgf(format string, args ...interface{}) {
 	const (
 		dots = ". . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . "
 		n    = len(dots)
@@ -879,7 +877,7 @@ func (opt *SimpleOptimizer) printTraceMsg(a ...interface{}) {
 		i -= n
 	}
 	_, _ = fmt.Fprint(opt.trace, dots[0:i], "<")
-	_, _ = fmt.Fprint(opt.trace, a...)
+	_, _ = fmt.Fprintf(opt.trace, format, args...)
 	_, _ = fmt.Fprintln(opt.trace, ">")
 }
 
