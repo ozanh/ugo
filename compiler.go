@@ -375,7 +375,8 @@ func (c *Compiler) Compile(node parser.Node) error {
 
 func (c *Compiler) changeOperand(opPos int, operand ...int) {
 	op := c.instructions[opPos]
-	inst, err := MakeInstruction(op, operand...)
+	inst := make([]byte, 8)
+	inst, err := MakeInstruction(inst, op, operand...)
 	if err != nil {
 		panic(err)
 	}
@@ -430,8 +431,8 @@ func (c *Compiler) emit(node parser.Node, opcode Opcode, operands ...int) int {
 	if node != nil {
 		filePos = node.Pos()
 	}
-
-	inst, err := MakeInstruction(opcode, operands...)
+	inst := make([]byte, 8)
+	inst, err := MakeInstruction(inst, opcode, operands...)
 	if err != nil {
 		panic(err)
 	}
@@ -611,44 +612,47 @@ func untracec(c *Compiler) {
 	c.printTrace("}")
 }
 
-// MakeInstruction returns a bytecode for an opcode and the operands.
-func MakeInstruction(op Opcode, args ...int) ([]byte, error) {
+// MakeInstruction returns a bytecode for an Opcode and the operands.
+//
+// Provide "buf" slice which is a returning value to reduce allocation or nil
+// to create new byte slice. This is implemented to reduce compilation
+// allocation that resulted in -15% allocation, +2% speed in compiler.
+// It takes ~8ns/op with zero allocation.
+//
+// Returning error is required to identify bugs faster when VM and Opcodes are
+// under heavy development.
+//
+// Warning: Unknown Opcode causes panic!
+func MakeInstruction(buf []byte, op Opcode, args ...int) ([]byte, error) {
 	operands := OpcodeOperands[op]
 	if len(operands) != len(args) {
 		return nil, fmt.Errorf("MakeInstruction: %s expected %d operands, but got %d",
 			OpcodeNames[op], len(operands), len(args))
 	}
+	buf = append(buf[:0], op)
 	switch op {
 	case OpConstant, OpMap, OpArray,
 		OpGetGlobal, OpSetGlobal,
 		OpJump, OpJumpFalsy, OpAndJump, OpOrJump,
 		OpStoreModule:
-		inst := make([]byte, 3)
-		inst[0] = op
-		inst[1] = byte(args[0] >> 8)
-		inst[2] = byte(args[0])
-		return inst, nil
+		buf = append(buf, byte(args[0]>>8))
+		buf = append(buf, byte(args[0]))
+		return buf, nil
 	case OpLoadModule, OpSetupTry:
-		inst := make([]byte, 5)
-		inst[0] = op
-		inst[1] = byte(args[0] >> 8)
-		inst[2] = byte(args[0])
-		inst[3] = byte(args[1] >> 8)
-		inst[4] = byte(args[1])
-		return inst, nil
+		buf = append(buf, byte(args[0]>>8))
+		buf = append(buf, byte(args[0]))
+		buf = append(buf, byte(args[1]>>8))
+		buf = append(buf, byte(args[1]))
+		return buf, nil
 	case OpClosure:
-		inst := make([]byte, 4)
-		inst[0] = op
-		inst[1] = byte(args[0] >> 8)
-		inst[2] = byte(args[0])
-		inst[3] = byte(args[1])
-		return inst, nil
+		buf = append(buf, byte(args[0]>>8))
+		buf = append(buf, byte(args[0]))
+		buf = append(buf, byte(args[1]))
+		return buf, nil
 	case OpCall:
-		inst := make([]byte, 3)
-		inst[0] = op
-		inst[1] = byte(args[0])
-		inst[2] = byte(args[1])
-		return inst, nil
+		buf = append(buf, byte(args[0]))
+		buf = append(buf, byte(args[1]))
+		return buf, nil
 	case OpGetBuiltin, OpReturn,
 		OpBinaryOp, OpUnary,
 		OpGetIndex,
@@ -656,15 +660,13 @@ func MakeInstruction(op Opcode, args ...int) ([]byte, error) {
 		OpGetFree, OpSetFree,
 		OpGetLocalPtr, OpGetFreePtr,
 		OpThrow, OpFinalizer:
-		inst := make([]byte, 2)
-		inst[0] = op
-		inst[1] = byte(args[0])
-		return inst, nil
+		buf = append(buf, byte(args[0]))
+		return buf, nil
 	case OpEqual, OpNotEqual, OpNull,
 		OpPop, OpSliceIndex, OpSetIndex,
 		OpIterInit, OpIterNext, OpIterKey, OpIterValue,
 		OpSetupCatch, OpSetupFinally, OpNoOp:
-		return []byte{op}, nil
+		return buf, nil
 	default:
 		return nil, fmt.Errorf("MakeInstruction: unknown Opcode %d %s",
 			op, OpcodeNames[op])

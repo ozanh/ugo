@@ -12,7 +12,7 @@ import (
 )
 
 func makeInst(op Opcode, args ...int) []byte {
-	b, err := MakeInstruction(op, args...)
+	b, err := MakeInstruction(make([]byte, 8), op, args...)
 	if err != nil {
 		panic(err)
 	}

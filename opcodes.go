@@ -142,9 +142,7 @@ var OpcodeOperands = [...][]int{
 // ReadOperands reads operands from the bytecode. Given operands slice is used to
 // fill operands and is returned to allocate less.
 func ReadOperands(numOperands []int, ins []byte, operands []int) ([]int, int) {
-	if operands != nil {
-		operands = operands[:0]
-	}
+	operands = operands[:0]
 	var offset int
 	for _, width := range numOperands {
 		switch width {
