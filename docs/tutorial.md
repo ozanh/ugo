@@ -200,6 +200,175 @@ statement.
 func (vm *VM) Run(globals Object, args ...Object) (Object, error)
 ```
 
+## Variables Declaration and Scopes
+
+### param
+
+`param` keyword is used to declare a parameter for main function (main script).
+Parenthesis is required for multiple declarations. Last argument can also be
+variadic. Unlike `var` keyword, initializing value is illegal. Variadic
+argument initialized as an empty array `[]`, and others are initialized as
+`undefined` if not provided. `param` keyword can be used only once in main
+function.
+
+```go
+param (arg0, arg1, ...vargs)
+```
+
+```go
+param foo
+param bar    // illegal, multiple param keyword is not allowed
+```
+
+```go
+if condition  {
+  param arg    // illegal, not allowed in this scope
+}
+
+func(){
+    param (a, b)    // illegal, not allowed in this scope
+}
+```
+
+### global
+
+`global` keyword is to declare global variables. Note that `var` statements or
+short variable declaration `:=` always creates local variables not global.
+Parenthesis is required for multiple declarations. Unlike `var`, initializing
+value is illegal. `global` statements can appear multiple times in the scripts.
+`global` gives access to indexable `globals` argument with a variable name
+provided to Virtual Machine (VM).
+
+If `nil` is passed to VM as globals, a temporary `map` assigned to globals.
+
+Any assignment to a global variable creates or updates the globals element.
+
+Note that global variables can be accessed by imported source modules which
+enables to export objects to scripts like `extern` in C.
+
+```go
+global foo
+global (bar, baz)
+```
+
+```go
+// "globals" builtin function returns "globals" provided to VM.
+g := globals()
+v := g["foo"]    // same as `global foo; v := foo`
+```
+
+```go
+if condition {
+  global x     // illegal, not allowed in this scope
+}
+
+func() {
+  global y     // illegal, not allowed in this scope
+}
+```
+
+### var
+
+`var` keyword is used to declare a local variable. Parenthesis is required for
+multiple declaration. Note: Tuple assignment is not supported with var
+statements.
+
+```go
+var foo               // foo == undefined
+var (bar, baz = 1)    // bar == undefined, baz == 1
+var (bar,
+     baz = 1)         // valid
+var (
+    foo = 1
+    bar
+    baz = "baz"
+)                     // valid
+```
+
+A value can be assigned to a variable using short variable declaration `:=` and
+assignment `=` operators.
+
+* `:=` operator defines a new variable in the scope and assigns a value.
+* `=` operator assigns a new value to an existing variable in the scope.
+
+```go
+                 // function scope A
+a := "foo"       // define 'a' in local scope
+
+func() {         // function scope B
+  b := 52        // define 'b' in function scope B
+  
+  func() {       // function scope C
+    c := 19.84   // define 'c' in function scope C
+
+    a = "bee"    // ok: assign new value to 'a' from function scope A
+    b = 20       // ok: assign new value to 'b' from function scope B
+
+    b := true    // ok: define new 'b' in function scope C
+                 //     (shadowing 'b' from function scope B)
+  }
+  
+  a = "bar"      // ok: assign new value to 'a' from function scope A
+  b = 10         // ok: assign new value to 'b'
+  a := -100      // ok: define new 'a' in function scope B
+                 //     (shadowing 'a' from function scope A)
+  
+  c = -9.1       // illegal: 'c' is not defined
+  var b = [1, 2] // illegal: 'b' is already defined in the same scope
+}
+
+b = 25           // illegal: 'b' is not defined
+var a = {d: 2}   // illegal: 'a' is already defined in the same scope
+```
+
+Following is illegal because variable is not defined when function is created.
+In assignment statements right hand side is compiled before left hand side.
+
+```go
+f := func() {
+  f()    // illegal: unresolved symbol "f"
+}
+```
+
+```go
+var f
+f = func() {
+  f()    // ok: "f" is declared before assignment.
+}
+```
+
+Unlike Go, a variable can be assigned a value of different types.
+
+```go
+a := 123        // assigned    'int'
+a = "123"       // reassigned 'string'
+a = [1, 2, 3]   // reassigned 'array'
+```
+
+### const
+
+`const` keyword is used to declare a local constant variable. Parenthesis is
+required for multiple declaration. Note: Tuple assignment is not supported.
+The value of a constant can't be changed through reassignment.
+Reassignment is checked during compilation and an error is thrown.
+An initializer for a constant is required while declaring. The const declaration
+creates a read-only reference to a value. It does not mean the value it holds is
+immutable.
+Currently, `iota` is not supported but will be added for enumeration.
+Unlike Go, constant variables can be initialized with any value.
+
+```go
+const (
+  a = 1
+  b = {foo: "bar"}
+)
+
+const c       // illegal, no initializer
+
+a = 2         // illegal, reassignment
+b.foo = "baz" // legal
+```
+
 ## Values and Value Types
 
 In uGO, everything is a value, and, all values are associated with a type.
@@ -399,151 +568,6 @@ f2(1)               // valid; a == 1, b == []
 f2(1, 2)            // valid; a == 1, b == [2]
 f2(1, 2, 3)         // valid; a == 1, b == [2, 3]
 f2(...[1, 2, 3])    // valid; a == 1, b == [2, 3]
-```
-
-## Variables Declaration and Scopes
-
-### param
-
-`param` keyword is used to declare a parameter for main function (main script).
-Parenthesis is required for multiple declarations. Last argument can also be
-variadic. Unlike `var` keyword, initializing value is illegal. Variadic
-argument initialized as an empty array `[]`, and others are initialized as
-`undefined` if not provided. `param` keyword can be used only once in main
-function.
-
-```go
-param (arg0, arg1, ...vargs)
-```
-
-```go
-param foo
-param bar    // illegal, multiple param keyword is not allowed
-```
-
-```go
-if condition  {
-  param arg    // illegal, not allowed in this scope
-}
-
-func(){
-    param (a, b)    // illegal, not allowed in this scope
-}
-```
-
-### global
-
-`global` keyword is to declare global variables. Note that `var` statements or
-short variable declaration `:=` always creates local variables not global.
-Parenthesis is required for multiple declarations. Unlike `var`, initializing
-value is illegal. `global` statements can appear multiple times in the scripts.
-`global` gives access to indexable `globals` argument with a variable name
-provided to Virtual Machine (VM).
-
-If `nil` is passed to VM as globals, a temporary `map` assigned to globals.
-
-Any assignment to a global variable creates or updates the globals element.
-
-Note that global variables can be accessed by imported source modules which
-enables to export objects to scripts like `extern` in C.
-
-```go
-global foo
-global (bar, baz)
-```
-
-```go
-// "globals" builtin function returns "globals" provided to VM.
-g := globals()
-v := g["foo"]    // same as `global foo; v := foo`
-```
-
-```go
-if condition {
-  global x     // illegal, not allowed in this scope
-}
-
-func() {
-  global y     // illegal, not allowed in this scope
-}
-```
-
-### var
-
-`var` keyword is used to declare a local variable. Parenthesis is required for
-multiple declaration. Note: Tuple assignment is not supported with var
-statements.
-
-```go
-var foo               // foo == undefined
-var (bar, baz = 1)    // bar == undefined, baz == 1
-var (bar,
-     baz = 1)         // valid
-var (
-    foo = 1
-    bar
-    baz = "baz"
-)                     // valid
-```
-
-A value can be assigned to a variable using short variable declaration `:=` and
-assignment `=` operators.
-
-* `:=` operator defines a new variable in the scope and assigns a value.
-* `=` operator assigns a new value to an existing variable in the scope.
-
-```go
-                 // function scope A
-a := "foo"       // define 'a' in local scope
-
-func() {         // function scope B
-  b := 52        // define 'b' in function scope B
-  
-  func() {       // function scope C
-    c := 19.84   // define 'c' in function scope C
-
-    a = "bee"    // ok: assign new value to 'a' from function scope A
-    b = 20       // ok: assign new value to 'b' from function scope B
-
-    b := true    // ok: define new 'b' in function scope C
-                 //     (shadowing 'b' from function scope B)
-  }
-  
-  a = "bar"      // ok: assign new value to 'a' from function scope A
-  b = 10         // ok: assign new value to 'b'
-  a := -100      // ok: define new 'a' in function scope B
-                 //     (shadowing 'a' from function scope A)
-  
-  c = -9.1       // illegal: 'c' is not defined
-  var b = [1, 2] // illegal: 'b' is already defined in the same scope
-}
-
-b = 25           // illegal: 'b' is not defined
-var a = {d: 2}   // illegal: 'a' is already defined in the same scope
-```
-
-Following is illegal because variable is not defined when function is created.
-In assignment statements right hand side is compiled before left hand side.
-
-```go
-f := func() {
-  f()    // illegal: unresolved symbol "f"
-}
-```
-
-```go
-var f
-f = func() {
-  f()    // ok: "f" is declared before assignment.
-}
-```
-
-Unlike Go, a variable can be assigned a value of different types.
-
-```go
-a := 123        // assigned    'int'
-a = "123"       // re-assigned 'string'
-a = [1, 2, 3]   // re-assigned 'array'
 ```
 
 ## Type Conversions

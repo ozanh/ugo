@@ -43,7 +43,12 @@ return fib(arg0)
 ## Features
 
 * Written in native Go (no cgo).
-* Error handling with `try-catch-finally`.
+* `if else` statements.
+* `for` and `for in` statements.
+* `try catch finally` statements.
+* `param`, `global`, `var` and `const` declarations.
+* Rich builtins.
+* Module support.
 * Go like syntax with additions.
 
 ## Why uGO
@@ -51,8 +56,7 @@ return fib(arg0)
 `uGO` name comes from the initials of my daughter's, wife's and my name. It is
 not related with Go.
 
-I needed a faster embedded scripting language with runtime error handling for
-distributed embedded database applications.
+I needed a faster embedded scripting language with runtime error handling.
 
 ## Quick Start
 
@@ -140,9 +144,7 @@ More standard library modules will be added.
 
 More tests will be added.
 
-Optimizer will be improved to handle constant propagation.
-
-Dead code elimination will be added.
+Basic object oriented programming support.
 
 ## Documentation
 
