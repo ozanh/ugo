@@ -32,6 +32,10 @@ param (a, ...args)
 global (x, y)
 var b
 var (v1 = 1, v2)
+const (
+	c1 = 1
+	c2 = 2
+)
 if w := ""; w {
 	return
 }
@@ -77,9 +81,12 @@ c := counter ? v3 : undefined
 		require.NoError(t, f.Close())
 	}()
 	if *update {
+		require.NoError(t, f.Close())
+		f, err = os.OpenFile(goldenFile, os.O_CREATE|os.O_WRONLY, 0644)
+		require.NoError(t, err)
 		parse(sample, f)
 		require.NoError(t, f.Close())
-		f, err = os.OpenFile(goldenFile, os.O_CREATE|os.O_RDWR, 0644)
+		f, err = os.Open(goldenFile)
 		require.NoError(t, err)
 	}
 	golden, err := ioutil.ReadAll(f)
