@@ -2,6 +2,7 @@ package ugo_test
 
 import (
 	"context"
+	"runtime"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -84,13 +85,22 @@ func TestEval(t *testing.T) {
 
 	// test context
 	t.Run("context", func(t *testing.T) {
-		eval := NewEval(DefaultCompilerOptions, nil)
+		globals := Map{
+			"Gosched": &Function{
+				Value: func(args ...Object) (Object, error) {
+					runtime.Gosched()
+					return Undefined, nil
+				},
+			},
+		}
+		eval := NewEval(DefaultCompilerOptions, globals)
 		ctx, cancel := context.WithCancel(context.Background())
 		cancel()
-		ret, bc, err := eval.Run(ctx, []byte(`var x`))
-		require.Nil(t, ret)
+		ret, bc, err := eval.Run(ctx, []byte(`
+		global Gosched; Gosched(); foo := "bar"; return foo`))
+		require.Nilf(t, ret, "return value:%v", ret)
+		require.Equal(t, context.Canceled, err, err)
 		require.NotNil(t, bc)
-		require.Equal(t, context.Canceled, err)
 	})
 
 	// test error
