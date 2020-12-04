@@ -54,10 +54,10 @@ func (s *optimizerScope) shadowedBuiltins() []string {
 	return out
 }
 
-// SimpleOptimizer optimizes given parsed file by evaluating constants and expressions.
+// SimpleOptimizer optimizes given parsed file by evaluating constants and
+// expressions. It is not safe to call methods concurrently.
 type SimpleOptimizer struct {
-	ctx              context.Context
-	file             *parser.File
+	scope            *optimizerScope
 	vm               *VM
 	count            int
 	total            int
@@ -67,12 +67,16 @@ type SimpleOptimizer struct {
 	optimExpr        bool
 	disabledBuiltins []string
 	constants        []Object
-	scope            *optimizerScope
+	instructions     []byte
 	moduleIndexes    *ModuleIndexes
 	returnStmt       parser.ReturnStmt
+	ctx              context.Context
+	file             *parser.File
 	duration         time.Duration
 	errors           multipleErr
 	trace            io.Writer
+	exprLevel        byte
+	evalBits         uint64
 }
 
 // NewOptimizer creates an Optimizer object.
@@ -189,15 +193,18 @@ func (opt *SimpleOptimizer) evalExpr(expr parser.Expr) (parser.Expr, bool) {
 	if opt.trace != nil {
 		opt.printTraceMsgf("eval: %s", expr)
 	}
-	if !opt.canOptimizeExpr(expr) {
+	if !opt.canEval() || !opt.canOptimizeExpr(expr) {
 		if opt.trace != nil {
 			opt.printTraceMsgf("cannot optimize expression")
 		}
 		return nil, false
 	}
 	x, ok := opt.slowEvalExpr(expr)
-	if !ok && opt.trace != nil {
-		opt.printTraceMsgf("cannot optimize code")
+	if !ok {
+		opt.setNoEval()
+		if opt.trace != nil {
+			opt.printTraceMsgf("cannot optimize code")
+		}
 	}
 	return x, ok
 }
@@ -217,7 +224,7 @@ func (opt *SimpleOptimizer) slowEvalExpr(expr parser.Expr) (parser.Expr, bool) {
 			Trace:         opt.trace,
 		},
 	)
-
+	compiler.instructions = opt.instructions[:0]
 	compiler.indent = opt.indent
 
 	opt.returnStmt.Result = expr
@@ -226,7 +233,9 @@ func (opt *SimpleOptimizer) slowEvalExpr(expr parser.Expr) (parser.Expr, bool) {
 		return nil, false
 	}
 	bytecode := compiler.Bytecode()
+	// obtain constants and instructions slices to reuse
 	opt.constants = bytecode.Constants
+	opt.instructions = bytecode.Main.Instructions
 	if !opt.canOptimizeInsts(bytecode.Constants, bytecode.Main.Instructions) {
 		if opt.trace != nil {
 			opt.printTraceMsgf("cannot optimize instructions")
@@ -299,6 +308,33 @@ func (opt *SimpleOptimizer) slowEvalExpr(expr parser.Expr) (parser.Expr, bool) {
 	return nil, false
 }
 
+func (opt *SimpleOptimizer) canEval() bool {
+	// if left bits are set, we should not eval, pointless
+	return opt.evalBits>>opt.exprLevel == 0
+}
+
+func (opt *SimpleOptimizer) setNoEval() {
+	// set level bit to 1, we got an eval error
+	opt.evalBits |= 1 << (opt.exprLevel - 1)
+}
+
+func (opt *SimpleOptimizer) enterExprLevel() {
+	// clear bits on the left
+	shift := 64 - opt.exprLevel
+	opt.evalBits = opt.evalBits << shift >> shift
+	opt.exprLevel++
+	// if opt.trace != nil {
+	// 	opt.printTraceMsgf(fmt.Sprintf("level:%d %064b", opt.exprLevel, opt.evalBits))
+	// }
+}
+
+func (opt *SimpleOptimizer) leaveExprLevel() {
+	// if opt.trace != nil {
+	// 	opt.printTraceMsgf(fmt.Sprintf("level:%d %064b", opt.exprLevel, opt.evalBits))
+	// }
+	opt.exprLevel--
+}
+
 // Optimize optimizes ast tree by simple constant folding and evaluating simple expressions.
 func (opt *SimpleOptimizer) Optimize() error {
 	opt.errors = nil
@@ -314,6 +350,7 @@ func (opt *SimpleOptimizer) Optimize() error {
 	i := 1
 	for i <= opt.maxCycle {
 		opt.count = 0
+		opt.exprLevel = 0
 		if opt.trace != nil {
 			opt.printTraceMsgf("%d. pass", i)
 		}
@@ -557,7 +594,10 @@ func (opt *SimpleOptimizer) optimize(node parser.Node) (parser.Expr, bool) {
 			defer untraceoptim(traceoptim(opt, "<nil>"))
 		}
 	}
-
+	if !parser.IsStatement(node) {
+		opt.enterExprLevel()
+		defer opt.leaveExprLevel()
+	}
 	var (
 		expr parser.Expr
 		ok   bool
