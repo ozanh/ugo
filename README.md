@@ -11,12 +11,10 @@ uGO is compiled and executed as bytecode on stack-based VM that's written
 in native Go.
 
 uGO is inspired by awesome script language [Tengo](https://github.com/d5/tengo)
-by Daniel Kang. Some modules/packages are modified versions of Tengo which are
-depicted in the source files. A special thanks to Tengo's creater and
-contributors.
+by Daniel Kang. A special thanks to Tengo's creater and contributors.
 
-Tengo's parser and compiler are ported to uGO but uGO has different runtime with
-a similar Object interface.
+To see how fast uGO is, please have a look at fibonacci
+[benchmarks](https://github.com/ozanh/ugobenchfib).
 
 **_uGO is currently in beta phase, use it at your own risk_**
 
