@@ -1,12 +1,6 @@
-// A modified version fo Tengo token package.
-
 // Copyright (c) 2020 Ozan Hacıbekiroğlu.
 // Use of this source code is governed by a MIT License
 // that can be found in the LICENSE file.
-
-// Copyright (c) 2019 Daniel Kang.
-// Use of this source code is governed by a MIT License
-// that can be found in the LICENSE.tengo file.
 
 package token
 
