@@ -386,7 +386,7 @@ func (c *Compiler) changeOperand(opPos int, operand ...int) {
 func (c *Compiler) replaceInstruction(pos int, inst []byte) {
 	copy(c.instructions[pos:], inst)
 	if c.trace != nil {
-		c.printTrace(fmt.Sprintf("REPLC %s",
+		printTrace(c.indent, c.trace, fmt.Sprintf("REPLC %s",
 			FormatInstructions(c.instructions[pos:], pos)[0]))
 	}
 }
@@ -394,7 +394,8 @@ func (c *Compiler) replaceInstruction(pos int, inst []byte) {
 func (c *Compiler) addConstant(obj Object) (index int) {
 	defer func() {
 		if c.trace != nil {
-			c.printTrace(fmt.Sprintf("CONST %04d %s", index, obj))
+			printTrace(c.indent, c.trace,
+				fmt.Sprintf("CONST %04d %s", index, obj))
 		}
 	}()
 	switch obj.(type) {
@@ -440,7 +441,7 @@ func (c *Compiler) emit(node parser.Node, opcode Opcode, operands ...int) int {
 	c.sourceMap[pos] = int(filePos)
 
 	if c.trace != nil {
-		c.printTrace(fmt.Sprintf("EMIT  %s",
+		printTrace(c.indent, c.trace, fmt.Sprintf("EMIT  %s",
 			FormatInstructions(c.instructions[pos:], pos)[0]))
 	}
 	return pos
@@ -524,14 +525,14 @@ func (c *Compiler) enterLoop() *loopStmts {
 	c.loops = append(c.loops, loop)
 	c.loopIndex++
 	if c.trace != nil {
-		c.printTrace("LOOPE", c.loopIndex)
+		printTrace(c.indent, c.trace, "LOOPE", c.loopIndex)
 	}
 	return loop
 }
 
 func (c *Compiler) leaveLoop() {
 	if c.trace != nil {
-		c.printTrace("LOOPL", c.loopIndex)
+		printTrace(c.indent, c.trace, "LOOPL", c.loopIndex)
 	}
 	c.loops = c.loops[:len(c.loops)-1]
 	c.loopIndex--
@@ -586,30 +587,30 @@ func (c *Compiler) errorf(node parser.Node,
 	}
 }
 
-func (c *Compiler) printTrace(a ...interface{}) {
+func printTrace(indent int, trace io.Writer, a ...interface{}) {
 	const (
 		dots = ". . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . "
 		n    = len(dots)
 	)
 
-	i := 2 * c.indent
+	i := 2 * indent
 	for i > n {
-		_, _ = fmt.Fprint(c.trace, dots)
+		_, _ = fmt.Fprint(trace, dots)
 		i -= n
 	}
-	_, _ = fmt.Fprint(c.trace, dots[0:i])
-	_, _ = fmt.Fprintln(c.trace, a...)
+	_, _ = fmt.Fprint(trace, dots[0:i])
+	_, _ = fmt.Fprintln(trace, a...)
 }
 
 func tracec(c *Compiler, msg string) *Compiler {
-	c.printTrace(msg, "{")
+	printTrace(c.indent, c.trace, msg, "{")
 	c.indent++
 	return c
 }
 
 func untracec(c *Compiler) {
 	c.indent--
-	c.printTrace("}")
+	printTrace(c.indent, c.trace, "}")
 }
 
 // MakeInstruction returns a bytecode for an Opcode and the operands.
@@ -626,15 +627,15 @@ func untracec(c *Compiler) {
 func MakeInstruction(buf []byte, op Opcode, args ...int) ([]byte, error) {
 	operands := OpcodeOperands[op]
 	if len(operands) != len(args) {
-		return nil, fmt.Errorf("MakeInstruction: %s expected %d operands, but got %d",
-			OpcodeNames[op], len(operands), len(args))
+		return nil, fmt.Errorf(
+			"MakeInstruction: %s expected %d operands, but got %d",
+			OpcodeNames[op], len(operands), len(args),
+		)
 	}
 	buf = append(buf[:0], op)
 	switch op {
-	case OpConstant, OpMap, OpArray,
-		OpGetGlobal, OpSetGlobal,
-		OpJump, OpJumpFalsy, OpAndJump, OpOrJump,
-		OpStoreModule:
+	case OpConstant, OpMap, OpArray, OpGetGlobal, OpSetGlobal, OpJump,
+		OpJumpFalsy, OpAndJump, OpOrJump, OpStoreModule:
 		buf = append(buf, byte(args[0]>>8))
 		buf = append(buf, byte(args[0]))
 		return buf, nil
@@ -653,19 +654,14 @@ func MakeInstruction(buf []byte, op Opcode, args ...int) ([]byte, error) {
 		buf = append(buf, byte(args[0]))
 		buf = append(buf, byte(args[1]))
 		return buf, nil
-	case OpGetBuiltin, OpReturn,
-		OpBinaryOp, OpUnary,
-		OpGetIndex,
-		OpGetLocal, OpSetLocal,
-		OpGetFree, OpSetFree,
-		OpGetLocalPtr, OpGetFreePtr,
-		OpThrow, OpFinalizer:
+	case OpGetBuiltin, OpReturn, OpBinaryOp, OpUnary, OpGetIndex, OpGetLocal,
+		OpSetLocal, OpGetFree, OpSetFree, OpGetLocalPtr, OpGetFreePtr, OpThrow,
+		OpFinalizer:
 		buf = append(buf, byte(args[0]))
 		return buf, nil
-	case OpEqual, OpNotEqual, OpNull,
-		OpPop, OpSliceIndex, OpSetIndex,
-		OpIterInit, OpIterNext, OpIterKey, OpIterValue,
-		OpSetupCatch, OpSetupFinally, OpNoOp:
+	case OpEqual, OpNotEqual, OpNull, OpPop, OpSliceIndex, OpSetIndex,
+		OpIterInit, OpIterNext, OpIterKey, OpIterValue, OpSetupCatch,
+		OpSetupFinally, OpNoOp:
 		return buf, nil
 	default:
 		return nil, fmt.Errorf("MakeInstruction: unknown Opcode %d %s",

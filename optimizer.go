@@ -111,12 +111,7 @@ func NewOptimizer(
 	}
 }
 
-// File returns parsed file which is modified after calling Optimize().
-func (opt *SimpleOptimizer) File() *parser.File {
-	return opt.file
-}
-
-func (*SimpleOptimizer) canOptimizeExpr(expr parser.Expr) bool {
+func canOptimizeExpr(expr parser.Expr) bool {
 	if parser.IsStatement(expr) {
 		return false
 	}
@@ -133,7 +128,7 @@ func (*SimpleOptimizer) canOptimizeExpr(expr parser.Expr) bool {
 	return true
 }
 
-func (*SimpleOptimizer) canOptimizeInsts(constants []Object, insts []byte) bool {
+func canOptimizeInsts(constants []Object, insts []byte) bool {
 	if len(insts) == 0 {
 		return false
 	}
@@ -193,7 +188,7 @@ func (opt *SimpleOptimizer) evalExpr(expr parser.Expr) (parser.Expr, bool) {
 	if opt.trace != nil {
 		opt.printTraceMsgf("eval: %s", expr)
 	}
-	if !opt.canEval() || !opt.canOptimizeExpr(expr) {
+	if !opt.canEval() || !canOptimizeExpr(expr) {
 		if opt.trace != nil {
 			opt.printTraceMsgf("cannot optimize expression")
 		}
@@ -205,6 +200,8 @@ func (opt *SimpleOptimizer) evalExpr(expr parser.Expr) (parser.Expr, bool) {
 		if opt.trace != nil {
 			opt.printTraceMsgf("cannot optimize code")
 		}
+	} else {
+		opt.count++
 	}
 	return x, ok
 }
@@ -236,7 +233,7 @@ func (opt *SimpleOptimizer) slowEvalExpr(expr parser.Expr) (parser.Expr, bool) {
 	// obtain constants and instructions slices to reuse
 	opt.constants = bytecode.Constants
 	opt.instructions = bytecode.Main.Instructions
-	if !opt.canOptimizeInsts(bytecode.Constants, bytecode.Main.Instructions) {
+	if !canOptimizeInsts(bytecode.Constants, bytecode.Main.Instructions) {
 		if opt.trace != nil {
 			opt.printTraceMsgf("cannot optimize instructions")
 		}
@@ -250,62 +247,57 @@ func (opt *SimpleOptimizer) slowEvalExpr(expr parser.Expr) (parser.Expr, bool) {
 		if !errors.Is(err, ErrVMAborted) {
 			opt.errors = append(opt.errors, opt.error(expr, err))
 		}
-		return nil, false
+		obj = nil
 	}
 	switch v := obj.(type) {
 	case String:
-		opt.count++
 		l := strconv.Quote(string(v))
-		return &parser.StringLit{
+		expr = &parser.StringLit{
 			Value:    string(v),
 			Literal:  l,
 			ValuePos: expr.Pos(),
-		}, true
+		}
 	case undefined:
-		opt.count++
-		return &parser.UndefinedLit{TokenPos: expr.Pos()}, true
+		expr = &parser.UndefinedLit{TokenPos: expr.Pos()}
 	case Bool:
-		opt.count++
 		l := strconv.FormatBool(bool(v))
-		return &parser.BoolLit{
+		expr = &parser.BoolLit{
 			Value:    bool(v),
 			Literal:  l,
 			ValuePos: expr.Pos(),
-		}, true
+		}
 	case Int:
-		opt.count++
 		l := strconv.FormatInt(int64(v), 10)
-		return &parser.IntLit{
+		expr = &parser.IntLit{
 			Value:    int64(v),
 			Literal:  l,
 			ValuePos: expr.Pos(),
-		}, true
+		}
 	case Uint:
-		opt.count++
 		l := strconv.FormatUint(uint64(v), 10)
-		return &parser.UintLit{
+		expr = &parser.UintLit{
 			Value:    uint64(v),
 			Literal:  l,
 			ValuePos: expr.Pos(),
-		}, true
+		}
 	case Float:
-		opt.count++
 		l := strconv.FormatFloat(float64(v), 'f', -1, 64)
-		return &parser.FloatLit{
+		expr = &parser.FloatLit{
 			Value:    float64(v),
 			Literal:  l,
 			ValuePos: expr.Pos(),
-		}, true
+		}
 	case Char:
-		opt.count++
 		l := strconv.QuoteRune(rune(v))
-		return &parser.CharLit{
+		expr = &parser.CharLit{
 			Value:    rune(v),
 			Literal:  l,
 			ValuePos: expr.Pos(),
-		}, true
+		}
+	default:
+		return nil, false
 	}
-	return nil, false
+	return expr, true
 }
 
 func (opt *SimpleOptimizer) canEval() bool {
@@ -403,41 +395,30 @@ func (opt *SimpleOptimizer) binaryopInts(op token.Token,
 	switch op {
 	case token.Add:
 		val = left.Value + right.Value
-		goto result
 	case token.Sub:
 		val = left.Value - right.Value
-		goto result
 	case token.Mul:
 		val = left.Value * right.Value
-		goto result
 	case token.Quo:
 		if right.Value == 0 {
 			return nil, false
 		}
 		val = left.Value / right.Value
-		goto result
 	case token.Rem:
 		val = left.Value % right.Value
-		goto result
 	case token.And:
 		val = left.Value & right.Value
-		goto result
 	case token.Or:
 		val = left.Value | right.Value
-		goto result
 	case token.Shl:
 		val = left.Value << right.Value
-		goto result
 	case token.Shr:
 		val = left.Value >> right.Value
-		goto result
 	case token.AndNot:
 		val = left.Value &^ right.Value
-		goto result
+	default:
+		return nil, false
 	}
-	return nil, false
-result:
-	opt.count++
 	l := strconv.FormatInt(val, 10)
 	return &parser.IntLit{Value: val, Literal: l, ValuePos: left.ValuePos}, true
 }
@@ -449,27 +430,21 @@ func (opt *SimpleOptimizer) binaryopFloats(op token.Token,
 	switch op {
 	case token.Add:
 		val = left.Value + right.Value
-		goto result
 	case token.Sub:
 		val = left.Value - right.Value
-		goto result
 	case token.Mul:
 		val = left.Value * right.Value
-		goto result
 	case token.Quo:
 		if right.Value == 0 {
 			return nil, false
 		}
 		val = left.Value / right.Value
-		goto result
+	default:
+		return nil, false
 	}
-	return nil, false
-result:
-	opt.count++
-	l := strconv.FormatFloat(val, 'f', -1, 64)
 	return &parser.FloatLit{
 		Value:    val,
-		Literal:  l,
+		Literal:  strconv.FormatFloat(val, 'f', -1, 64),
 		ValuePos: left.ValuePos,
 	}, true
 }
@@ -492,7 +467,6 @@ func (opt *SimpleOptimizer) binaryop(op token.Token,
 	case *parser.StringLit:
 		right, ok := right.(*parser.StringLit)
 		if ok && op == token.Add {
-			opt.count++
 			v := left.Value + right.Value
 			return &parser.StringLit{
 				Value:    v,
@@ -514,7 +488,6 @@ func (opt *SimpleOptimizer) unaryop(op token.Token,
 	case *parser.IntLit:
 		switch op {
 		case token.Not:
-			opt.count++
 			v := expr.Value == 0
 			return &parser.BoolLit{
 				Value:    v,
@@ -522,7 +495,6 @@ func (opt *SimpleOptimizer) unaryop(op token.Token,
 				ValuePos: expr.ValuePos,
 			}, true
 		case token.Sub:
-			opt.count++
 			v := -expr.Value
 			l := strconv.FormatInt(v, 10)
 			return &parser.IntLit{
@@ -531,7 +503,6 @@ func (opt *SimpleOptimizer) unaryop(op token.Token,
 				ValuePos: expr.ValuePos,
 			}, true
 		case token.Xor:
-			opt.count++
 			v := ^expr.Value
 			l := strconv.FormatInt(v, 10)
 			return &parser.IntLit{
@@ -543,7 +514,6 @@ func (opt *SimpleOptimizer) unaryop(op token.Token,
 	case *parser.UintLit:
 		switch op {
 		case token.Not:
-			opt.count++
 			v := expr.Value == 0
 			return &parser.BoolLit{
 				Value:    v,
@@ -551,7 +521,6 @@ func (opt *SimpleOptimizer) unaryop(op token.Token,
 				ValuePos: expr.ValuePos,
 			}, true
 		case token.Sub:
-			opt.count++
 			v := -expr.Value
 			l := strconv.FormatUint(v, 10)
 			return &parser.UintLit{
@@ -560,7 +529,6 @@ func (opt *SimpleOptimizer) unaryop(op token.Token,
 				ValuePos: expr.ValuePos,
 			}, true
 		case token.Xor:
-			opt.count++
 			v := ^expr.Value
 			l := strconv.FormatUint(v, 10)
 			return &parser.UintLit{
@@ -572,7 +540,6 @@ func (opt *SimpleOptimizer) unaryop(op token.Token,
 	case *parser.FloatLit:
 		switch op {
 		case token.Sub:
-			opt.count++
 			v := -expr.Value
 			l := strconv.FormatFloat(v, 'f', -1, 64)
 			return &parser.FloatLit{
@@ -628,6 +595,7 @@ func (opt *SimpleOptimizer) optimize(node parser.Node) (parser.Expr, bool) {
 			node.RHS = expr
 		}
 		if expr, ok = opt.binaryop(node.Token, node.LHS, node.RHS); ok {
+			opt.count++
 			return expr, ok
 		}
 		return opt.evalExpr(node)
@@ -636,6 +604,7 @@ func (opt *SimpleOptimizer) optimize(node parser.Node) (parser.Expr, bool) {
 			node.Expr = expr
 		}
 		if expr, ok = opt.unaryop(node.Token, node.Expr); ok {
+			opt.count++
 			return expr, ok
 		}
 		return opt.evalExpr(node)
@@ -649,8 +618,7 @@ func (opt *SimpleOptimizer) optimize(node parser.Node) (parser.Expr, bool) {
 		if expr, ok = opt.evalExpr(node.Cond); ok {
 			node.Cond = expr
 		}
-		falsy, ok := isLitFalsy(node.Cond)
-		if ok {
+		if falsy, ok := isLitFalsy(node.Cond); ok {
 			// convert expression to BoolLit so that Compiler skips if block
 			node.Cond = &parser.BoolLit{
 				Value:    !falsy,
@@ -835,8 +803,7 @@ func (opt *SimpleOptimizer) optimize(node parser.Node) (parser.Expr, bool) {
 		if expr, ok = opt.evalExpr(node.Cond); ok {
 			node.Cond = expr
 		}
-		falsy, ok := isLitFalsy(node.Cond)
-		if ok {
+		if falsy, ok := isLitFalsy(node.Cond); ok {
 			// convert expression to BoolLit so that Compiler skips expressions
 			node.Cond = &parser.BoolLit{
 				Value:    !falsy,
@@ -890,21 +857,6 @@ func (opt *SimpleOptimizer) error(node parser.Node, err error) error {
 	}
 }
 
-func (opt *SimpleOptimizer) printTrace(a ...interface{}) {
-	const (
-		dots = ". . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . "
-		n    = len(dots)
-	)
-
-	i := 2 * opt.indent
-	for i > n {
-		_, _ = fmt.Fprint(opt.trace, dots)
-		i -= n
-	}
-	_, _ = fmt.Fprint(opt.trace, dots[0:i])
-	_, _ = fmt.Fprintln(opt.trace, a...)
-}
-
 func (opt *SimpleOptimizer) printTraceMsgf(format string, args ...interface{}) {
 	const (
 		dots = ". . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . "
@@ -921,15 +873,15 @@ func (opt *SimpleOptimizer) printTraceMsgf(format string, args ...interface{}) {
 	_, _ = fmt.Fprintln(opt.trace, ">")
 }
 
-func traceoptim(cf *SimpleOptimizer, msg string) *SimpleOptimizer {
-	cf.printTrace(msg, "{")
-	cf.indent++
-	return cf
+func traceoptim(opt *SimpleOptimizer, msg string) *SimpleOptimizer {
+	printTrace(opt.indent, opt.trace, msg, "{")
+	opt.indent++
+	return opt
 }
 
-func untraceoptim(cf *SimpleOptimizer) {
-	cf.indent--
-	cf.printTrace("}")
+func untraceoptim(opt *SimpleOptimizer) {
+	opt.indent--
+	printTrace(opt.indent, opt.trace, "}")
 }
 
 func isObjectConstant(obj Object) bool {
