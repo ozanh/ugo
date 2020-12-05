@@ -156,12 +156,6 @@ func TestExecuteScript(t *testing.T) {
 	scr, err := ioutil.ReadFile("testdata/fibtc.ugo")
 	require.NoError(t, err)
 	require.NoError(t, executeScript(context.Background(), scr, nil))
-	scr = []byte(`
-	time := import("time")
-	for i := 0; i < 1000; i++ {
-		time.Sleep(time.Millisecond)
-	}
-	`)
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 	require.Equal(t, context.Canceled, executeScript(ctx, scr, nil))
