@@ -442,7 +442,7 @@ func (c *Compiler) compileDefine(
 	if !allowRedefine && exists {
 		return c.errorf(node, "%q redeclared in this block", ident)
 	}
-	if symbol.IsConstant() {
+	if symbol.Constant {
 		return c.errorf(node, "assignment to constant variable %q", ident)
 	}
 	c.emit(node, OpSetLocal, symbol.Index)
@@ -456,7 +456,7 @@ func (c *Compiler) compileAssign(
 	symbol *Symbol,
 	ident string,
 ) error {
-	if symbol.IsConstant() {
+	if symbol.Constant {
 		return c.errorf(node, "assignment to constant variable %q", ident)
 	}
 	switch symbol.Scope {

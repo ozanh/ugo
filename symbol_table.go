@@ -37,11 +37,6 @@ func (s *Symbol) String() string {
 		s.Name, s.Index, s.Scope, s.Assigned, s.Original, s.Constant)
 }
 
-// IsConstant reports whether this symbol or its parent symbol is a constant.
-func (s *Symbol) IsConstant() bool {
-	return s.Constant || s.Original != nil && s.Original.IsConstant()
-}
-
 // SymbolTable represents a symbol table.
 type SymbolTable struct {
 	parent           *SymbolTable
@@ -194,13 +189,14 @@ func (st *SymbolTable) DefineLocal(name string) (*Symbol, bool) {
 }
 
 func (st *SymbolTable) defineFree(original *Symbol) *Symbol {
-	// no duplicates symbol exists in "frees" because it is stored in map
+	// no duplicate symbol exists in "frees" because it is stored in map
 	// and next Resolve call returns existing symbol
 	st.frees = append(st.frees, original)
 	symbol := &Symbol{
 		Name:     original.Name,
 		Index:    len(st.frees) - 1,
 		Scope:    ScopeFree,
+		Constant: original.Constant,
 		Original: original,
 	}
 	st.store[original.Name] = symbol

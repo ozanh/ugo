@@ -463,6 +463,41 @@ func TestVMConst(t *testing.T) {
 		}
 	}`, newOpts().CompilerError(),
 		`Compile Error: assignment to constant variable "x"`)
+	expectErrHas(t, `
+	const x = 1
+	if x {
+		func() {
+			func() {
+				for {
+					x = 2
+				}
+			}
+		}
+	}`, newOpts().CompilerError(),
+		`Compile Error: assignment to constant variable "x"`)
+
+	// FIXME: Compiler does not compile if or else blocks if condition is
+	// a *BoolLit (which may be reduced by optimizer). So compiler does not
+	// check whether a constant is reassigned in block to throw an error.
+	// A few examples for this issue.
+	expectRun(t, `
+	const x = 1
+	if true {
+		
+	} else {
+		// block is not compiled
+		x = 2
+	}
+	return x
+	`, nil, Int(1))
+	expectRun(t, `
+	const x = 1
+	if false {
+		// block is not compiled
+		x = 2
+	}
+	return x
+	`, nil, Int(1))
 
 	expectRun(t, `const x = 1; return x`, nil, Int(1))
 	expectRun(t, `const x = "1"; return x`, nil, String("1"))
