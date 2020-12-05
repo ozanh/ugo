@@ -1,5 +1,15 @@
+// Fibonacci test script
+//
+// runtime.Gosched() calls are required to test context
+// cancellation/timeout and to abort VM execution
+global Gosched
+Gosched()
+
 var fib
 fib = func(n, a, b) {
+	if n % 10 == 0 {
+		Gosched()
+	}
 	if n == 0 {
 		return a
 	} else if n == 1 {

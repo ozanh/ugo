@@ -58,6 +58,18 @@ var (
 	initialSuggLen int
 )
 
+var scriptGlobals = &ugo.SyncMap{
+	Map: ugo.Map{
+		"Gosched": &ugo.Function{
+			Name: "Gosched",
+			Value: func(args ...ugo.Object) (ugo.Object, error) {
+				runtime.Gosched()
+				return ugo.Undefined, nil
+			},
+		},
+	},
+}
+
 var grepl *repl
 
 type repl struct {
@@ -95,7 +107,7 @@ func newREPL(ctx context.Context, stdout io.Writer, cw prompt.ConsoleWriter) *re
 	}
 	r := &repl{
 		ctx:    ctx,
-		eval:   ugo.NewEval(opts, nil),
+		eval:   ugo.NewEval(opts, scriptGlobals),
 		werr:   cw,
 		wout:   cw,
 		stdout: stdout,
@@ -425,7 +437,7 @@ func executeScript(ctx context.Context, scr []byte, traceOut io.Writer) error {
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
-		_, err = vm.Run(nil)
+		_, err = vm.Run(scriptGlobals)
 	}()
 	select {
 	case <-done:

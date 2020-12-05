@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"github.com/c-bata/go-prompt"
+	"github.com/ozanh/ugo"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -49,10 +50,10 @@ func TestREPL(t *testing.T) {
 	require.Equal(t, "", string(testReadAll(t, stdout)))
 
 	r.executor(".globals")
-	testHasPrefix(t, string(testReadAll(t, stdout)), "{}")
+	testHasPrefix(t, string(testReadAll(t, stdout)), `{"Gosched": <function:Gosched>}`)
 
 	r.executor(".globals+")
-	testHasPrefix(t, string(testReadAll(t, stdout)), "ugo.Map{}")
+	testHasPrefix(t, string(testReadAll(t, stdout)), "&ugo.SyncMap{")
 
 	r.executor(".locals")
 	testHasPrefix(t, string(testReadAll(t, stdout)), "[1]\n")
@@ -158,7 +159,11 @@ func TestExecuteScript(t *testing.T) {
 	require.NoError(t, executeScript(context.Background(), scr, nil))
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
-	require.Equal(t, context.Canceled, executeScript(ctx, scr, nil))
+	err = executeScript(ctx, scr, nil)
+	require.Error(t, err)
+	if err != context.Canceled && err != ugo.ErrVMAborted {
+		t.Fatalf("unexpected error: %+v", err)
+	}
 }
 
 func testHasPrefix(t *testing.T, s, pref string) {
