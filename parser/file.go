@@ -20,6 +20,7 @@ import (
 type File struct {
 	InputFile *SourceFile
 	Stmts     []Stmt
+	Comments  []*CommentGroup
 }
 
 // Pos returns the position of first character belonging to the node.

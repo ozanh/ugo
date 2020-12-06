@@ -200,6 +200,11 @@ func (f *SourceFile) Offset(p Pos) int {
 	return int(p) - f.Base
 }
 
+// Line returns the line of given position.
+func (f *SourceFile) Line(p Pos) int {
+	return f.Position(p).Line
+}
+
 // Position translates the file set position into the file position.
 func (f *SourceFile) Position(p Pos) (pos SourceFilePos) {
 	if p != NoPos {

@@ -379,7 +379,7 @@ func TestVMAssignment(t *testing.T) {
 		return {
 			b: func() { a += 3 },
 			c: func() { a += 2 },
-			d: func() { return a }
+			d: func() { return a },
 		}
 	}
 	m := f()
@@ -435,8 +435,8 @@ func TestVMAssignment(t *testing.T) {
 		c: {
 			d: 8,
 			e: "foo",
-			f: [9, 8]
-		}
+			f: [9, 8],
+		},
 	}
 	a.c.f[1] += 2
 	return a["c"]["f"][1]
@@ -448,8 +448,8 @@ func TestVMAssignment(t *testing.T) {
 		c: {
 			d: 8,
 			e: "foo",
-			f: [9, 8]
-		}
+			f: [9, 8],
+		},
 	}
 	a.c.h = "bar"
 	return a.c.h
@@ -461,8 +461,8 @@ func TestVMAssignment(t *testing.T) {
 		c: {
 			d: 8,
 			e: "foo",
-			f: [9, 8]
-		}
+			f: [9, 8],
+		},
 	}
 	a.x.e = "bar"`, nil, ErrNotIndexAssignable)
 
@@ -2294,7 +2294,7 @@ func TestVMMap(t *testing.T) {
 	return {
 		one: 10 - 9,
 		two: 1 + 1,
-		three: 6 / 2
+		three: 6 / 2,
 	}`, nil, Map{
 		"one":   Int(1),
 		"two":   Int(2),
@@ -2305,7 +2305,7 @@ func TestVMMap(t *testing.T) {
 	return {
 		"one": 10 - 9,
 		"two": 1 + 1,
-		"three": 6 / 2
+		"three": 6 / 2,
 	}`, nil, Map{
 		"one":   Int(1),
 		"two":   Int(2),
@@ -2321,7 +2321,7 @@ func TestVMMap(t *testing.T) {
 	m := {
 		foo: func(x) {
 			return x * 2
-		}
+		},
 	}
 	return m["foo"](2) + m["foo"](3)
 	`, nil, Int(10))
@@ -2714,9 +2714,9 @@ func TestVMSelector(t *testing.T) {
 	a := {
 		b: {
 			c: 4,
-			a: false
+			a: false,
 		},
-		c: "foo bar"
+		c: "foo bar",
 	}
 	_ := a.b.c
 	return a.b.c`, nil, Int(4))
@@ -2725,9 +2725,9 @@ func TestVMSelector(t *testing.T) {
 	a := {
 		b: {
 			c: 4,
-			a: false
+			a: false,
 		},
-		c: "foo bar"
+		c: "foo bar",
 	}
 	_ := a.x.c
 	return a.x.c`, nil, Undefined)
@@ -2736,9 +2736,9 @@ func TestVMSelector(t *testing.T) {
 	a := {
 		b: {
 			c: 4,
-			a: false
+			a: false,
 		},
-		c: "foo bar"
+		c: "foo bar",
 	}
 	_ := a.x.y
 	return a.x.y`, nil, Undefined)
@@ -2772,8 +2772,8 @@ func TestVMSelector(t *testing.T) {
 		c: {
 			d: 8,
 			e: "foo",
-			f: [9, 8]
-		}
+			f: [9, 8],
+		},
 	}
 	return [a.b[2], a.c.d, a.c.e, a.c.f[1]]
 	`, nil, Array{Int(3), Int(8), String("foo"), Int(8)})
@@ -3172,7 +3172,7 @@ func TestVMCallCompiledFunction(t *testing.T) {
 		"sub": func(x) {
 			v-=x
 			return v
-		}
+		},
 	}
 	`
 	c, err := Compile([]byte(script), CompilerOptions{})

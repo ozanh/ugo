@@ -52,7 +52,7 @@ func (s *ParamSpec) End() Pos {
 
 // End returns the position of first character immediately after the spec.
 func (s *ValueSpec) End() Pos {
-	if n := len(s.Values); n > 0 {
+	if n := len(s.Values); n > 0 && s.Values[n-1] != nil {
 		return s.Values[n-1].End()
 	}
 	return s.Idents[len(s.Idents)-1].End()
@@ -61,7 +61,7 @@ func (s *ValueSpec) End() Pos {
 func (s *ParamSpec) String() string {
 	str := s.Ident.String()
 	if s.Variadic {
-		str += token.Ellipsis.String()
+		str = token.Ellipsis.String() + str
 	}
 	return str
 }

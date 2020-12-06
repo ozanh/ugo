@@ -16,7 +16,7 @@ func TestIdentListString(t *testing.T) {
 		VarArgs: true,
 	}
 
-	expectedVar := "(a, b, c...)"
+	expectedVar := "(a, b, ...c)"
 	if str := identListVar.String(); str != expectedVar {
 		t.Fatalf("expected string of %#v to be %s, got %s",
 			identListVar, expectedVar, str)

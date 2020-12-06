@@ -24,6 +24,14 @@ import (
 	"github.com/ozanh/ugo/token"
 )
 
+// Mode value is a set of flags for parser.
+type Mode int
+
+const (
+	// ParseComments parses comments and add them to AST
+	ParseComments Mode = 1 << iota
+)
+
 type bailout struct{}
 
 var stmtStart = map[token.Token]bool{
@@ -123,20 +131,37 @@ type Parser struct {
 	syncCount int // number of advance calls without progress
 	trace     bool
 	indent    int
+	mode      Mode
 	traceOut  io.Writer
+	comments  []*CommentGroup
 }
 
 // NewParser creates a Parser.
 func NewParser(file *SourceFile, src []byte, trace io.Writer) *Parser {
+	return NewParserWithMode(file, src, trace, 0)
+}
+
+// NewParserWithMode creates a Parser with parser mode flags.
+func NewParserWithMode(
+	file *SourceFile,
+	src []byte,
+	trace io.Writer,
+	mode Mode,
+) *Parser {
 	p := &Parser{
 		file:     file,
 		trace:    trace != nil,
 		traceOut: trace,
+		mode:     mode,
+	}
+	var m ScanMode
+	if mode&ParseComments != 0 {
+		m = ScanComments
 	}
 	p.scanner = NewScanner(p.file, src,
 		func(pos SourceFilePos, msg string) {
 			p.errors.Add(pos, msg)
-		}, 0)
+		}, m)
 	p.next()
 	return p
 }
@@ -170,6 +195,7 @@ func (p *Parser) ParseFile() (file *File, err error) {
 	file = &File{
 		InputFile: p.file,
 		Stmts:     stmts,
+		Comments:  p.comments,
 	}
 	return
 }
@@ -302,9 +328,10 @@ func (p *Parser) parseCall(x Expr) *CallExpr {
 		if ellipsis.IsValid() {
 			break
 		}
-		if !p.expectComma(token.RParen, "call argument") {
+		if !p.atComma("argument list", token.RParen) {
 			break
 		}
+		p.next()
 	}
 
 	p.exprLevel--
@@ -318,19 +345,17 @@ func (p *Parser) parseCall(x Expr) *CallExpr {
 	}
 }
 
-func (p *Parser) expectComma(closing token.Token, want string) bool {
+func (p *Parser) atComma(context string, follow token.Token) bool {
 	if p.token == token.Comma {
-		p.next()
-
-		if p.token == closing {
-			p.errorExpected(p.pos, want)
-			return false
-		}
 		return true
 	}
-
-	if p.token == token.Semicolon && p.tokenLit == "\n" {
-		p.next()
+	if p.token != follow {
+		msg := "missing ','"
+		if p.token == token.Semicolon && p.tokenLit == "\n" {
+			msg += " before newline"
+		}
+		p.error(p.pos, msg+" in "+context)
+		return true // "insert" comma and continue
 	}
 	return false
 }
@@ -558,9 +583,10 @@ func (p *Parser) parseArrayLit() Expr {
 	for p.token != token.RBrack && p.token != token.EOF {
 		elements = append(elements, p.parseExpr())
 
-		if !p.expectComma(token.RBrack, "array element") {
+		if !p.atComma("array literal", token.RBrack) {
 			break
 		}
+		p.next()
 	}
 
 	p.exprLevel--
@@ -635,20 +661,17 @@ func (p *Parser) parseIdentList() *IdentList {
 	var params []*Ident
 	lparen := p.expect(token.LParen)
 	var varArgs bool
-	if p.token != token.RParen {
+
+	for p.token != token.RParen && p.token != token.EOF && !varArgs {
 		if p.token == token.Ellipsis {
 			varArgs = true
 			p.next()
 		}
 		params = append(params, p.parseIdent())
-		for !varArgs && p.token == token.Comma {
-			p.next()
-			if p.token == token.Ellipsis {
-				varArgs = true
-				p.next()
-			}
-			params = append(params, p.parseIdent())
+		if !p.atComma("parameter list", token.RParen) {
+			break
 		}
+		p.next()
 	}
 
 	rparen := p.expect(token.RParen)
@@ -1240,9 +1263,10 @@ func (p *Parser) parseMapLit() *MapLit {
 	for p.token != token.RBrace && p.token != token.EOF {
 		elements = append(elements, p.parseMapElementLit())
 
-		if !p.expectComma(token.RBrace, "map element") {
+		if !p.atComma("map literal", token.RBrace) {
 			break
 		}
+		p.next()
 	}
 
 	p.exprLevel--
@@ -1327,7 +1351,39 @@ func (p *Parser) errorExpected(pos Pos, msg string) {
 	p.error(pos, msg)
 }
 
-func (p *Parser) next() {
+func (p *Parser) consumeComment() (comment *Comment, endline int) {
+	// /*-style comments may end on a different line than where they start.
+	// Scan the comment for '\n' chars and adjust endline accordingly.
+	endline = p.file.Line(p.pos)
+	if p.tokenLit[1] == '*' {
+		// don't use range here - no need to decode Unicode code points
+		for i := 0; i < len(p.tokenLit); i++ {
+			if p.tokenLit[i] == '\n' {
+				endline++
+			}
+		}
+	}
+
+	comment = &Comment{Slash: p.pos, Text: p.tokenLit}
+	p.next0()
+	return
+}
+
+func (p *Parser) consumeCommentGroup(n int) (comments *CommentGroup) {
+	var list []*Comment
+	endline := p.file.Line(p.pos)
+	for p.token == token.Comment && p.file.Line(p.pos) <= endline+n {
+		var comment *Comment
+		comment, endline = p.consumeComment()
+		list = append(list, comment)
+	}
+
+	comments = &CommentGroup{List: list}
+	p.comments = append(p.comments, comments)
+	return
+}
+
+func (p *Parser) next0() {
 	if p.trace && p.pos.IsValid() {
 		s := p.token.String()
 		switch {
@@ -1340,6 +1396,22 @@ func (p *Parser) next() {
 		}
 	}
 	p.token, p.tokenLit, p.pos = p.scanner.Scan()
+}
+
+func (p *Parser) next() {
+	prev := p.pos
+	p.next0()
+	if p.token == token.Comment {
+		if p.file.Line(p.pos) == p.file.Line(prev) {
+			// line comment of prev token
+			_ = p.consumeCommentGroup(0)
+		}
+		// consume successor comments, if any
+		for p.token == token.Comment {
+			// lead comment of next token
+			_ = p.consumeCommentGroup(1)
+		}
+	}
 }
 
 func (p *Parser) printTrace(a ...interface{}) {

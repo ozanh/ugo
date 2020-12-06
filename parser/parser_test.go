@@ -153,6 +153,17 @@ func TestParseDecl(t *testing.T) {
 			),
 		)
 	})
+	expectParseString(t, "param x", "param x")
+	expectParseString(t, "param (\nx\n)", "param (x)")
+	expectParseString(t, "param (\nx\ny)", "param (x, y)")
+	expectParseString(t, "param (\nx\ny\n)", "param (x, y)")
+	expectParseString(t, "param (x,y)", "param (x, y)")
+	expectParseString(t, "param (x,\ny)", "param (x, y)")
+	expectParseString(t, "param (x\ny)", "param (x, y)")
+	expectParseString(t, "param ...x", "param ...x")
+	expectParseString(t, "param (x,...y)", "param (x, ...y)")
+	expectParseString(t, "param (x,\n...y)", "param (x, ...y)")
+
 	expectParse(t, `global a`, func(p pfn) []Stmt {
 		return stmts(
 			declStmt(
@@ -210,6 +221,14 @@ b)`, func(p pfn) []Stmt {
 			),
 		)
 	})
+	expectParseString(t, "global x", "global x")
+	expectParseString(t, "global (\nx\n)", "global (x)")
+	expectParseString(t, "global (x,y)", "global (x, y)")
+	expectParseString(t, "global (x\ny)", "global (x, y)")
+	expectParseString(t, "global (\nx\ny)", "global (x, y)")
+	expectParseString(t, "global (x,\ny)", "global (x, y)")
+	expectParseString(t, "global (x\ny)", "global (x, y)")
+
 	expectParse(t, `var a`, func(p pfn) []Stmt {
 		return stmts(
 			declStmt(
@@ -368,6 +387,16 @@ b=2)`, func(p pfn) []Stmt {
 			),
 		)
 	})
+	expectParseString(t, "var x", "var x")
+	expectParseString(t, "var (\nx\n)", "var (x)")
+	expectParseString(t, "var (x,y)", "var (x, y)")
+	expectParseString(t, "var (x\ny)", "var (x, y)")
+	expectParseString(t, "var (\nx\ny)", "var (x, y)")
+	expectParseString(t, "var (x,\ny)", "var (x, y)")
+	expectParseString(t, "var (x=1,\ny)", "var (x = 1, y)")
+	expectParseString(t, "var (x,\ny = 2)", "var (x, y = 2)")
+	expectParseString(t, "var (x\ny)", "var (x, y)")
+
 	expectParse(t, `const a = 1`, func(p pfn) []Stmt {
 		return stmts(
 			declStmt(
@@ -429,6 +458,13 @@ const (
 			),
 		)
 	})
+	expectParseString(t, "const x=1", "const x = 1")
+	expectParseString(t, "const (\nx=1\n)", "const (x = 1)")
+	expectParseString(t, "const (x=1,y=2)", "const (x = 1, y = 2)")
+	expectParseString(t, "const (x=1\ny=2)", "const (x = 1, y = 2)")
+	expectParseString(t, "const (\nx=1\ny=2)", "const (x = 1, y = 2)")
+	expectParseString(t, "const (x=1,\ny=2)", "const (x = 1, y = 2)")
+
 	expectParseError(t, `param a,b`)
 	expectParseError(t, `param (a... ,b)`)
 	expectParseError(t, `param (... ,b)`)
@@ -552,7 +588,7 @@ func TestParseArray(t *testing.T) {
 [
 	1, 
 	2, 
-	3
+	3,
 ]`, func(p pfn) []Stmt {
 		return stmts(
 			exprStmt(
@@ -565,7 +601,7 @@ func TestParseArray(t *testing.T) {
 [
 	1, 
 	2, 
-	3
+	3,
 
 ]`, func(p pfn) []Stmt {
 		return stmts(
@@ -619,18 +655,22 @@ func TestParseArray(t *testing.T) {
 				p(1, 3)))
 	})
 
-	expectParseError(t, `[1, 2, 3,]`)
+	expectParseError(t, "[,]")
+	expectParseError(t, "[1\n,]")
+	expectParseError(t, "[1,\n2\n,]")
+	expectParseError(t, `[1, 2, 3
+	,]`)
 	expectParseError(t, `
 [
 	1, 
 	2, 
-	3,
+	3
 ]`)
 	expectParseError(t, `
 [
 	1, 
 	2, 
-	3,
+	3
 
 ]`)
 	expectParseError(t, `[1, 2, 3, ,]`)
@@ -880,6 +920,16 @@ func TestParseCall(t *testing.T) {
 	expectParseString(t, "f1(a) + f2(b) * f3(c)", "(f1(a) + (f2(b) * f3(c)))")
 	expectParseString(t, "(f1(a) + f2(b)) * f3(c)",
 		"(((f1(a) + f2(b))) * f3(c))")
+	expectParseString(t, "f(1,)", "f(1)")
+	expectParseString(t, "f(1,\n)", "f(1)")
+	expectParseString(t, "f(\n1,\n)", "f(1)")
+	expectParseString(t, "f(1,2,)", "f(1, 2)")
+	expectParseString(t, "f(1,2,\n)", "f(1, 2)")
+	expectParseString(t, "f(1,\n2,)", "f(1, 2)")
+	expectParseString(t, "f(1,\n2,\n)", "f(1, 2)")
+	expectParseString(t, "f(1,\n2,)", "f(1, 2)")
+	expectParseString(t, "f(\n1,\n2,)", "f(1, 2)")
+	expectParseString(t, "f(\n1,\n2)", "f(1, 2)")
 
 	expectParse(t, "func(a, b) { a + b }(1, 2)", func(p pfn) []Stmt {
 		return stmts(
@@ -950,6 +1000,10 @@ func TestParseCall(t *testing.T) {
 	expectParseError(t, `add(1, ..., )`)
 	expectParseError(t, `add(a...)`)
 	expectParseError(t, `add(...a,)`)
+	expectParseError(t, `add(,)`)
+	expectParseError(t, "add(\n,)")
+	expectParseError(t, "add(1\n,)")
+	expectParseError(t, "add(1,2\n,)")
 }
 
 func TestParseChar(t *testing.T) {
@@ -1231,6 +1285,33 @@ func TestParseFunction(t *testing.T) {
 				token.Assign,
 				p(1, 3)))
 	})
+	expectParseString(t, "func(){}", "func() {}")
+	expectParseString(t, "func(\n){}", "func() {}")
+	expectParseString(t, "func(a,){}", "func(a) {}")
+	expectParseString(t, "func(\na,\n){}", "func(a) {}")
+	expectParseString(t, "func(a,\n){}", "func(a) {}")
+	expectParseString(t, "func(\na,\n){}", "func(a) {}")
+	expectParseString(t, "func(a,b,\n){}", "func(a, b) {}")
+	expectParseString(t, "func(a,\nb,\n){}", "func(a, b) {}")
+	expectParseString(t, "func(a,\nb){}", "func(a, b) {}")
+	expectParseString(t, "func(a,\nb,){}", "func(a, b) {}")
+	expectParseString(t, "func(a,...b){}", "func(a, ...b) {}")
+	expectParseString(t, "func(a,...b,){}", "func(a, ...b) {}")
+	expectParseString(t, "func(a,...b,\n){}", "func(a, ...b) {}")
+	expectParseString(t, "func(a,b,...c,\n){}", "func(a, b, ...c) {}")
+	expectParseString(t, "func(a,b,\n...c,\n){}", "func(a, b, ...c) {}")
+	expectParseString(t, "func(\na,\nb,\n...c,\n){}", "func(a, b, ...c) {}")
+
+	expectParseError(t, "func(,){}")
+	expectParseError(t, "func(,a){}")
+	expectParseError(t, "func(a\n,){}")
+	expectParseError(t, "func(a\n\n,){}")
+	expectParseError(t, "func(...a\n,){}")
+	expectParseError(t, "func(...a,...b){}")
+	expectParseError(t, "func(a\n,...b){}")
+	expectParseError(t, "func(\na\n,...b){}")
+	expectParseError(t, "func(...a,\n...b){}")
+	expectParseError(t, "func(...a,b){}")
 }
 
 func TestParseVariadicFunction(t *testing.T) {
@@ -1741,7 +1822,7 @@ func TestParseMap(t *testing.T) {
 {
 	key1: 1,
 	key2: "2",
-	key3: true
+	key3: true,
 }`, func(p pfn) []Stmt {
 		return stmts(exprStmt(
 			mapLit(p(2, 1), p(6, 1),
@@ -1753,17 +1834,19 @@ func TestParseMap(t *testing.T) {
 					"key3", p(5, 2), p(5, 6), boolLit(true, p(5, 8))))))
 	})
 
+	expectParseError(t, "{,}")
+	expectParseError(t, "{\n,}")
+	expectParseError(t, "{key: 1\n,}")
 	expectParseError(t, `
 {
 	key1: 1,
 	key2: "2",
-	key3: true,
-}`) // unlike Go, trailing comma for the last element is illegal
+	key3: true
+,}`)
 
-	expectParseError(t, `{ key1: 1, }`)
 	expectParseError(t, `{
 key1: 1,
-key2: 2,
+key2: 2
 }`)
 	expectParseError(t, `{1: 1}`)
 }

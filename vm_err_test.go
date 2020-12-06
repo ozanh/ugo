@@ -273,7 +273,7 @@ func TestVMCatchAll(t *testing.T) {
 		catchAll(sum, 1, 2),
 		catchAll(sum, 1),
 		catchAll(sum),
-		catchAll(sum, 1, 2, 3, 4)
+		catchAll(sum, 1, 2, 3, 4),
 	])
 	`, newOpts().Module("catchAll", catchAll),
 		Array{
@@ -326,7 +326,7 @@ func TestVMCatchAll(t *testing.T) {
 		catchAll2(sum, onError, 10),
 		catchAll2(sum, onError),
 		catchAll2(sum, onError, 10, 20, 30, 40),
-		catchAll2(sum, onError, 11, 21, 31)
+		catchAll2(sum, onError, 11, 21, 31),
 	]
 	`, newOpts().Module("catchAll2", catchAll2),
 		Array{
@@ -666,13 +666,13 @@ func TestVMExamples(t *testing.T) {
 	// return a map to the module importer to export objects.
 	return {
 		Sum: sum,
-		NumOfErrors: func() { return numOfErrors }
+		NumOfErrors: func() { return numOfErrors },
 	}
 `
 	ex1MainScript := `
 	// This example is to show some features of uGO.
 
-	//  provide arguments as if main module body is a function.
+	// provide arguments as if main module body is a function.
 	param (a0, a1, ...args)
 	
 	intSum := func(callback, ...args) {
@@ -682,7 +682,7 @@ func TestVMExamples(t *testing.T) {
 				if !isInt(v) {
 					return TypeError.New(sprintf("want int, got %s", typeName(v)))
 				}
-			}
+			},
 		}
 		return callback(check, ...args)
 	}
@@ -707,7 +707,7 @@ func TestVMExamples(t *testing.T) {
 			return {
 				Total: total,
 				Error: sprintf("%+v", err),
-				ModuleErrors: module.NumOfErrors()
+				ModuleErrors: module.NumOfErrors(),
 			}
 		}
 	} finally {
