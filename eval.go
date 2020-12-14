@@ -66,18 +66,27 @@ func (r *Eval) Run(ctx context.Context, script []byte) (Object, *Bytecode, error
 func (r *Eval) run(ctx context.Context) (ret Object, err error) {
 	ret = Undefined
 	doneCh := make(chan struct{})
-	go func() {
-		defer close(doneCh)
-		ret, err = r.VM.Run(r.Globals, r.Locals...)
-	}()
+	// Always check whether context is done before running VM because
+	// parser and compiler may take longer than expected or context may be
+	// canceled for any reason before run, so use two selects.
 	select {
 	case <-ctx.Done():
 		r.VM.Abort()
-		<-doneCh
-		if err == nil {
-			err = ctx.Err()
+		err = ctx.Err()
+	default:
+		go func() {
+			defer close(doneCh)
+			ret, err = r.VM.Run(r.Globals, r.Locals...)
+		}()
+		select {
+		case <-ctx.Done():
+			r.VM.Abort()
+			<-doneCh
+			if err == nil {
+				err = ctx.Err()
+			}
+		case <-doneCh:
 		}
-	case <-doneCh:
 	}
 	return
 }
