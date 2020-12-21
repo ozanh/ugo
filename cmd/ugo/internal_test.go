@@ -81,6 +81,16 @@ func TestREPL(t *testing.T) {
 	r.executor(".modules_cache")
 	testHasPrefix(t, string(testReadAll(t, stdout)), "[{")
 
+	r.executor(`import("strings")`)
+	testHasPrefix(t, string(cw.consume()), "{")
+	r.executor(".modules_cache")
+	testHasPrefix(t, string(testReadAll(t, stdout)), "[{")
+
+	r.executor(`import("fmt")`)
+	testHasPrefix(t, string(cw.consume()), "{")
+	r.executor(".modules_cache")
+	testHasPrefix(t, string(testReadAll(t, stdout)), "[{")
+
 	r.executor(".memory_stats")
 	testHasPrefix(t, string(testReadAll(t, stdout)), "Go Memory Stats")
 

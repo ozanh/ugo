@@ -23,6 +23,7 @@ import (
 	"github.com/ozanh/ugo"
 	"github.com/ozanh/ugo/token"
 
+	ugofmt "github.com/ozanh/ugo/stdlib/fmt"
 	ugostrings "github.com/ozanh/ugo/stdlib/strings"
 	ugotime "github.com/ozanh/ugo/stdlib/time"
 )
@@ -86,8 +87,9 @@ type repl struct {
 
 func newREPL(ctx context.Context, stdout io.Writer, cw prompt.ConsoleWriter) *repl {
 	moduleMap := ugo.NewModuleMap()
-	moduleMap.AddBuiltinModule("time", ugotime.Module)
-	moduleMap.AddBuiltinModule("strings", ugostrings.Module)
+	moduleMap.AddBuiltinModule("time", ugotime.Module).
+		AddBuiltinModule("strings", ugostrings.Module).
+		AddBuiltinModule("fmt", ugofmt.Module)
 	opts := ugo.CompilerOptions{
 		ModulePath:        "(repl)",
 		ModuleMap:         moduleMap,
@@ -427,7 +429,8 @@ func executeScript(ctx context.Context, scr []byte, traceOut io.Writer) error {
 	}
 	opts.ModuleMap = ugo.NewModuleMap().
 		AddBuiltinModule("time", ugotime.Module).
-		AddBuiltinModule("strings", ugostrings.Module)
+		AddBuiltinModule("strings", ugostrings.Module).
+		AddBuiltinModule("fmt", ugofmt.Module)
 
 	bc, err := ugo.Compile(scr, opts)
 	if err != nil {
