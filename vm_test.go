@@ -3252,6 +3252,32 @@ func TestVMClosure(t *testing.T) {
 		return [a, t]
 	}
 	return x()`, nil, Array{Int(11), Int(21)})
+
+	expectRun(t, `
+	var f
+	for i:=0; i<3; i++ {
+		f = func(){
+			return i
+		}
+	}
+	return f()
+	`, nil, Int(3))
+
+	expectRun(t, `
+	fns :=  []
+	for i:=0; i<3; i++ {
+		i := i
+		fns = append(fns, func(){
+			return i
+		})
+	}
+
+	ret := []
+	for f in fns {
+		ret = append(ret, f())
+	}
+	return ret
+	`, nil, Array{Int(0), Int(1), Int(2)})
 }
 
 type testopts struct {
@@ -3353,8 +3379,12 @@ func expectErrAs(t *testing.T, script string, opts *testopts, asErr interface{},
 	})
 }
 
-func expectErrorGen(t *testing.T, script string, opts *testopts,
-	callback func(*testing.T, error)) {
+func expectErrorGen(
+	t *testing.T,
+	script string,
+	opts *testopts,
+	callback func(*testing.T, error),
+) {
 	t.Helper()
 	if opts == nil {
 		opts = newOpts()

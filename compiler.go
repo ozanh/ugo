@@ -656,7 +656,7 @@ func MakeInstruction(buf []byte, op Opcode, args ...int) ([]byte, error) {
 		return buf, nil
 	case OpGetBuiltin, OpReturn, OpBinaryOp, OpUnary, OpGetIndex, OpGetLocal,
 		OpSetLocal, OpGetFree, OpSetFree, OpGetLocalPtr, OpGetFreePtr, OpThrow,
-		OpFinalizer:
+		OpFinalizer, OpDefineLocal:
 		buf = append(buf, byte(args[0]))
 		return buf, nil
 	case OpEqual, OpNotEqual, OpNull, OpPop, OpSliceIndex, OpSetIndex,

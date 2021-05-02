@@ -11,19 +11,9 @@ import (
 
 func (c *Compiler) compileIfStmt(node *parser.IfStmt) error {
 	// open new symbol table for the statement
-	nextIndex := c.symbolTable.NextIndex()
 	c.symbolTable = c.symbolTable.Fork(true)
 	defer func() {
-		parent := c.symbolTable.Parent(false)
-		// set undefined to variables having no reference
-		maxSymbols := c.symbolTable.MaxSymbols()
-		for i := nextIndex; i < maxSymbols; i++ {
-			if !parent.IsIndexSkipped(i) {
-				c.emit(node, OpNull)
-				c.emit(node, OpSetLocal, i)
-			}
-		}
-		c.symbolTable = parent
+		c.symbolTable = c.symbolTable.Parent(false)
 	}()
 	if node.Init != nil {
 		if err := c.Compile(node.Init); err != nil {
@@ -99,20 +89,10 @@ func (c *Compiler) compileTryStmt(node *parser.TryStmt) error {
 		}
 	*/
 	// fork new symbol table for the statement
-	nextIndex := c.symbolTable.NextIndex()
 	c.symbolTable = c.symbolTable.Fork(true)
 	c.tryCatchIndex++
 	defer func() {
-		parent := c.symbolTable.Parent(false)
-		// set undefined to variables having no reference
-		maxSymbols := c.symbolTable.MaxSymbols()
-		for i := nextIndex; i < maxSymbols; i++ {
-			if !parent.IsIndexSkipped(i) {
-				c.emit(node, OpNull)
-				c.emit(node, OpSetLocal, i)
-			}
-		}
-		c.symbolTable = parent
+		c.symbolTable = c.symbolTable.Parent(false)
 		c.emit(node, OpThrow, 0) // implicit re-throw
 	}()
 	optry := c.emit(node, OpSetupTry, 0, 0)
@@ -127,6 +107,18 @@ func (c *Compiler) compileTryStmt(node *parser.TryStmt) error {
 	}
 	var opjump int
 	if node.Catch != nil {
+		// if there is no thrown error before catch statement, set catch ident to undefined
+		// otherwise jumping to finally and accessing ident in finally access previous set same index variable.
+		if node.Catch.Ident != nil {
+			c.emit(node.Catch, OpNull)
+			symbol, exists := c.symbolTable.DefineLocal(node.Catch.Ident.Name)
+			if exists {
+				c.emit(node, OpSetLocal, symbol.Index)
+			} else {
+				c.emit(node, OpDefineLocal, symbol.Index)
+			}
+		}
+
 		opjump = c.emit(node, OpJump, 0)
 		catchPos = len(c.instructions)
 		if err := c.Compile(node.Catch); err != nil {
@@ -156,10 +148,10 @@ func (c *Compiler) compileCatchStmt(node *parser.CatchStmt) error {
 	if node.Ident != nil {
 		symbol, exists := c.symbolTable.DefineLocal(node.Ident.Name)
 		if exists {
-			return c.errorf(node,
-				"%q redeclared in this block", node.Ident.Name)
+			c.emit(node, OpSetLocal, symbol.Index)
+		} else {
+			c.emit(node, OpDefineLocal, symbol.Index)
 		}
-		c.emit(node, OpSetLocal, symbol.Index)
 	} else {
 		c.emit(node, OpPop)
 	}
@@ -179,6 +171,7 @@ func (c *Compiler) compileFinallyStmt(node *parser.FinallyStmt) error {
 	if node.Body == nil {
 		return nil
 	}
+
 	// in order not to fork symbol table in Body, compile stmts here instead of in *BlockStmt
 	for _, stmt := range node.Body.Stmts {
 		if err := c.Compile(stmt); err != nil {
@@ -282,7 +275,7 @@ func (c *Compiler) checkAssignment(
 	keyword token.Token,
 	op token.Token,
 ) (bool, error) {
-	numLHS, numRHS := len(lhs), len(rhs)
+	_, numRHS := len(lhs), len(rhs)
 	if numRHS > 1 {
 		return false, c.errorf(node,
 			"multiple expressions on the right side not supported")
@@ -302,21 +295,8 @@ L:
 			// using selector on new variable does not make sense
 			return false, c.errorf(node, "operator ':=' not allowed with selector")
 		}
-	} else if op == token.Define && numLHS == 1 && numRHS == 1 {
-		// exception for variable := undefined
-		// all local variables are inited as undefined at VM, ignore if rhs[0] == undefined
-
-		if _, ok := rhs[0].(*parser.UndefinedLit); ok {
-			ident := lhs[0].(*parser.Ident) // must be Ident if it is not selector or index expr
-			symbol, exists := c.symbolTable.DefineLocal(ident.Name)
-			if exists {
-				return false, c.errorf(node, "%q redeclared in this block", ident)
-			}
-			symbol.Assigned = true
-			symbol.Constant = keyword == token.Const
-			return false, nil
-		}
 	}
+
 	return true, nil
 }
 
@@ -402,7 +382,7 @@ func (c *Compiler) compileDestructuring(
 	op token.Token,
 ) error {
 	c.emit(node, OpCall, 2, 0)
-	c.emit(node, OpSetLocal, tempArrSymbol.Index)
+	c.emit(node, OpDefineLocal, tempArrSymbol.Index)
 	numLHS := len(lhs)
 	var found int
 	for lhsIndex, expr := range lhs {
@@ -445,7 +425,7 @@ func (c *Compiler) compileDefine(
 	if symbol.Constant {
 		return c.errorf(node, "assignment to constant variable %q", ident)
 	}
-	c.emit(node, OpSetLocal, symbol.Index)
+	c.emit(node, OpDefineLocal, symbol.Index)
 	symbol.Assigned = true
 	symbol.Constant = keyword == token.Const
 	return nil
@@ -612,19 +592,10 @@ func (c *Compiler) compileReturnStmt(node *parser.ReturnStmt) error {
 }
 
 func (c *Compiler) compileForStmt(stmt *parser.ForStmt) error {
-	nextIndex := c.symbolTable.NextIndex()
+
 	c.symbolTable = c.symbolTable.Fork(true)
 	defer func() {
-		parent := c.symbolTable.Parent(false)
-		// set undefined to variables having no reference
-		maxSymbols := c.symbolTable.MaxSymbols()
-		for i := nextIndex; i < maxSymbols; i++ {
-			if !parent.IsIndexSkipped(i) {
-				c.emit(stmt, OpNull)
-				c.emit(stmt, OpSetLocal, i)
-			}
-		}
-		c.symbolTable = parent
+		c.symbolTable = c.symbolTable.Parent(false)
 	}()
 
 	// init statement
@@ -688,19 +659,9 @@ func (c *Compiler) compileForStmt(stmt *parser.ForStmt) error {
 }
 
 func (c *Compiler) compileForInStmt(stmt *parser.ForInStmt) error {
-	nextIndex := c.symbolTable.NextIndex()
 	c.symbolTable = c.symbolTable.Fork(true)
 	defer func() {
-		parent := c.symbolTable.Parent(false)
-		// set undefined to variables having no reference
-		maxSymbols := c.symbolTable.MaxSymbols()
-		for i := nextIndex; i < maxSymbols; i++ {
-			if !parent.IsIndexSkipped(i) {
-				c.emit(stmt, OpNull)
-				c.emit(stmt, OpSetLocal, i)
-			}
-		}
-		c.symbolTable = parent
+		c.symbolTable = c.symbolTable.Parent(false)
 	}()
 
 	// for-in statement is compiled like following:
@@ -724,7 +685,7 @@ func (c *Compiler) compileForInStmt(stmt *parser.ForInStmt) error {
 		return err
 	}
 	c.emit(stmt, OpIterInit)
-	c.emit(stmt, OpSetLocal, itSymbol.Index)
+	c.emit(stmt, OpDefineLocal, itSymbol.Index)
 
 	// pre-condition position
 	preCondPos := len(c.instructions)
@@ -749,7 +710,7 @@ func (c *Compiler) compileForInStmt(stmt *parser.ForInStmt) error {
 		c.emit(stmt, OpGetLocal, itSymbol.Index)
 		c.emit(stmt, OpIterKey)
 		keySymbol.Assigned = true
-		c.emit(stmt, OpSetLocal, keySymbol.Index)
+		c.emit(stmt, OpDefineLocal, keySymbol.Index)
 	}
 
 	// assign value variable
@@ -761,7 +722,7 @@ func (c *Compiler) compileForInStmt(stmt *parser.ForInStmt) error {
 		c.emit(stmt, OpGetLocal, itSymbol.Index)
 		c.emit(stmt, OpIterValue)
 		valueSymbol.Assigned = true
-		c.emit(stmt, OpSetLocal, valueSymbol.Index)
+		c.emit(stmt, OpDefineLocal, valueSymbol.Index)
 	}
 
 	// body statement
@@ -811,21 +772,8 @@ func (c *Compiler) compileFuncLit(node *parser.FuncLit) error {
 		switch s.Scope {
 		case ScopeLocal:
 			c.emit(node, OpGetLocalPtr, s.Index)
-			if c.symbolTable.InBlock() {
-				c.symbolTable.SkipIndex(s.Index)
-			}
 		case ScopeFree:
 			c.emit(node, OpGetFreePtr, s.Index)
-			if c.symbolTable.InBlock() {
-				ls := s.Original
-				for ls != nil {
-					if ls.Scope == ScopeLocal {
-						c.symbolTable.SkipIndex(s.Index)
-						break
-					}
-					ls = ls.Original
-				}
-			}
 		}
 	}
 

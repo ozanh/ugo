@@ -62,10 +62,20 @@ func TestEval(t *testing.T) {
 			},
 		},
 		{
-			name: "arguments",
+			name: "locals",
 			args: []Object{Int(1), Int(2)},
 			sr: []scriptResult{
 				{`var (a, b, c)`, Undefined},
+				{`a`, Undefined},
+				{`b`, Undefined},
+				{`c`, Undefined},
+			},
+		},
+		{
+			name: "params",
+			args: []Object{Int(1), Int(2)},
+			sr: []scriptResult{
+				{`param (a, b, c)`, Undefined},
 				{`a`, Int(1)},
 				{`b`, Int(2)},
 				{`c`, Undefined},

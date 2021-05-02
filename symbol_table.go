@@ -44,7 +44,6 @@ type SymbolTable struct {
 	numDefinition    int
 	numParams        int
 	store            map[string]*Symbol
-	skipIndex        map[int]struct{}
 	disabledBuiltins map[string]struct{}
 	frees            []*Symbol
 	block            bool
@@ -164,27 +163,21 @@ func (st *SymbolTable) DefineLocal(name string) (*Symbol, bool) {
 	if ok {
 		return symbol, true
 	}
+
 	index := st.NextIndex()
-	if _, ok := st.skipIndex[index]; ok {
-		st.numDefinition++
-		for {
-			index = st.NextIndex()
-			if _, ok := st.skipIndex[index]; ok {
-				st.numDefinition++
-			} else {
-				break
-			}
-		}
-	}
+
 	symbol = &Symbol{
 		Name:  name,
 		Index: index,
 		Scope: ScopeLocal,
 	}
+
 	st.numDefinition++
 	st.store[name] = symbol
+
 	st.updateMaxDefs(symbol.Index + 1)
 	st.shadowBuiltin(name)
+
 	return symbol, false
 }
 
@@ -268,24 +261,6 @@ func (st *SymbolTable) Symbols() []*Symbol {
 		return out[i].Index < out[j].Index
 	})
 	return out
-}
-
-// SkipIndex marks the symbol to be skipped in upper blocks to prevent overwriting.
-func (st *SymbolTable) SkipIndex(idx int) {
-	if st.block {
-		st.parent.SkipIndex(idx)
-	}
-	// create map lazily for less allocation
-	if st.skipIndex == nil {
-		st.skipIndex = make(map[int]struct{})
-	}
-	st.skipIndex[idx] = struct{}{}
-}
-
-// IsIndexSkipped returns true if symbol index is marked as skipped.
-func (st *SymbolTable) IsIndexSkipped(idx int) bool {
-	_, ok := st.skipIndex[idx]
-	return ok
 }
 
 // DisableBuiltin disables given builtin name(s).

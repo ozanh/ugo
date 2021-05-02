@@ -345,6 +345,37 @@ a = "123"       // reassigned 'string'
 a = [1, 2, 3]   // reassigned 'array'
 ```
 
+Capturing loop variables returns the last value of the variable set after last
+post statement of the for loop, like Go.
+
+```go
+var f
+
+for i := 0; i < 3; i++ {
+  f = func(){
+    return i
+  }  
+}
+
+println(f())  // 3
+```
+
+Like Go, to capture the variable define a new variable using same name or
+different.
+
+```go
+var f
+
+for i := 0; i < 3; i++ {
+  i := i
+  f = func(){
+    return i
+  }  
+}
+
+println(f())  // 2
+```
+
 ### const
 
 `const` keyword is used to declare a local constant variable. Parenthesis is

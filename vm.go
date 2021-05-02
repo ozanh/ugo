@@ -128,9 +128,11 @@ func (vm *VM) Abort() {
 func (vm *VM) Run(globals Object, args ...Object) (Object, error) {
 	vm.mu.Lock()
 	defer vm.mu.Unlock()
+
 	if vm.bytecode == nil || vm.bytecode.Main == nil {
 		return nil, errors.New("invalid Bytecode")
 	}
+
 	vm.err = nil
 	atomic.StoreInt64(&vm.abort, 0)
 	vm.initLocals(args)
@@ -147,6 +149,7 @@ func (vm *VM) Run(globals Object, args ...Object) (Object, error) {
 			vm.modulesCache = append(vm.modulesCache, nil)
 		}
 	}
+
 	func() {
 		defer func() {
 			if vm.noPanic {
@@ -161,6 +164,7 @@ func (vm *VM) Run(globals Object, args ...Object) (Object, error) {
 		}
 		vm.run(globals)
 	}()
+
 	if vm.err != nil {
 		return nil, vm.err
 	}
@@ -537,6 +541,12 @@ VMLoop:
 			vm.stack[vm.sp] = value
 			vm.sp++
 			vm.ip++
+		case OpDefineLocal:
+			localIndex := int(vm.curInsts[vm.ip+1])
+			vm.stack[vm.curFrame.basePointer+localIndex] = vm.stack[vm.sp-1]
+			vm.sp--
+			vm.stack[vm.sp] = nil
+			vm.ip++
 		case OpNull:
 			vm.stack[vm.sp] = Undefined
 			vm.sp++
@@ -645,16 +655,20 @@ VMLoop:
 }
 
 func (vm *VM) initLocals(args []Object) {
-	// init all locals as undefined
+	// init all params as undefined
+	numParams := vm.bytecode.Main.NumParams
 	locals := vm.stack[:vm.bytecode.Main.NumLocals]
+
+	// TODO (ozan): check why setting numParams fails some tests!
 	for i := 0; i < vm.bytecode.Main.NumLocals; i++ {
 		locals[i] = Undefined
 	}
-	numParams := vm.bytecode.Main.NumParams
+
 	// if main function is variadic, default value for last argument is empty array
 	if vm.bytecode.Main.Variadic {
 		vm.stack[numParams-1] = Array{}
 	}
+
 	// copy args to stack
 	if numParams > 0 {
 		if sz := len(args); sz < numParams {
@@ -663,6 +677,7 @@ func (vm *VM) initLocals(args []Object) {
 			for i := range args[:numParams-1] {
 				locals[i] = args[i]
 			}
+
 			if vm.bytecode.Main.Variadic {
 				locals[numParams-1] = append(Array{}, args[numParams-1:]...)
 			} else {
