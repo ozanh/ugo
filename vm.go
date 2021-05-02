@@ -20,80 +20,6 @@ const (
 	frameSize = 1024
 )
 
-type errHandler struct {
-	sp       int
-	catch    int
-	finally  int
-	returnTo int
-}
-
-type errHandlers struct {
-	handlers []errHandler
-	err      *RuntimeError
-}
-
-func (t *errHandlers) hasError() bool {
-	return t != nil && t.err != nil
-}
-
-func (t *errHandlers) pop() bool {
-	if t == nil {
-		return false
-	}
-	if len(t.handlers) > 0 {
-		t.handlers = t.handlers[:len(t.handlers)-1]
-		return true
-	}
-	return false
-}
-
-func (t *errHandlers) last() *errHandler {
-	if t == nil {
-		return nil
-	}
-	if len(t.handlers) > 0 {
-		return &t.handlers[len(t.handlers)-1]
-	}
-	return nil
-}
-
-func (t *errHandlers) hasHandler() bool {
-	return t != nil && len(t.handlers) > 0
-}
-
-func (t *errHandlers) findFinally(upto int) int {
-	if t == nil {
-		return 0
-	}
-start:
-	index := len(t.handlers) - 1
-	if index < upto || index < 0 {
-		return 0
-	}
-
-	p := t.handlers[index].finally
-	if p == 0 {
-		t.pop()
-		goto start
-	}
-	return p
-}
-
-func (t *errHandlers) hasReturnTo() int {
-	if t.hasHandler() {
-		return t.handlers[len(t.handlers)-1].returnTo
-	}
-	return 0
-}
-
-type frame struct {
-	fn          *CompiledFunction
-	freeVars    []*ObjectPtr
-	ip          int
-	basePointer int
-	errHandlers *errHandlers
-}
-
 // VM executes the instructions in Bytecode.
 type VM struct {
 	abort        int64
@@ -1265,6 +1191,80 @@ func (vm *VM) getSourcePos() parser.Pos {
 		return parser.NoPos
 	}
 	return vm.curFrame.fn.SourcePos(vm.ip)
+}
+
+type errHandler struct {
+	sp       int
+	catch    int
+	finally  int
+	returnTo int
+}
+
+type errHandlers struct {
+	handlers []errHandler
+	err      *RuntimeError
+}
+
+func (t *errHandlers) hasError() bool {
+	return t != nil && t.err != nil
+}
+
+func (t *errHandlers) pop() bool {
+	if t == nil {
+		return false
+	}
+	if len(t.handlers) > 0 {
+		t.handlers = t.handlers[:len(t.handlers)-1]
+		return true
+	}
+	return false
+}
+
+func (t *errHandlers) last() *errHandler {
+	if t == nil {
+		return nil
+	}
+	if len(t.handlers) > 0 {
+		return &t.handlers[len(t.handlers)-1]
+	}
+	return nil
+}
+
+func (t *errHandlers) hasHandler() bool {
+	return t != nil && len(t.handlers) > 0
+}
+
+func (t *errHandlers) findFinally(upto int) int {
+	if t == nil {
+		return 0
+	}
+start:
+	index := len(t.handlers) - 1
+	if index < upto || index < 0 {
+		return 0
+	}
+
+	p := t.handlers[index].finally
+	if p == 0 {
+		t.pop()
+		goto start
+	}
+	return p
+}
+
+func (t *errHandlers) hasReturnTo() int {
+	if t.hasHandler() {
+		return t.handlers[len(t.handlers)-1].returnTo
+	}
+	return 0
+}
+
+type frame struct {
+	fn          *CompiledFunction
+	freeVars    []*ObjectPtr
+	ip          int
+	basePointer int
+	errHandlers *errHandlers
 }
 
 func getFrameSourcePos(frame *frame) parser.Pos {
