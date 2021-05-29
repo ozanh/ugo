@@ -13,6 +13,7 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+	"os/exec"
 	"runtime"
 	"strconv"
 	"strings"
@@ -516,6 +517,8 @@ func main() {
 		return
 	}
 
+	defer handlePromptExit()
+
 	cw := prompt.NewStdoutWriter()
 	grepl = newREPL(ctx, os.Stdout, cw)
 	newPrompt(
@@ -523,4 +526,20 @@ func main() {
 		os.Stdout,
 		prompt.OptionWriter(cw),
 	).Run()
+}
+
+// Workaround for following issue.
+// https://github.com/c-bata/go-prompt/issues/228
+func handlePromptExit() {
+	if runtime.GOOS != "linux" {
+		return
+	}
+
+	if _, err := exec.LookPath("/bin/stty"); err != nil {
+		return
+	}
+
+	rawModeOff := exec.Command("/bin/stty", "-raw", "echo")
+	rawModeOff.Stdin = os.Stdin
+	_ = rawModeOff.Run()
 }
