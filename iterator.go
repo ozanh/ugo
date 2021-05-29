@@ -156,10 +156,12 @@ func (it *StringIterator) Next() bool {
 	if it.i > len(it.V)-1 {
 		return false
 	}
+
 	r, s := utf8.DecodeRuneInString(string(it.V)[it.i:])
 	if r == utf8.RuneError || s == 0 {
 		return false
 	}
+
 	it.k = it.i
 	it.r = r
 	it.i += s

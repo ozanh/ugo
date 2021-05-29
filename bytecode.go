@@ -31,10 +31,12 @@ func (bc *Bytecode) Encode(w io.Writer) error {
 	if err != nil {
 		return err
 	}
+
 	n, err := w.Write(data)
 	if err != nil {
 		return err
 	}
+
 	if n != len(data) {
 		return errors.New("short write")
 	}
@@ -56,9 +58,11 @@ func (bc *Bytecode) Unmarshal(data []byte, modules *ModuleMap) error {
 	if err != nil {
 		return err
 	}
+
 	if modules == nil {
 		modules = NewModuleMap()
 	}
+
 	return bc.fixObjects(modules)
 }
 
@@ -72,6 +76,7 @@ func (bc *Bytecode) fixObjects(modules *ModuleMap) error {
 				if !ok {
 					continue
 				}
+
 				bmod := modules.Get(string(name))
 				if bmod == nil {
 					return fmt.Errorf("module '%s' not found", name)
@@ -95,7 +100,6 @@ func (bc *Bytecode) fixObjects(modules *ModuleMap) error {
 					obj[item] = o
 				}
 			}
-			continue
 		case *Function:
 			return fmt.Errorf("Function type not decodable:'%s'", obj.Name)
 		}
@@ -108,16 +112,18 @@ func (bc *Bytecode) putConstants(w io.Writer) {
 	for i := range bc.Constants {
 		if cf, ok := bc.Constants[i].(*CompiledFunction); ok {
 			_, _ = fmt.Fprintf(w, "%4d: CompiledFunction\n", i)
+
 			var b bytes.Buffer
 			cf.Fprint(&b)
+
 			_, _ = fmt.Fprint(w, "\t")
+
 			str := b.String()
 			c := strings.Count(str, "\n")
 			_, _ = fmt.Fprint(w, strings.Replace(str, "\n", "\n\t", c-1))
-		} else {
-			_, _ = fmt.Fprintf(w, "%4d: %#v|%s\n", i,
-				bc.Constants[i], bc.Constants[i].TypeName())
+			continue
 		}
+		_, _ = fmt.Fprintf(w, "%4d: %#v|%s\n", i, bc.Constants[i], bc.Constants[i].TypeName())
 	}
 }
 
@@ -166,12 +172,14 @@ func (o *CompiledFunction) Copy() Object {
 		insts = make([]byte, len(o.Instructions))
 		copy(insts, o.Instructions)
 	}
+
 	var free []*ObjectPtr
 	if o.Free != nil {
 		// DO NOT Copy() elements; these are variable pointers
 		free = make([]*ObjectPtr, len(o.Free))
 		copy(free, o.Free)
 	}
+
 	var sourceMap map[int]int
 	if o.SourceMap != nil {
 		sourceMap = make(map[int]int, len(o.SourceMap))
@@ -179,6 +187,7 @@ func (o *CompiledFunction) Copy() Object {
 			sourceMap[k] = v
 		}
 	}
+
 	return &CompiledFunction{
 		NumParams:    o.NumParams,
 		NumLocals:    o.NumLocals,
@@ -242,24 +251,29 @@ begin:
 
 // Fprint writes constants and instructions to given Writer in a human readable form.
 func (o *CompiledFunction) Fprint(w io.Writer) {
-	_, _ = fmt.Fprintf(w, "Params:%d Variadic:%t Locals:%d\n",
-		o.NumParams, o.Variadic, o.NumLocals)
+	_, _ = fmt.Fprintf(w, "Params:%d Variadic:%t Locals:%d\n", o.NumParams, o.Variadic, o.NumLocals)
 	_, _ = fmt.Fprintf(w, "Instructions:\n")
+
 	i := 0
 	var operands []int
+
 	for i < len(o.Instructions) {
+
 		op := o.Instructions[i]
 		numOperands := OpcodeOperands[op]
 		operands, offset := ReadOperands(numOperands, o.Instructions[i+1:], operands)
 		_, _ = fmt.Fprintf(w, "%04d %-12s", i, OpcodeNames[op])
+
 		if len(operands) > 0 {
 			for _, r := range operands {
 				_, _ = fmt.Fprint(w, "    ", strconv.Itoa(r))
 			}
 		}
+
 		_, _ = fmt.Fprintln(w)
 		i += offset + 1
 	}
+
 	if o.Free != nil {
 		_, _ = fmt.Fprintf(w, "Free:%v\n", o.Free)
 	}

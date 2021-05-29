@@ -91,12 +91,15 @@ func (st *SymbolTable) SetParams(params ...string) error {
 	if len(params) == 0 {
 		return nil
 	}
+
 	if st.numParams > 0 {
 		return errors.New("parameters already defined")
 	}
+
 	if st.disableParams {
 		return errors.New("parameters disabled")
 	}
+
 	st.numParams = len(params)
 	for _, param := range params {
 		if _, ok := st.store[param]; ok {
@@ -120,6 +123,7 @@ func (st *SymbolTable) find(name string, scopes ...SymbolScope) (*Symbol, bool) 
 		if len(scopes) == 0 {
 			return symbol, ok
 		}
+
 		for _, s := range scopes {
 			if s == symbol.Scope {
 				return symbol, true
@@ -137,12 +141,14 @@ func (st *SymbolTable) Resolve(name string) (symbol *Symbol, ok bool) {
 		if !ok {
 			return
 		}
+
 		if !st.block &&
 			symbol.Scope != ScopeGlobal &&
 			symbol.Scope != ScopeBuiltin {
 			return st.defineFree(symbol), true
 		}
 	}
+
 	if !ok && st.parent == nil && !st.isBuiltinDisabled(name) {
 		if idx, exists := BuiltinsMap[name]; exists {
 			symbol = &Symbol{
@@ -192,6 +198,7 @@ func (st *SymbolTable) defineFree(original *Symbol) *Symbol {
 		Constant: original.Constant,
 		Original: original,
 	}
+
 	st.store[original.Name] = symbol
 	st.shadowBuiltin(original.Name)
 	return symbol
@@ -201,6 +208,7 @@ func (st *SymbolTable) updateMaxDefs(numDefs int) {
 	if numDefs > st.maxDefinition {
 		st.maxDefinition = numDefs
 	}
+
 	if st.block {
 		st.parent.updateMaxDefs(numDefs)
 	}
@@ -219,6 +227,7 @@ func (st *SymbolTable) DefineGlobal(name string) (*Symbol, error) {
 	if st.parent != nil {
 		return nil, errors.New("global declaration can be at top scope")
 	}
+
 	sym, ok := st.store[name]
 	if ok {
 		if sym.Scope != ScopeGlobal {
@@ -226,11 +235,13 @@ func (st *SymbolTable) DefineGlobal(name string) (*Symbol, error) {
 		}
 		return sym, nil
 	}
+
 	s := &Symbol{
 		Name:  name,
 		Index: -1,
 		Scope: ScopeGlobal,
 	}
+
 	st.store[name] = s
 	st.shadowBuiltin(name)
 	return s, nil
@@ -257,9 +268,11 @@ func (st *SymbolTable) Symbols() []*Symbol {
 	for _, s := range st.store {
 		out = append(out, s)
 	}
+
 	sort.Slice(out, func(i, j int) bool {
 		return out[i].Index < out[j].Index
 	})
+
 	return out
 }
 
@@ -270,12 +283,15 @@ func (st *SymbolTable) DisableBuiltin(names ...string) *SymbolTable {
 	if len(names) == 0 {
 		return st
 	}
+
 	if st.parent != nil {
 		return st.parent.DisableBuiltin(names...)
 	}
+
 	if st.disabledBuiltins == nil {
 		st.disabledBuiltins = make(map[string]struct{})
 	}
+
 	for _, n := range names {
 		st.disabledBuiltins[n] = struct{}{}
 	}
@@ -287,9 +303,11 @@ func (st *SymbolTable) DisabledBuiltins() []string {
 	if st.parent != nil {
 		return st.parent.DisabledBuiltins()
 	}
+
 	if st.disabledBuiltins == nil {
 		return nil
 	}
+
 	names := make([]string, 0, len(st.disabledBuiltins))
 	for n := range st.disabledBuiltins {
 		names = append(names, n)
@@ -302,6 +320,7 @@ func (st *SymbolTable) isBuiltinDisabled(name string) bool {
 	if st.parent != nil {
 		return st.parent.isBuiltinDisabled(name)
 	}
+
 	_, ok := st.disabledBuiltins[name]
 	return ok
 }
@@ -313,6 +332,7 @@ func (st *SymbolTable) ShadowedBuiltins() []string {
 	if len(st.shadowedBuiltins) > 0 {
 		out = append(out, st.shadowedBuiltins...)
 	}
+
 	if st.parent != nil {
 		out = append(out, st.parent.ShadowedBuiltins()...)
 	}

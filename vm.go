@@ -74,6 +74,7 @@ func (vm *VM) SetBytecode(bc *Bytecode) *VM {
 func (vm *VM) Clear() *VM {
 	vm.mu.Lock()
 	defer vm.mu.Unlock()
+
 	for i := range vm.stack {
 		vm.stack[i] = nil
 	}
@@ -86,35 +87,44 @@ func (vm *VM) Clear() *VM {
 func (vm *VM) GetLocals(locals []Object) []Object {
 	vm.mu.Lock()
 	defer vm.mu.Unlock()
+
 	if locals != nil {
 		locals = locals[:0]
 	} else {
 		locals = make([]Object, 0, vm.bytecode.Main.NumLocals)
 	}
+
 	for i := range vm.stack[:vm.bytecode.Main.NumLocals] {
 		locals = append(locals, vm.stack[i])
 	}
+
 	return locals
 }
 
 // RunCompiledFunction runs given CompiledFunction as if it is Main function.
 // Bytecode must be set before calling this method, because Fileset and Constants are copied.
-func (vm *VM) RunCompiledFunction(f *CompiledFunction,
-	globals Object, args ...Object) (Object, error) {
+func (vm *VM) RunCompiledFunction(
+	f *CompiledFunction,
+	globals Object,
+	args ...Object,
+) (Object, error) {
 	vm.mu.Lock()
 	if vm.bytecode == nil {
 		vm.mu.Unlock()
 		return nil, errors.New("invalid Bytecode")
 	}
+
 	vm.bytecode = &Bytecode{
 		FileSet:    vm.bytecode.FileSet,
 		Constants:  vm.constants,
 		Main:       f,
 		NumModules: vm.bytecode.NumModules,
 	}
+
 	for i := range vm.stack {
 		vm.stack[i] = nil
 	}
+
 	vm.mu.Unlock()
 	return vm.Run(globals, args...)
 }
@@ -168,6 +178,7 @@ func (vm *VM) Run(globals Object, args ...Object) (Object, error) {
 	if vm.err != nil {
 		return nil, vm.err
 	}
+
 	if vm.sp < stackSize {
 		if vv, ok := vm.stack[vm.sp-1].(*ObjectPtr); ok {
 			return *vv.Value, nil
@@ -376,6 +387,7 @@ VMLoop:
 			var ret Object
 			var err error
 			ret, err = globals.IndexGet(index)
+
 			if err != nil {
 				if err := vm.throwGenErr(err); err != nil {
 					vm.err = err
@@ -383,20 +395,24 @@ VMLoop:
 				}
 				continue
 			}
+
 			if ret == nil {
 				vm.stack[vm.sp] = Undefined
 			} else {
 				vm.stack[vm.sp] = ret
 			}
+
 			vm.ip += 2
 			vm.sp++
 		case OpSetGlobal:
 			cidx := int(vm.curInsts[vm.ip+2]) | int(vm.curInsts[vm.ip+1])<<8
 			index := vm.constants[cidx]
 			value := vm.stack[vm.sp-1]
+
 			if v, ok := value.(*ObjectPtr); ok {
 				value = *v.Value
 			}
+
 			if err := globals.IndexSet(index, value); err != nil {
 				if err := vm.throwGenErr(err); err != nil {
 					vm.err = err
@@ -404,6 +420,7 @@ VMLoop:
 				}
 				continue
 			}
+
 			vm.ip += 2
 			vm.sp--
 			vm.stack[vm.sp] = nil
@@ -413,14 +430,17 @@ VMLoop:
 			copy(arr, vm.stack[vm.sp-numItems:vm.sp])
 			vm.sp -= numItems
 			vm.stack[vm.sp] = arr
+
 			for i := vm.sp + 1; i < vm.sp+numItems+1; i++ {
 				vm.stack[i] = nil
 			}
+
 			vm.sp++
 			vm.ip += 2
 		case OpMap:
 			numItems := int(vm.curInsts[vm.ip+2]) | int(vm.curInsts[vm.ip+1])<<8
 			kv := make(Map)
+
 			for i := vm.sp - numItems; i < vm.sp; i += 2 {
 				key := vm.stack[i]
 				value := vm.stack[i+1]
@@ -428,6 +448,7 @@ VMLoop:
 				vm.stack[i] = nil
 				vm.stack[i+1] = nil
 			}
+
 			vm.sp -= numItems
 			vm.stack[vm.sp] = kv
 			vm.sp++
@@ -437,6 +458,7 @@ VMLoop:
 			tp := vm.sp - 1 - numSel
 			target := vm.stack[tp]
 			var value Object = Undefined
+
 			for ; numSel > 0; numSel-- {
 				ptr := vm.sp - numSel
 				index := vm.stack[ptr]
@@ -468,6 +490,7 @@ VMLoop:
 				target = v
 				value = v
 			}
+
 			vm.stack[tp] = value
 			vm.sp = tp + 1
 			vm.ip++
@@ -476,6 +499,7 @@ VMLoop:
 			target := vm.stack[vm.sp-2]
 			index := vm.stack[vm.sp-1]
 			err := target.IndexSet(index, value)
+
 			if err != nil {
 				switch err {
 				case ErrNotIndexAssignable:
@@ -499,6 +523,7 @@ VMLoop:
 				}
 				continue
 			}
+
 			vm.stack[vm.sp-3] = nil
 			vm.stack[vm.sp-2] = nil
 			vm.stack[vm.sp-1] = nil
@@ -526,12 +551,14 @@ VMLoop:
 			localIndex := int(vm.curInsts[vm.ip+1])
 			var freeVar *ObjectPtr
 			value := vm.stack[vm.curFrame.basePointer+localIndex]
+
 			if obj, ok := value.(*ObjectPtr); ok {
 				freeVar = obj
 			} else {
 				freeVar = &ObjectPtr{Value: &value}
 				vm.stack[vm.curFrame.basePointer+localIndex] = freeVar
 			}
+
 			vm.stack[vm.sp] = freeVar
 			vm.sp++
 			vm.ip++
@@ -555,10 +582,8 @@ VMLoop:
 			vm.stack[vm.sp] = nil
 		case OpIterInit:
 			dst := vm.stack[vm.sp-1]
-			var it Iterator
-			if dst.CanIterate() {
-				it = dst.Iterate()
-			} else {
+
+			if !dst.CanIterate() {
 				e := ErrNotIterable.NewError(dst.TypeName())
 				if err := vm.throwGenErr(e); err != nil {
 					vm.err = err
@@ -566,6 +591,8 @@ VMLoop:
 				}
 				continue
 			}
+
+			it := dst.Iterate()
 			vm.stack[vm.sp-1] = &iteratorObject{Iterator: it}
 		case OpIterNext:
 			iterator := vm.stack[vm.sp-1]
@@ -583,6 +610,7 @@ VMLoop:
 			cidx := int(vm.curInsts[vm.ip+2]) | int(vm.curInsts[vm.ip+1])<<8
 			midx := int(vm.curInsts[vm.ip+4]) | int(vm.curInsts[vm.ip+3])<<8
 			value := vm.modulesCache[midx]
+
 			if value == nil {
 				// module cache is empty, load the object from constants
 				vm.stack[vm.sp] = vm.constants[cidx]
@@ -599,15 +627,18 @@ VMLoop:
 				vm.stack[vm.sp] = False
 				vm.sp++
 			}
+
 			vm.ip += 4
 		case OpStoreModule:
 			midx := int(vm.curInsts[vm.ip+2]) | int(vm.curInsts[vm.ip+1])<<8
 			value := vm.stack[vm.sp-1]
+
 			if v, ok := value.(Copier); ok {
 				// store deep copy of the module if supported
 				value = v.Copy()
 				vm.stack[vm.sp-1] = value
 			}
+
 			vm.modulesCache[midx] = value
 			vm.ip += 2
 		case OpSetupTry:
@@ -623,6 +654,7 @@ VMLoop:
 			}
 		case OpFinalizer:
 			upto := int(vm.curInsts[vm.ip+1])
+
 			if pos := vm.curFrame.errHandlers.findFinally(upto); pos > 0 {
 				// go to finally if set
 				handler := vm.curFrame.errHandlers.last()
@@ -671,9 +703,12 @@ func (vm *VM) initLocals(args []Object) {
 
 	// copy args to stack
 	if numParams > 0 {
-		if sz := len(args); sz < numParams {
+		if len(args) < numParams {
 			copy(locals, args)
-		} else if sz >= numParams {
+			return
+		}
+
+		if len(args) >= numParams {
 			for i := range args[:numParams-1] {
 				locals[i] = args[i]
 			}
@@ -692,11 +727,13 @@ func (vm *VM) initCurFrame() {
 	vm.curInsts = vm.bytecode.Main.Instructions
 	vm.curFrame = &(vm.frames[0])
 	vm.curFrame.fn = vm.bytecode.Main
+
 	if vm.curFrame.fn.Free != nil {
 		// Assign free variables if exists in compiled function.
 		// This is required to run compiled functions returned from VM using RunCompiledFunction().
 		vm.curFrame.freeVars = vm.curFrame.fn.Free
 	}
+
 	vm.curFrame.errHandlers = nil
 	vm.curFrame.basePointer = 0
 }
@@ -711,6 +748,7 @@ func (vm *VM) handlePanic(r interface{}, globals Object) {
 	if vm.sp < stackSize &&
 		vm.frameIndex <= frameSize &&
 		vm.err == nil {
+
 		if err := vm.throwGenErr(fmt.Errorf("%v", r)); err != nil {
 			vm.err = err
 			gostack := debug.Stack()
@@ -720,10 +758,13 @@ func (vm *VM) handlePanic(r interface{}, globals Object) {
 			}
 			return
 		}
+
 		vm.run(globals)
 		return
 	}
+
 	gostack := debug.Stack()
+
 	if vm.err != nil {
 		vm.err = fmt.Errorf("panic: %v error: %w\nGo Stack:\n%s",
 			r, vm.err, gostack)
@@ -735,11 +776,13 @@ func (vm *VM) handlePanic(r interface{}, globals Object) {
 func (vm *VM) execOpSetupTry() {
 	catch := int(vm.curInsts[vm.ip+2]) | int(vm.curInsts[vm.ip+1])<<8
 	finally := int(vm.curInsts[vm.ip+4]) | int(vm.curInsts[vm.ip+3])<<8
+
 	ptrs := errHandler{
 		sp:      vm.sp,
 		catch:   catch,
 		finally: finally,
 	}
+
 	if vm.curFrame.errHandlers == nil {
 		vm.curFrame.errHandlers = &errHandlers{
 			handlers: []errHandler{ptrs},
@@ -748,21 +791,25 @@ func (vm *VM) execOpSetupTry() {
 		vm.curFrame.errHandlers.handlers = append(
 			vm.curFrame.errHandlers.handlers, ptrs)
 	}
+
 	vm.ip += 4
 }
 
 func (vm *VM) execOpSetupCatch() {
 	var value Object = Undefined
 	errHandlers := vm.curFrame.errHandlers
+
 	if errHandlers.hasHandler() {
 		// set 0 to last catch position
 		hdl := errHandlers.last()
 		hdl.catch = 0
+
 		if errHandlers.err != nil {
 			value = errHandlers.err
 			errHandlers.err = nil
 		}
 	}
+
 	vm.stack[vm.sp] = value
 	vm.sp++
 	//Either OpSetLocal or OpPop is generated by compiler to handle error
@@ -770,6 +817,7 @@ func (vm *VM) execOpSetupCatch() {
 
 func (vm *VM) execOpSetupFinally() {
 	errHandlers := vm.curFrame.errHandlers
+
 	if errHandlers.hasHandler() {
 		hdl := errHandlers.last()
 		hdl.catch = 0
@@ -780,6 +828,7 @@ func (vm *VM) execOpSetupFinally() {
 func (vm *VM) execOpThrow() error {
 	op := vm.curInsts[vm.ip+1]
 	vm.ip++
+
 	switch op {
 	case 0: // system
 		errHandlers := vm.curFrame.errHandlers
@@ -794,6 +843,7 @@ func (vm *VM) execOpThrow() error {
 			handler := errHandlers.last()
 			errHandlers.pop()
 			handler.returnTo = 0
+
 			if vm.sp >= handler.sp {
 				for i := vm.sp; i >= handler.sp; i-- {
 					vm.stack[i] = nil
@@ -806,12 +856,14 @@ func (vm *VM) execOpThrow() error {
 		obj := vm.stack[vm.sp-1]
 		vm.stack[vm.sp-1] = nil
 		vm.sp--
+
 		if err := vm.throw(vm.newErrorFromObject(obj), false); err != nil {
 			return err
 		}
 	default:
 		return fmt.Errorf("wrong operand for OpThrow:%d", op)
 	}
+
 	return nil
 }
 
@@ -824,6 +876,7 @@ func (vm *VM) throwGenErr(err error) error {
 	} else if e, ok := err.(*Error); ok {
 		return vm.throw(vm.newError(e), false)
 	}
+
 	return vm.throw(vm.newErrorFromError(err), false)
 }
 
@@ -831,44 +884,50 @@ func (vm *VM) throw(err *RuntimeError, noTrace bool) error {
 	if !noTrace {
 		err.addTrace(vm.getSourcePos())
 	}
+
 	// firstly check our frame has error handler
 	if vm.curFrame.errHandlers.hasHandler() {
-		if e := vm.handleThrownError(vm.curFrame, err); e != nil {
-			return e
-		}
-	} else {
-		// find previous frames having error handler
-		var frame *frame
-		index := vm.frameIndex - 2
-		for index >= 0 {
-			f := &(vm.frames[index])
-			err.addTrace(getFrameSourcePos(f))
-			if f.errHandlers.hasHandler() {
-				frame = f
-				break
-			}
-			f.freeVars = nil
-			f.fn = nil
-			index--
-		}
-		if frame == nil || index < 0 {
-			// not handled, exit
-			return err
-		}
-		vm.frameIndex = index + 1
-		if e := vm.handleThrownError(frame, err); e != nil {
-			return e
-		}
-		vm.curFrame = frame
-		vm.curFrame.fn = frame.fn
-		vm.curInsts = frame.fn.Instructions
+		return vm.handleThrownError(vm.curFrame, err)
 	}
+
+	// find previous frames having error handler
+	var frame *frame
+	index := vm.frameIndex - 2
+
+	for index >= 0 {
+		f := &(vm.frames[index])
+		err.addTrace(getFrameSourcePos(f))
+		if f.errHandlers.hasHandler() {
+			frame = f
+			break
+		}
+		f.freeVars = nil
+		f.fn = nil
+		index--
+	}
+
+	if frame == nil || index < 0 {
+		// not handled, exit
+		return err
+	}
+
+	vm.frameIndex = index + 1
+
+	if e := vm.handleThrownError(frame, err); e != nil {
+		return e
+	}
+
+	vm.curFrame = frame
+	vm.curFrame.fn = frame.fn
+	vm.curInsts = frame.fn.Instructions
+
 	return nil
 }
 
 func (vm *VM) handleThrownError(frame *frame, err *RuntimeError) error {
 	frame.errHandlers.err = err
 	handler := frame.errHandlers.last()
+
 	// if we have catch>0 goto catch else follow finally (one of them must be set)
 	if handler.catch > 0 {
 		vm.ip = handler.catch - 1
@@ -878,11 +937,13 @@ func (vm *VM) handleThrownError(frame *frame, err *RuntimeError) error {
 		frame.errHandlers.pop()
 		return vm.throw(err, false)
 	}
+
 	if vm.sp >= handler.sp {
 		for i := vm.sp; i >= handler.sp; i-- {
 			vm.stack[i] = nil
 		}
 	}
+
 	vm.sp = handler.sp
 	return nil
 }
@@ -891,6 +952,7 @@ func (vm *VM) execOpCall() error {
 	numArgs := int(vm.curInsts[vm.ip+1])
 	expand := int(vm.curInsts[vm.ip+2]) // 0 or 1
 	callee := vm.stack[vm.sp-numArgs-1]
+
 	if compFunc, ok := callee.(*CompiledFunction); ok {
 		basePointer := vm.sp - numArgs
 		numLocals := compFunc.NumLocals
@@ -978,6 +1040,7 @@ func (vm *VM) execOpCall() error {
 		// test if it's tail-call
 		if compFunc == vm.curFrame.fn { // recursion
 			nextOp := vm.curInsts[vm.ip+2+1]
+
 			if nextOp == OpReturn ||
 				(nextOp == OpPop && OpReturn == vm.curInsts[vm.ip+2+2]) {
 				curBp := vm.curFrame.basePointer
@@ -995,9 +1058,11 @@ func (vm *VM) execOpCall() error {
 
 		frame := &(vm.frames[vm.frameIndex])
 		vm.frameIndex++
+
 		if vm.frameIndex > frameSize-1 {
 			return ErrStackOverflow
 		}
+
 		frame.fn = compFunc
 		frame.freeVars = compFunc.Free
 		frame.errHandlers = nil
@@ -1008,33 +1073,40 @@ func (vm *VM) execOpCall() error {
 		vm.curFrame = frame
 		vm.sp = basePointer + numLocals
 		vm.ip = -1
-	} else {
-		if !callee.CanCall() {
-			return ErrNotCallable.NewError(callee.TypeName())
-		}
-		args := make([]Object, numArgs-expand, numArgs)
-		k := copy(args, vm.stack[vm.sp-numArgs:vm.sp-expand])
-		if expand > 0 {
-			switch obj := vm.stack[vm.sp-1].(type) {
-			case Array:
-				args = append(args[:k], obj...)
-			default:
-				return NewArgumentTypeError("last", "array",
-					vm.stack[vm.sp-1].TypeName())
-			}
-		}
-		for i := 0; i < numArgs+1; i++ {
-			vm.sp--
-			vm.stack[vm.sp] = nil
-		}
-		result, err := callee.Call(args...)
-		if err != nil {
-			return err
-		}
-		vm.stack[vm.sp] = result
-		vm.sp++
-		vm.ip += 2
+		return nil
 	}
+
+	if !callee.CanCall() {
+		return ErrNotCallable.NewError(callee.TypeName())
+	}
+
+	args := make([]Object, numArgs-expand, numArgs)
+	k := copy(args, vm.stack[vm.sp-numArgs:vm.sp-expand])
+
+	if expand > 0 {
+		switch obj := vm.stack[vm.sp-1].(type) {
+		case Array:
+			args = append(args[:k], obj...)
+		default:
+			return NewArgumentTypeError("last", "array",
+				vm.stack[vm.sp-1].TypeName())
+		}
+	}
+
+	for i := 0; i < numArgs+1; i++ {
+		vm.sp--
+		vm.stack[vm.sp] = nil
+	}
+
+	result, err := callee.Call(args...)
+	if err != nil {
+		return err
+	}
+
+	vm.stack[vm.sp] = result
+	vm.sp++
+	vm.ip += 2
+
 	return nil
 }
 
@@ -1042,6 +1114,7 @@ func (vm *VM) execOpUnary() error {
 	tok := token.Token(vm.curInsts[vm.ip+1])
 	right := vm.stack[vm.sp-1]
 	var value Object
+
 	switch tok {
 	case token.Not:
 		vm.stack[vm.sp-1] = Bool(right.IsFalsy())
@@ -1105,6 +1178,7 @@ func (vm *VM) execOpUnary() error {
 	vm.stack[vm.sp-1] = value
 	vm.ip++
 	return nil
+
 invalidType:
 	return ErrType.NewError(
 		fmt.Sprintf("invalid type for unary '%s': '%s'",
@@ -1120,6 +1194,7 @@ func (vm *VM) execOpSliceIndex() error {
 	vm.stack[vm.sp-1] = nil
 	vm.sp -= 3
 	var objLen int
+
 	switch obj := obj.(type) {
 	case Array:
 		objLen = len(obj)
@@ -1156,14 +1231,17 @@ func (vm *VM) execOpSliceIndex() error {
 	default:
 		return ErrType.NewError("invalid second index type", right.TypeName())
 	}
+
 	if lowIdx > highIdx {
 		return ErrInvalidIndex.NewError(fmt.Sprintf("[%d:%d]", lowIdx, highIdx))
 	}
+
 	if lowIdx < 0 || highIdx < 0 ||
 		lowIdx > objLen-1 || highIdx > objLen {
 		return ErrIndexOutOfBounds.NewError(
 			fmt.Sprintf("[%d:%d]", lowIdx, highIdx))
 	}
+
 	switch obj := obj.(type) {
 	case Array:
 		vm.stack[vm.sp] = obj[lowIdx:highIdx]
@@ -1172,6 +1250,7 @@ func (vm *VM) execOpSliceIndex() error {
 	case Bytes:
 		vm.stack[vm.sp] = obj[lowIdx:highIdx]
 	}
+
 	vm.sp++
 	return nil
 }
@@ -1225,24 +1304,19 @@ func (t *errHandlers) hasError() bool {
 }
 
 func (t *errHandlers) pop() bool {
-	if t == nil {
+	if t == nil || len(t.handlers) == 0 {
 		return false
 	}
-	if len(t.handlers) > 0 {
-		t.handlers = t.handlers[:len(t.handlers)-1]
-		return true
-	}
-	return false
+
+	t.handlers = t.handlers[:len(t.handlers)-1]
+	return true
 }
 
 func (t *errHandlers) last() *errHandler {
-	if t == nil {
+	if t == nil || len(t.handlers) == 0 {
 		return nil
 	}
-	if len(t.handlers) > 0 {
-		return &t.handlers[len(t.handlers)-1]
-	}
-	return nil
+	return &t.handlers[len(t.handlers)-1]
 }
 
 func (t *errHandlers) hasHandler() bool {
@@ -1253,6 +1327,7 @@ func (t *errHandlers) findFinally(upto int) int {
 	if t == nil {
 		return 0
 	}
+
 start:
 	index := len(t.handlers) - 1
 	if index < upto || index < 0 {

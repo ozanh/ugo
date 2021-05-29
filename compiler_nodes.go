@@ -15,17 +15,20 @@ func (c *Compiler) compileIfStmt(node *parser.IfStmt) error {
 	defer func() {
 		c.symbolTable = c.symbolTable.Parent(false)
 	}()
+
 	if node.Init != nil {
 		if err := c.Compile(node.Init); err != nil {
 			return err
 		}
 	}
+
 	jumpPos1 := -1
 	var skipElse bool
 	if v, ok := node.Cond.(*parser.BoolLit); !ok {
 		if err := c.Compile(node.Cond); err != nil {
 			return err
 		}
+
 		// first jump placeholder
 		jumpPos1 = c.emit(node, OpJumpFalsy, 0)
 		if err := c.Compile(node.Body); err != nil {
@@ -39,6 +42,7 @@ func (c *Compiler) compileIfStmt(node *parser.IfStmt) error {
 	} else {
 		jumpPos1 = c.emit(node, OpJump, 0)
 	}
+
 	if !skipElse && node.Else != nil {
 		// second jump placeholder
 		jumpPos2 := c.emit(node, OpJump, 0)
@@ -47,6 +51,7 @@ func (c *Compiler) compileIfStmt(node *parser.IfStmt) error {
 			curPos := len(c.instructions)
 			c.changeOperand(jumpPos1, curPos)
 		}
+
 		if err := c.Compile(node.Else); err != nil {
 			return err
 		}
@@ -95,6 +100,7 @@ func (c *Compiler) compileTryStmt(node *parser.TryStmt) error {
 		c.symbolTable = c.symbolTable.Parent(false)
 		c.emit(node, OpThrow, 0) // implicit re-throw
 	}()
+
 	optry := c.emit(node, OpSetupTry, 0, 0)
 	var catchPos, finallyPos int
 	if node.Body != nil && len(node.Body.Stmts) > 0 {
@@ -105,6 +111,7 @@ func (c *Compiler) compileTryStmt(node *parser.TryStmt) error {
 			}
 		}
 	}
+
 	var opjump int
 	if node.Catch != nil {
 		// if there is no thrown error before catch statement, set catch ident to undefined
@@ -125,6 +132,7 @@ func (c *Compiler) compileTryStmt(node *parser.TryStmt) error {
 			return err
 		}
 	}
+
 	c.tryCatchIndex--
 	// always emit OpSetupFinally to cleanup
 	if node.Finally != nil {
@@ -135,6 +143,7 @@ func (c *Compiler) compileTryStmt(node *parser.TryStmt) error {
 	} else {
 		finallyPos = c.emit(node, OpSetupFinally)
 	}
+
 	c.changeOperand(optry, catchPos, finallyPos)
 	if node.Catch != nil {
 		// no need jumping if catch is not defined
@@ -155,9 +164,11 @@ func (c *Compiler) compileCatchStmt(node *parser.CatchStmt) error {
 	} else {
 		c.emit(node, OpPop)
 	}
+
 	if node.Body == nil {
 		return nil
 	}
+
 	// in order not to fork symbol table in Body, compile stmts here instead of in *BlockStmt
 	for _, stmt := range node.Body.Stmts {
 		if err := c.Compile(stmt); err != nil {
@@ -196,6 +207,7 @@ func (c *Compiler) compileDeclStmt(node *parser.DeclStmt) error {
 	if len(decl.Specs) == 0 {
 		return c.errorf(node, "empty declaration not allowed")
 	}
+
 	switch decl.Tok {
 	case token.Param:
 		return c.compileDeclParam(decl)
@@ -211,6 +223,7 @@ func (c *Compiler) compileDeclParam(node *parser.GenDecl) error {
 	if c.symbolTable.parent != nil {
 		return c.errorf(node, "param not allowed in this scope")
 	}
+
 	names := make([]string, 0, len(node.Specs))
 	for _, sp := range node.Specs {
 		spec := sp.(*parser.ParamSpec)
@@ -223,6 +236,7 @@ func (c *Compiler) compileDeclParam(node *parser.GenDecl) error {
 			c.variadic = true
 		}
 	}
+
 	if err := c.symbolTable.SetParams(names...); err != nil {
 		return c.error(node, err)
 	}
@@ -233,6 +247,7 @@ func (c *Compiler) compileDeclGlobal(node *parser.GenDecl) error {
 	if c.symbolTable.parent != nil {
 		return c.errorf(node, "global not allowed in this scope")
 	}
+
 	for _, sp := range node.Specs {
 		spec := sp.(*parser.ParamSpec)
 		symbol, err := c.symbolTable.DefineGlobal(spec.Ident.Name)
@@ -248,18 +263,20 @@ func (c *Compiler) compileDeclGlobal(node *parser.GenDecl) error {
 func (c *Compiler) compileDeclValue(node *parser.GenDecl) error {
 	for _, sp := range node.Specs {
 		spec := sp.(*parser.ValueSpec)
+
 		for i, ident := range spec.Idents {
 			leftExpr := []parser.Expr{ident}
 			var v parser.Expr
 			if i < len(spec.Values) {
 				v = spec.Values[i]
 			}
+
 			if v == nil {
 				v = &parser.UndefinedLit{TokenPos: ident.Pos()}
 			}
+
 			rightExpr := []parser.Expr{v}
-			err := c.compileAssignStmt(node,
-				leftExpr, rightExpr, node.Tok, token.Define)
+			err := c.compileAssignStmt(node, leftExpr, rightExpr, node.Tok, token.Define)
 			if err != nil {
 				return err
 			}
@@ -280,13 +297,14 @@ func (c *Compiler) checkAssignment(
 		return false, c.errorf(node,
 			"multiple expressions on the right side not supported")
 	}
+
 	var selector bool
-L:
+Loop:
 	for _, expr := range lhs {
 		switch expr.(type) {
 		case *parser.SelectorExpr, *parser.IndexExpr:
 			selector = true
-			break L
+			break Loop
 		}
 	}
 
@@ -311,6 +329,7 @@ func (c *Compiler) compileAssignStmt(
 	if err != nil || !compile {
 		return err
 	}
+
 	var isArrDestruct bool
 	var tempArrSymbol *Symbol
 	// +=, -=, *=, /=
@@ -335,9 +354,11 @@ func (c *Compiler) compileAssignStmt(
 			return err
 		}
 	}
+
 	if isArrDestruct {
 		return c.compileDestructuring(node, lhs, tempArrSymbol, keyword, op)
 	}
+
 	if op != token.Assign && op != token.Define {
 		c.compileCompoundAssignment(node, op)
 	}
@@ -385,6 +406,7 @@ func (c *Compiler) compileDestructuring(
 	c.emit(node, OpDefineLocal, tempArrSymbol.Index)
 	numLHS := len(lhs)
 	var found int
+
 	for lhsIndex, expr := range lhs {
 		if op == token.Define {
 			if term, ok := expr.(*parser.Ident); ok {
@@ -404,6 +426,7 @@ func (c *Compiler) compileDestructuring(
 			return err
 		}
 	}
+
 	if !c.symbolTable.InBlock() {
 		// blocks set undefined to variables defined in it after block
 		c.emit(node, OpNull)
@@ -422,9 +445,11 @@ func (c *Compiler) compileDefine(
 	if !allowRedefine && exists {
 		return c.errorf(node, "%q redeclared in this block", ident)
 	}
+
 	if symbol.Constant {
 		return c.errorf(node, "assignment to constant variable %q", ident)
 	}
+
 	c.emit(node, OpDefineLocal, symbol.Index)
 	symbol.Assigned = true
 	symbol.Constant = keyword == token.Const
@@ -439,6 +464,7 @@ func (c *Compiler) compileAssign(
 	if symbol.Constant {
 		return c.errorf(node, "assignment to constant variable %q", ident)
 	}
+
 	switch symbol.Scope {
 	case ScopeLocal:
 		c.emit(node, OpSetLocal, symbol.Index)
@@ -474,13 +500,16 @@ func (c *Compiler) compileDefineAssign(
 	if numSel == 0 && op == token.Define {
 		return c.compileDefine(node, ident, allowRedefine, keyword)
 	}
+
 	symbol, ok := c.symbolTable.Resolve(ident)
 	if !ok {
 		return c.errorf(node, "unresolved reference %q", ident)
 	}
+
 	if numSel == 0 {
 		return c.compileAssign(node, symbol, ident)
 	}
+
 	// get indexes until last one and set the value to the last index
 	switch symbol.Scope {
 	case ScopeLocal:
@@ -493,6 +522,7 @@ func (c *Compiler) compileDefineAssign(
 		return c.errorf(node, "unexpected scope %q for symbol %q",
 			symbol.Scope, ident)
 	}
+
 	if numSel > 1 {
 		for i := 0; i < numSel-1; i++ {
 			if err := c.Compile(selectors[i]); err != nil {
@@ -501,9 +531,11 @@ func (c *Compiler) compileDefineAssign(
 		}
 		c.emit(node, OpGetIndex, numSel-1)
 	}
+
 	if err := c.Compile(selectors[numSel-1]); err != nil {
 		return err
 	}
+
 	c.emit(node, OpSetIndex)
 	return nil
 }
@@ -530,6 +562,7 @@ func (c *Compiler) compileBranchStmt(node *parser.BranchStmt) error {
 		if curLoop == nil {
 			return c.errorf(node, "break not allowed outside loop")
 		}
+
 		var pos int
 		if curLoop.lastTryCatchIndex == c.tryCatchIndex {
 			pos = c.emit(node, OpJump, 0)
@@ -543,6 +576,7 @@ func (c *Compiler) compileBranchStmt(node *parser.BranchStmt) error {
 		if curLoop == nil {
 			return c.errorf(node, "continue not allowed outside loop")
 		}
+
 		var pos int
 		if curLoop.lastTryCatchIndex == c.tryCatchIndex {
 			pos = c.emit(node, OpJump, 0)
@@ -552,8 +586,7 @@ func (c *Compiler) compileBranchStmt(node *parser.BranchStmt) error {
 		}
 		curLoop.Continues = append(curLoop.Continues, pos)
 	default:
-		return c.errorf(node, "invalid branch statement: %s",
-			node.Token.String())
+		return c.errorf(node, "invalid branch statement: %s", node.Token.String())
 	}
 	return nil
 }
@@ -562,12 +595,14 @@ func (c *Compiler) compileBlockStmt(node *parser.BlockStmt) error {
 	if len(node.Stmts) == 0 {
 		return nil
 	}
+
 	c.symbolTable = c.symbolTable.Fork(true)
 	for _, stmt := range node.Stmts {
 		if err := c.Compile(stmt); err != nil {
 			return err
 		}
 	}
+
 	c.symbolTable = c.symbolTable.Parent(false)
 	return nil
 }
@@ -581,18 +616,20 @@ func (c *Compiler) compileReturnStmt(node *parser.ReturnStmt) error {
 		c.emit(node, OpReturn, 0)
 		return nil
 	}
+
 	if err := c.Compile(node.Result); err != nil {
 		return err
 	}
+
 	if c.tryCatchIndex > -1 {
 		c.emit(node, OpFinalizer, 0)
 	}
+
 	c.emit(node, OpReturn, 1)
 	return nil
 }
 
 func (c *Compiler) compileForStmt(stmt *parser.ForStmt) error {
-
 	c.symbolTable = c.symbolTable.Fork(true)
 	defer func() {
 		c.symbolTable = c.symbolTable.Parent(false)
@@ -652,6 +689,7 @@ func (c *Compiler) compileForStmt(stmt *parser.ForStmt) error {
 	for _, pos := range loop.Breaks {
 		c.changeOperand(pos, postStmtPos)
 	}
+
 	for _, pos := range loop.Continues {
 		c.changeOperand(pos, postBodyPos)
 	}
@@ -681,9 +719,11 @@ func (c *Compiler) compileForInStmt(stmt *parser.ForInStmt) error {
 	if exists {
 		return c.errorf(stmt, ":it redeclared in this block")
 	}
+
 	if err := c.Compile(stmt.Iterable); err != nil {
 		return err
 	}
+
 	c.emit(stmt, OpIterInit)
 	c.emit(stmt, OpDefineLocal, itSymbol.Index)
 
@@ -747,6 +787,7 @@ func (c *Compiler) compileForInStmt(stmt *parser.ForInStmt) error {
 	for _, pos := range loop.Breaks {
 		c.changeOperand(pos, postStmtPos)
 	}
+
 	for _, pos := range loop.Continues {
 		c.changeOperand(pos, postBodyPos)
 	}
@@ -758,15 +799,18 @@ func (c *Compiler) compileFuncLit(node *parser.FuncLit) error {
 	for i, ident := range node.Type.Params.List {
 		params[i] = ident.Name
 	}
+
 	symbolTable := c.symbolTable.Fork(false)
 	if err := symbolTable.SetParams(params...); err != nil {
 		return c.error(node, err)
 	}
+
 	fork := c.fork(c.file, c.modulePath, symbolTable)
 	fork.variadic = node.Type.Params.VarArgs
 	if err := fork.Compile(node.Body); err != nil {
 		return err
 	}
+
 	freeSymbols := fork.symbolTable.FreeSymbols()
 	for _, s := range freeSymbols {
 		switch s.Scope {
@@ -781,8 +825,10 @@ func (c *Compiler) compileFuncLit(node *parser.FuncLit) error {
 	if bc.Main.NumLocals > 256 {
 		return c.error(node, ErrSymbolLimit)
 	}
+
 	c.constants = bc.Constants
 	index := c.addConstant(bc.Main)
+
 	if len(freeSymbols) > 0 {
 		c.emit(node, OpClosure, index, len(freeSymbols))
 	} else {
@@ -817,9 +863,11 @@ func (c *Compiler) compileBinaryExpr(node *parser.BinaryExpr) error {
 	if err := c.Compile(node.LHS); err != nil {
 		return err
 	}
+
 	if err := c.Compile(node.RHS); err != nil {
 		return err
 	}
+
 	switch node.Token {
 	case token.Equal:
 		c.emit(node, OpEqual)
@@ -839,6 +887,7 @@ func (c *Compiler) compileUnaryExpr(node *parser.UnaryExpr) error {
 	if err := c.Compile(node.Expr); err != nil {
 		return err
 	}
+
 	switch node.Token {
 	case token.Not:
 		c.emit(node, OpUnary, int(token.Not))
@@ -859,9 +908,11 @@ func (c *Compiler) compileSelectorExpr(node *parser.SelectorExpr) error {
 	if err := c.Compile(node.Expr); err != nil {
 		return err
 	}
+
 	if err := c.Compile(node.Sel); err != nil {
 		return err
 	}
+
 	c.emit(node, OpGetIndex, 1)
 	return nil
 }
@@ -870,9 +921,11 @@ func (c *Compiler) compileIndexExpr(node *parser.IndexExpr) error {
 	if err := c.Compile(node.Expr); err != nil {
 		return err
 	}
+
 	if err := c.Compile(node.Index); err != nil {
 		return err
 	}
+
 	c.emit(node, OpGetIndex, 1)
 	return nil
 }
@@ -881,6 +934,7 @@ func (c *Compiler) compileSliceExpr(node *parser.SliceExpr) error {
 	if err := c.Compile(node.Expr); err != nil {
 		return err
 	}
+
 	if node.Low != nil {
 		if err := c.Compile(node.Low); err != nil {
 			return err
@@ -888,6 +942,7 @@ func (c *Compiler) compileSliceExpr(node *parser.SliceExpr) error {
 	} else {
 		c.emit(node, OpNull)
 	}
+
 	if node.High != nil {
 		if err := c.Compile(node.High); err != nil {
 			return err
@@ -895,6 +950,7 @@ func (c *Compiler) compileSliceExpr(node *parser.SliceExpr) error {
 	} else {
 		c.emit(node, OpNull)
 	}
+
 	c.emit(node, OpSliceIndex)
 	return nil
 }
@@ -903,15 +959,18 @@ func (c *Compiler) compileCallExpr(node *parser.CallExpr) error {
 	if err := c.Compile(node.Func); err != nil {
 		return err
 	}
+
 	for _, arg := range node.Args {
 		if err := c.Compile(arg); err != nil {
 			return err
 		}
 	}
+
 	var expand int
 	if node.Ellipsis.IsValid() {
 		expand = 1
 	}
+
 	c.emit(node, OpCall, len(node.Args), expand)
 	return nil
 }
@@ -989,9 +1048,11 @@ func (c *Compiler) compileCondExpr(node *parser.CondExpr) error {
 		}
 		return c.Compile(node.False)
 	}
+
 	if err := c.Compile(node.Cond); err != nil {
 		return err
 	}
+
 	// first jump placeholder
 	jumpPos1 := c.emit(node, OpJumpFalsy, 0)
 	if err := c.Compile(node.True); err != nil {
@@ -1018,6 +1079,7 @@ func (c *Compiler) compileIdent(node *parser.Ident) error {
 	if !ok {
 		return c.errorf(node, "unresolved reference %q", node.Name)
 	}
+
 	switch symbol.Scope {
 	case ScopeGlobal:
 		c.emit(node, OpGetGlobal, symbol.Index)
@@ -1037,6 +1099,7 @@ func (c *Compiler) compileArrayLit(node *parser.ArrayLit) error {
 			return err
 		}
 	}
+
 	c.emit(node, OpArray, len(node.Elements))
 	return nil
 }
@@ -1050,6 +1113,7 @@ func (c *Compiler) compileMapLit(node *parser.MapLit) error {
 			return err
 		}
 	}
+
 	c.emit(node, OpMap, len(node.Elements)*2)
 	return nil
 }

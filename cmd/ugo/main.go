@@ -90,6 +90,7 @@ func newREPL(ctx context.Context, stdout io.Writer, cw prompt.ConsoleWriter) *re
 	moduleMap.AddBuiltinModule("time", ugotime.Module).
 		AddBuiltinModule("strings", ugostrings.Module).
 		AddBuiltinModule("fmt", ugofmt.Module)
+
 	opts := ugo.CompilerOptions{
 		ModulePath:        "(repl)",
 		ModuleMap:         moduleMap,
@@ -101,12 +102,15 @@ func newREPL(ctx context.Context, stdout io.Writer, cw prompt.ConsoleWriter) *re
 		OptimizeConst:     !noOptimizer,
 		OptimizeExpr:      !noOptimizer,
 	}
+
 	if stdout == nil {
 		stdout = os.Stdout
 	}
+
 	if traceEnabled {
 		opts.Trace = stdout
 	}
+
 	r := &repl{
 		ctx:    ctx,
 		eval:   ugo.NewEval(opts, scriptGlobals),
@@ -114,6 +118,7 @@ func newREPL(ctx context.Context, stdout io.Writer, cw prompt.ConsoleWriter) *re
 		wout:   cw,
 		stdout: stdout,
 	}
+
 	r.commands = map[string]func(){
 		".bytecode":      r.cmdBytecode,
 		".builtins":      r.cmdBuiltins,
@@ -139,6 +144,7 @@ func (r *repl) cmdBytecode() {
 
 func (r *repl) cmdBuiltins() {
 	builtins := make([]string, len(ugo.BuiltinsMap))
+
 	for k, v := range ugo.BuiltinsMap {
 		builtins[v] = fmt.Sprint(ugo.BuiltinObjects[v].TypeName(), ":", k)
 	}
@@ -190,6 +196,7 @@ func (r *repl) cmdMemoryStats() {
 	// being used. As well as the number of garbage collection cycles completed.
 	var m runtime.MemStats
 	runtime.ReadMemStats(&m)
+
 	_, _ = fmt.Fprintf(r.stdout, "Go Memory Stats see: "+
 		"https://golang.org/pkg/runtime/#MemStats\n\n")
 	_, _ = fmt.Fprintf(r.stdout, "HeapAlloc = %s", humanFriendlySize(m.HeapAlloc))
@@ -238,16 +245,19 @@ func (r *repl) executeScript(line string) {
 		isMultiline = false
 		r.multiline = ""
 	}()
+
 	var err error
 	r.lastResult, r.lastBytecode, err = r.eval.Run(r.ctx, []byte(r.multiline+line))
 	if err != nil {
 		r.writeErrorStr(fmt.Sprintf("\n%+v\n", err))
 		return
 	}
+
 	if err != nil {
 		r.writeErrorStr(fmt.Sprintf("VM:\n     %+v\n", err))
 		return
 	}
+
 	switch v := r.lastResult.(type) {
 	case ugo.String:
 		r.writeStr(fmt.Sprintf("%q\n", string(v)))
@@ -261,6 +271,7 @@ func (r *repl) executeScript(line string) {
 
 	symbols := r.eval.Opts.SymbolTable.Symbols()
 	suggestions = suggestions[:initialSuggLen]
+
 	for _, s := range symbols {
 		if s.Scope != ugo.ScopeBuiltin {
 			suggestions = append(suggestions,
@@ -277,10 +288,12 @@ func humanFriendlySize(b uint64) string {
 	if b < 1024 {
 		return fmt.Sprint(strconv.FormatUint(b, 10), " bytes")
 	}
+
 	if b >= 1024 && b < 1024*1024 {
 		return fmt.Sprint(strconv.FormatFloat(
 			float64(b)/1024, 'f', 1, 64), " KiB")
 	}
+
 	return fmt.Sprint(strconv.FormatFloat(
 		float64(b)/1024/1024, 'f', 1, 64), " MiB")
 }
@@ -318,6 +331,7 @@ func init() {
 			},
 		)
 	}
+
 	for tok := token.Question + 3; tok.IsKeyword(); tok++ {
 		s := tok.String()
 		suggestions = append(suggestions, prompt.Suggest{
@@ -333,6 +347,7 @@ func newPrompt(
 	w io.Writer,
 	poptions ...prompt.Option,
 ) *prompt.Prompt {
+
 	_, _ = fmt.Fprintln(w, "Copyright (c) 2020 Ozan Hacıbekiroğlu")
 	_, _ = fmt.Fprintln(w, "License: MIT")
 	_, _ = fmt.Fprintln(w, "Press Ctrl+D to exit or use .exit command")
@@ -363,15 +378,14 @@ func newPrompt(
 		prompt.OptionSelectedSuggestionBGColor(prompt.LightGray),
 		prompt.OptionSuggestionBGColor(prompt.DarkGray),
 	}
+
 	options = append(options, poptions...)
-	return prompt.New(
-		executor,
-		completer,
-		options...,
-	)
+	return prompt.New(executor, completer, options...)
 }
 
-func parseFlags(flagset *flag.FlagSet, args []string,
+func parseFlags(
+	flagset *flag.FlagSet,
+	args []string,
 ) (filePath string, timeout time.Duration, err error) {
 
 	var trace string
@@ -381,6 +395,7 @@ func parseFlags(flagset *flag.FlagSet, args []string,
 	flagset.DurationVar(&timeout, "timeout", 0,
 		"Program timeout. It is applicable if a script file is provided and "+
 			"must be non-zero duration")
+
 	flagset.Usage = func() {
 		_, _ = fmt.Fprint(flagset.Output(),
 			"Usage: ugo [flags] [uGO script file]\n\n",
@@ -390,9 +405,11 @@ func parseFlags(flagset *flag.FlagSet, args []string,
 		)
 		flagset.PrintDefaults()
 	}
+
 	if err = flagset.Parse(args); err != nil {
 		return
 	}
+
 	if trace != "" {
 		traceEnabled = true
 		trace = "," + trace + ","
@@ -406,13 +423,16 @@ func parseFlags(flagset *flag.FlagSet, args []string,
 			traceCompiler = true
 		}
 	}
+
 	if flagset.NArg() != 1 {
 		return
 	}
+
 	filePath = flagset.Arg(0)
 	if filePath == "-" {
 		return
 	}
+
 	if _, err = os.Stat(filePath); err != nil {
 		return
 	}
@@ -427,6 +447,7 @@ func executeScript(ctx context.Context, scr []byte, traceOut io.Writer) error {
 		opts.TraceCompiler = traceCompiler
 		opts.TraceOptimizer = traceOptimizer
 	}
+
 	opts.ModuleMap = ugo.NewModuleMap().
 		AddBuiltinModule("time", ugotime.Module).
 		AddBuiltinModule("strings", ugostrings.Module).
@@ -436,12 +457,14 @@ func executeScript(ctx context.Context, scr []byte, traceOut io.Writer) error {
 	if err != nil {
 		return err
 	}
+
 	vm := ugo.NewVM(bc)
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
 		_, err = vm.Run(scriptGlobals)
 	}()
+
 	select {
 	case <-done:
 	case <-ctx.Done():
@@ -458,6 +481,7 @@ func checkErr(err error, f func()) {
 	if err == nil {
 		return
 	}
+
 	defer os.Exit(1)
 	_, _ = fmt.Fprintln(os.Stderr, err.Error())
 	if f != nil {
@@ -468,25 +492,30 @@ func checkErr(err error, f func()) {
 func main() {
 	filePath, timeout, err := parseFlags(flag.CommandLine, os.Args[1:])
 	checkErr(err, nil)
+
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+
 	if filePath != "" {
 		if timeout > 0 {
 			var c func()
 			ctx, c = context.WithTimeout(ctx, timeout)
 			defer c()
 		}
+
 		var script []byte
 		if filePath == "-" {
 			script, err = ioutil.ReadAll(os.Stdin)
 		} else {
 			script, err = ioutil.ReadFile(filePath)
 		}
+
 		checkErr(err, cancel)
 		err = executeScript(ctx, script, os.Stdout)
 		checkErr(err, cancel)
 		return
 	}
+
 	cw := prompt.NewStdoutWriter()
 	grepl = newREPL(ctx, os.Stdout, cw)
 	newPrompt(

@@ -2,6 +2,8 @@ SHELL := bash
 .SHELLFLAGS := -e -o pipefail -c
 MAKEFLAGS += --warn-undefined-variables
 
+all: generate lint test
+
 .PHONY: test
 test: generate lint
 	go test -count=1 ./...

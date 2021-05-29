@@ -24,9 +24,7 @@ type ModuleMap struct {
 
 // NewModuleMap creates a new module map.
 func NewModuleMap() *ModuleMap {
-	return &ModuleMap{
-		m: make(map[string]Importable),
-	}
+	return &ModuleMap{m: make(map[string]Importable)}
 }
 
 // Add adds an importable module.
@@ -69,6 +67,7 @@ func (m *ModuleMap) Get(name string) Importable {
 	if m == nil {
 		return nil
 	}
+
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	return m.m[name]
@@ -89,9 +88,9 @@ func (m *ModuleMap) Range(fn func(name string, mod Importable) bool) {
 func (m *ModuleMap) Copy() *ModuleMap {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	c := &ModuleMap{
-		m: make(map[string]Importable),
-	}
+
+	c := &ModuleMap{m: make(map[string]Importable)}
+
 	for name, mod := range m.m {
 		c.m[name] = mod
 	}
@@ -109,6 +108,7 @@ func (m *ModuleMap) Len() int {
 func (m *ModuleMap) Merge(other *ModuleMap) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+
 	for name, mod := range other.m {
 		m.m[name] = mod
 	}
@@ -134,6 +134,7 @@ func (m *BuiltinModule) Import(moduleName string) (interface{}, error) {
 	if m.Attrs == nil {
 		return nil, errors.New("module attributes not set")
 	}
+
 	cp := Map(m.Attrs).Copy()
 	cp.(Map)["__module_name__"] = String(moduleName)
 	return cp, nil

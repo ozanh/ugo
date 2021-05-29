@@ -48,6 +48,7 @@ func (s *optimizerScope) shadowedBuiltins() []string {
 	if len(s.shadowed) > 0 {
 		out = append(out, s.shadowed...)
 	}
+
 	if s.parent != nil {
 		out = append(out, s.parent.shadowedBuiltins()...)
 	}
@@ -94,10 +95,12 @@ func NewOptimizer(
 			base.ShadowedBuiltins()...,
 		)
 	}
+
 	var trace io.Writer
 	if opts.TraceOptimizer {
 		trace = opts.Trace
 	}
+
 	return &SimpleOptimizer{
 		ctx:              ctx,
 		file:             file,
@@ -115,6 +118,7 @@ func canOptimizeExpr(expr parser.Expr) bool {
 	if parser.IsStatement(expr) {
 		return false
 	}
+
 	switch expr.(type) {
 	case *parser.BoolLit,
 		*parser.IntLit,
@@ -132,6 +136,7 @@ func canOptimizeInsts(constants []Object, insts []byte) bool {
 	if len(insts) == 0 {
 		return false
 	}
+
 	// using array here instead of map or slice is faster to look up opcode
 	allowedOps := [...]bool{
 		OpConstant: true, OpNull: true, OpBinaryOp: true, OpUnary: true,
@@ -140,6 +145,7 @@ func canOptimizeInsts(constants []Object, insts []byte) bool {
 		OpGetBuiltin: true, OpCall: true, OpSetLocal: true, OpDefineLocal: true,
 		^byte(0): false,
 	}
+
 	allowedBuiltins := [...]bool{
 		BuiltinContains: true, BuiltinBool: true, BuiltinInt: true,
 		BuiltinUint: true, BuiltinChar: true, BuiltinFloat: true,
@@ -152,7 +158,9 @@ func canOptimizeInsts(constants []Object, insts []byte) bool {
 		BuiltinIsArray: true, BuiltinIsUndefined: true, BuiltinIsIterable: true,
 		^byte(0): false,
 	}
+
 	canOptimize := true
+
 	IterateInstructions(insts,
 		func(_ int, opcode Opcode, operands []int, _ int) bool {
 			if !allowedOps[opcode] {
@@ -170,7 +178,8 @@ func canOptimizeInsts(constants []Object, insts []byte) bool {
 				return false
 			}
 			return true
-		})
+		},
+	)
 	return canOptimize
 }
 
@@ -178,6 +187,7 @@ func (opt *SimpleOptimizer) evalExpr(expr parser.Expr) (parser.Expr, bool) {
 	if !opt.optimExpr {
 		return nil, false
 	}
+
 	if len(opt.errors) > 0 {
 		// do not evaluate erroneous line again
 		prevPos := opt.errors[len(opt.errors)-1].(*OptimizerError).FilePos
@@ -185,15 +195,18 @@ func (opt *SimpleOptimizer) evalExpr(expr parser.Expr) (parser.Expr, bool) {
 			return nil, false
 		}
 	}
+
 	if opt.trace != nil {
 		opt.printTraceMsgf("eval: %s", expr)
 	}
+
 	if !opt.canEval() || !canOptimizeExpr(expr) {
 		if opt.trace != nil {
 			opt.printTraceMsgf("cannot optimize expression")
 		}
 		return nil, false
 	}
+
 	x, ok := opt.slowEvalExpr(expr)
 	if !ok {
 		opt.setNoEval()
@@ -229,16 +242,20 @@ func (opt *SimpleOptimizer) slowEvalExpr(expr parser.Expr) (parser.Expr, bool) {
 	if err := compiler.Compile(&opt.returnStmt); err != nil {
 		return nil, false
 	}
+
 	bytecode := compiler.Bytecode()
+
 	// obtain constants and instructions slices to reuse
 	opt.constants = bytecode.Constants
 	opt.instructions = bytecode.Main.Instructions
+
 	if !canOptimizeInsts(bytecode.Constants, bytecode.Main.Instructions) {
 		if opt.trace != nil {
 			opt.printTraceMsgf("cannot optimize instructions")
 		}
 		return nil, false
 	}
+
 	obj, err := opt.vm.SetBytecode(bytecode).Clear().Run(nil)
 	if err != nil {
 		if opt.trace != nil {
@@ -249,6 +266,7 @@ func (opt *SimpleOptimizer) slowEvalExpr(expr parser.Expr) (parser.Expr, bool) {
 		}
 		obj = nil
 	}
+
 	switch v := obj.(type) {
 	case String:
 		l := strconv.Quote(string(v))
@@ -331,6 +349,7 @@ func (opt *SimpleOptimizer) leaveExprLevel() {
 func (opt *SimpleOptimizer) Optimize() error {
 	opt.errors = nil
 	opt.duration = 0
+
 	if opt.ctx != nil {
 		defer close(opt.abortVM())
 	}
@@ -338,9 +357,10 @@ func (opt *SimpleOptimizer) Optimize() error {
 	if opt.trace != nil {
 		opt.printTraceMsgf("Enter Optimizer")
 	}
+
 	start := time.Now()
-	i := 1
-	for i <= opt.maxCycle {
+
+	for i := 1; i <= opt.maxCycle; i++ {
 		opt.count = 0
 		opt.exprLevel = 0
 		if opt.trace != nil {
@@ -356,9 +376,10 @@ func (opt *SimpleOptimizer) Optimize() error {
 			break
 		}
 		opt.total += opt.count
-		i++
 	}
+
 	opt.duration = time.Since(start)
+
 	if opt.trace != nil {
 		if opt.total > 0 {
 			opt.printTraceMsgf("Total: %d", opt.total)
@@ -370,6 +391,7 @@ func (opt *SimpleOptimizer) Optimize() error {
 		opt.printTraceMsgf("Exit Optimizer")
 		opt.printTraceMsgf("----------------------")
 	}
+
 	if opt.errors == nil {
 		return nil
 	}
@@ -388,8 +410,10 @@ func (opt *SimpleOptimizer) abortVM() chan struct{} {
 	return done
 }
 
-func (opt *SimpleOptimizer) binaryopInts(op token.Token,
-	left, right *parser.IntLit) (parser.Expr, bool) {
+func (opt *SimpleOptimizer) binaryopInts(
+	op token.Token,
+	left, right *parser.IntLit,
+) (parser.Expr, bool) {
 
 	var val int64
 	switch op {
@@ -423,8 +447,10 @@ func (opt *SimpleOptimizer) binaryopInts(op token.Token,
 	return &parser.IntLit{Value: val, Literal: l, ValuePos: left.ValuePos}, true
 }
 
-func (opt *SimpleOptimizer) binaryopFloats(op token.Token,
-	left, right *parser.FloatLit) (parser.Expr, bool) {
+func (opt *SimpleOptimizer) binaryopFloats(
+	op token.Token,
+	left, right *parser.FloatLit,
+) (parser.Expr, bool) {
 
 	var val float64
 	switch op {
@@ -442,6 +468,7 @@ func (opt *SimpleOptimizer) binaryopFloats(op token.Token,
 	default:
 		return nil, false
 	}
+
 	return &parser.FloatLit{
 		Value:    val,
 		Literal:  strconv.FormatFloat(val, 'f', -1, 64),
@@ -449,12 +476,15 @@ func (opt *SimpleOptimizer) binaryopFloats(op token.Token,
 	}, true
 }
 
-func (opt *SimpleOptimizer) binaryop(op token.Token,
-	left, right parser.Expr) (parser.Expr, bool) {
+func (opt *SimpleOptimizer) binaryop(
+	op token.Token,
+	left, right parser.Expr,
+) (parser.Expr, bool) {
 
 	if !opt.optimConsts {
 		return nil, false
 	}
+
 	switch left := left.(type) {
 	case *parser.IntLit:
 		if right, ok := right.(*parser.IntLit); ok {
@@ -478,12 +508,15 @@ func (opt *SimpleOptimizer) binaryop(op token.Token,
 	return nil, false
 }
 
-func (opt *SimpleOptimizer) unaryop(op token.Token,
-	expr parser.Expr) (parser.Expr, bool) {
+func (opt *SimpleOptimizer) unaryop(
+	op token.Token,
+	expr parser.Expr,
+) (parser.Expr, bool) {
 
 	if !opt.optimConsts {
 		return nil, false
 	}
+
 	switch expr := expr.(type) {
 	case *parser.IntLit:
 		switch op {
@@ -561,14 +594,17 @@ func (opt *SimpleOptimizer) optimize(node parser.Node) (parser.Expr, bool) {
 			defer untraceoptim(traceoptim(opt, "<nil>"))
 		}
 	}
+
 	if !parser.IsStatement(node) {
 		opt.enterExprLevel()
 		defer opt.leaveExprLevel()
 	}
+
 	var (
 		expr parser.Expr
 		ok   bool
 	)
+
 	switch node := node.(type) {
 	case *parser.File:
 		for _, stmt := range node.Stmts {
@@ -829,9 +865,7 @@ func (opt *SimpleOptimizer) optimize(node parser.Node) (parser.Expr, bool) {
 }
 
 func (opt *SimpleOptimizer) enterScope() {
-	opt.scope = &optimizerScope{
-		parent: opt.scope,
-	}
+	opt.scope = &optimizerScope{parent: opt.scope}
 }
 
 func (opt *SimpleOptimizer) leaveScope() {
@@ -868,6 +902,7 @@ func (opt *SimpleOptimizer) printTraceMsgf(format string, args ...interface{}) {
 		_, _ = fmt.Fprint(opt.trace, dots)
 		i -= n
 	}
+
 	_, _ = fmt.Fprint(opt.trace, dots[0:i], "<")
 	_, _ = fmt.Fprintf(opt.trace, format, args...)
 	_, _ = fmt.Fprintln(opt.trace, ">")
@@ -896,6 +931,7 @@ func isLitFalsy(expr parser.Expr) (bool, bool) {
 	if expr == nil {
 		return false, false
 	}
+
 	switch v := expr.(type) {
 	case *parser.BoolLit:
 		return !v.Value, true

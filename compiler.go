@@ -130,6 +130,7 @@ func NewCompiler(file *parser.SourceFile, opts CompilerOptions) *Compiler {
 	if opts.SymbolTable == nil {
 		opts.SymbolTable = NewSymbolTable()
 	}
+
 	if opts.constsCache == nil {
 		opts.constsCache = make(map[Object]int)
 		for i := range opts.Constants {
@@ -140,13 +141,16 @@ func NewCompiler(file *parser.SourceFile, opts CompilerOptions) *Compiler {
 			}
 		}
 	}
+
 	if opts.ModuleIndexes == nil {
 		opts.ModuleIndexes = NewModuleIndexes()
 	}
+
 	var trace io.Writer
 	if opts.TraceCompiler {
 		trace = opts.Trace
 	}
+
 	return &Compiler{
 		file:          file,
 		constants:     opts.Constants,
@@ -167,14 +171,17 @@ func NewCompiler(file *parser.SourceFile, opts CompilerOptions) *Compiler {
 func Compile(script []byte, opts CompilerOptions) (*Bytecode, error) {
 	fileSet := parser.NewFileSet()
 	moduleName := opts.ModulePath
+
 	if moduleName == "" {
 		moduleName = "(main)"
 	}
+
 	srcFile := fileSet.AddFile(moduleName, -1, len(script))
 	var trace io.Writer
 	if opts.TraceParser {
 		trace = opts.Trace
 	}
+
 	p := parser.NewParser(srcFile, script, trace)
 	pf, err := p.ParseFile()
 	if err != nil {
@@ -193,9 +200,11 @@ func Compile(script []byte, opts CompilerOptions) (*Bytecode, error) {
 		}
 
 	}
+
 	if err := compiler.Compile(pf); err != nil {
 		return nil, err
 	}
+
 	bc := compiler.Bytecode()
 	if bc.Main.NumLocals > 256 {
 		return nil, ErrSymbolLimit
@@ -209,17 +218,21 @@ func (c *Compiler) optimize(file *parser.File) (*SimpleOptimizer, error) {
 	if c.opts.OptimizerMaxCycle < 1 {
 		return nil, nil
 	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
+
 	o := NewOptimizer(
 		ctx,
 		file,
 		c.symbolTable,
 		c.opts,
 	)
+
 	if err := o.Optimize(); err != nil {
 		return o, err
 	}
+
 	c.opts.OptimizerMaxCycle -= o.Total()
 	return o, nil
 }
@@ -231,6 +244,7 @@ func (c *Compiler) Bytecode() *Bytecode {
 	var jumpPos = make(map[int]struct{})
 	var offset int
 	var i int
+
 	for i < len(c.instructions) {
 		lastOp = c.instructions[i]
 		numOperands := OpcodeOperands[lastOp]
@@ -239,16 +253,20 @@ func (c *Compiler) Bytecode() *Bytecode {
 			c.instructions[i+1:],
 			operands,
 		)
+
 		if lastOp == OpJump || lastOp == OpJumpFalsy ||
 			lastOp == OpAndJump || lastOp == OpOrJump {
 			jumpPos[operands[0]] = struct{}{}
 		}
+
 		delete(jumpPos, i)
 		i += offset + 1
 	}
+
 	if lastOp != OpReturn || len(jumpPos) > 0 {
 		c.emit(nil, OpReturn, 0)
 	}
+
 	return &Bytecode{
 		FileSet:   c.file.Set(),
 		Constants: c.constants,
@@ -273,6 +291,7 @@ func (c *Compiler) Compile(node parser.Node) error {
 			defer untracec(tracec(c, "<nil>"))
 		}
 	}
+
 	switch node := node.(type) {
 	case *parser.File:
 		for _, stmt := range node.Stmts {
@@ -398,6 +417,7 @@ func (c *Compiler) addConstant(obj Object) (index int) {
 				fmt.Sprintf("CONST %04d %s", index, obj))
 		}
 	}()
+
 	switch obj.(type) {
 	case Int, Uint, String, Bool, Float, Char, undefined:
 		i, ok := c.constsCache[obj]
@@ -421,6 +441,7 @@ func (c *Compiler) addConstant(obj Object) (index int) {
 		index = len(c.constants) - 1
 		return
 	}
+
 	c.constants = append(c.constants, obj)
 	index = len(c.constants) - 1
 	c.constsCache[obj] = index
@@ -432,11 +453,13 @@ func (c *Compiler) emit(node parser.Node, opcode Opcode, operands ...int) int {
 	if node != nil {
 		filePos = node.Pos()
 	}
+
 	inst := make([]byte, 8)
 	inst, err := MakeInstruction(inst, opcode, operands...)
 	if err != nil {
 		panic(err)
 	}
+
 	pos := c.addInstruction(inst)
 	c.sourceMap[pos] = int(filePos)
 
@@ -477,53 +500,67 @@ func (c *Compiler) getModule(name string) (ModuleIndex, bool) {
 	return indexes, ok
 }
 
-func (c *Compiler) compileModule(node parser.Node,
-	modulePath string, src []byte) (modIndex ModuleIndex, err error) {
+func (c *Compiler) compileModule(
+	node parser.Node,
+	modulePath string,
+	src []byte,
+) (ModuleIndex, error) {
+	var (
+		modIndex ModuleIndex
+		err      error
+	)
 	if err = c.checkCyclicImports(node, modulePath); err != nil {
-		return
+		return modIndex, err
 	}
+
 	modIndex, exists := c.getModule(modulePath)
 	if exists {
 		return modIndex, nil
 	}
+
 	modFile := c.file.Set().AddFile(modulePath, -1, len(src))
 	var trace io.Writer
 	if c.opts.TraceParser {
 		trace = c.trace
 	}
+
 	p := parser.NewParser(modFile, src, trace)
 	var file *parser.File
 	file, err = p.ParseFile()
 	if err != nil {
-		return
+		return modIndex, err
 	}
+
 	symbolTable := NewSymbolTable().
 		DisableBuiltin(c.symbolTable.DisabledBuiltins()...)
+
 	fork := c.fork(modFile, modulePath, symbolTable)
 	_, err = fork.optimize(file)
 	if err != nil {
 		err = c.error(node, err)
-		return
+		return modIndex, err
 	}
+
 	if err = fork.Compile(file); err != nil {
-		return
+		return modIndex, err
 	}
+
 	bc := fork.Bytecode()
 	if bc.Main.NumLocals > 256 {
 		err = c.error(node, ErrSymbolLimit)
-		return
+		return modIndex, err
 	}
+
 	c.constants = bc.Constants
 	index := c.addConstant(bc.Main)
 	return c.addModule(modulePath, index), nil
 }
 
 func (c *Compiler) enterLoop() *loopStmts {
-	loop := &loopStmts{
-		lastTryCatchIndex: c.tryCatchIndex,
-	}
+	loop := &loopStmts{lastTryCatchIndex: c.tryCatchIndex}
 	c.loops = append(c.loops, loop)
 	c.loopIndex++
+
 	if c.trace != nil {
 		printTrace(c.indent, c.trace, "LOOPE", c.loopIndex)
 	}
@@ -545,8 +582,11 @@ func (c *Compiler) currentLoop() *loopStmts {
 	return nil
 }
 
-func (c *Compiler) fork(file *parser.SourceFile, modulePath string,
-	symbolTable *SymbolTable) *Compiler {
+func (c *Compiler) fork(
+	file *parser.SourceFile,
+	modulePath string,
+	symbolTable *SymbolTable,
+) *Compiler {
 	child := NewCompiler(file, CompilerOptions{
 		ModuleMap:         c.moduleMap,
 		ModuleIndexes:     c.moduleIndexes,
@@ -562,6 +602,7 @@ func (c *Compiler) fork(file *parser.SourceFile, modulePath string,
 		OptimizeExpr:      c.opts.OptimizeExpr,
 		constsCache:       c.constsCache,
 	})
+
 	child.parent = c
 	if modulePath == c.modulePath {
 		child.indent = c.indent
@@ -577,9 +618,11 @@ func (c *Compiler) error(node parser.Node, err error) error {
 	}
 }
 
-func (c *Compiler) errorf(node parser.Node,
-	format string, args ...interface{}) error {
-
+func (c *Compiler) errorf(
+	node parser.Node,
+	format string,
+	args ...interface{},
+) error {
 	return &CompilerError{
 		FileSet: c.file.Set(),
 		Node:    node,
@@ -598,6 +641,7 @@ func printTrace(indent int, trace io.Writer, a ...interface{}) {
 		_, _ = fmt.Fprint(trace, dots)
 		i -= n
 	}
+
 	_, _ = fmt.Fprint(trace, dots[0:i])
 	_, _ = fmt.Fprintln(trace, a...)
 }
@@ -632,6 +676,7 @@ func MakeInstruction(buf []byte, op Opcode, args ...int) ([]byte, error) {
 			OpcodeNames[op], len(operands), len(args),
 		)
 	}
+
 	buf = append(buf[:0], op)
 	switch op {
 	case OpConstant, OpMap, OpArray, OpGetGlobal, OpSetGlobal, OpJump,
@@ -675,6 +720,7 @@ func FormatInstructions(b []byte, posOffset int) []string {
 	var operands = make([]int, 0, 4)
 	var offset int
 	var i int
+
 	for i < len(b) {
 		numOperands := OpcodeOperands[b[i]]
 		operands, offset = ReadOperands(numOperands, b[i+1:], operands)
@@ -702,6 +748,7 @@ func IterateInstructions(insts []byte,
 	fn func(pos int, opcode Opcode, operands []int, offset int) bool) {
 	operands := make([]int, 0, 4)
 	var offset int
+
 	for i := 0; i < len(insts); i++ {
 		numOperands := OpcodeOperands[insts[i]]
 		operands, offset = ReadOperands(numOperands, insts[i+1:], operands)

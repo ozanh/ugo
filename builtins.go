@@ -336,6 +336,7 @@ func builtinMakeArrayFunc(args ...Object) (Object, error) {
 			args[0].TypeName(),
 		)
 	}
+
 	nn := int(n)
 	if nn <= 0 {
 		return args[1], nil
@@ -350,10 +351,12 @@ func builtinMakeArrayFunc(args ...Object) (Object, error) {
 		ret[0] = args[1]
 		return ret, nil
 	}
+
 	length := len(arr)
 	if nn <= length {
 		return arr[:nn], nil
 	}
+
 	ret := make(Array, nn)
 	x := copy(ret, arr)
 	for i := x; i < nn; i++ {
@@ -366,6 +369,7 @@ func builtinAppendFunc(args ...Object) (Object, error) {
 	if len(args) < 1 {
 		return nil, ErrWrongNumArguments.NewError("want>=1 got=0")
 	}
+
 	switch obj := args[0].(type) {
 	case Array:
 		if len(args) > 1 {
@@ -463,6 +467,7 @@ func builtinRepeatFunc(args ...Object) (Object, error) {
 			args[1].TypeName(),
 		)
 	}
+
 	if count < 0 {
 		return nil, NewArgumentTypeError(
 			"second",
@@ -470,6 +475,7 @@ func builtinRepeatFunc(args ...Object) (Object, error) {
 			args[1].TypeName(),
 		)
 	}
+
 	switch v := args[0].(type) {
 	case Array:
 		out := make(Array, 0, len(v)*count)
@@ -482,6 +488,7 @@ func builtinRepeatFunc(args ...Object) (Object, error) {
 	case Bytes:
 		return Bytes(bytes.Repeat(v, count)), nil
 	}
+
 	return nil, NewArgumentTypeError(
 		"first",
 		"array|string|bytes",
@@ -568,6 +575,7 @@ func builtinSortFunc(args ...Object) (Object, error) {
 			}
 			return false
 		})
+
 		if err != nil {
 			return nil, err
 		}
@@ -586,6 +594,7 @@ func builtinSortFunc(args ...Object) (Object, error) {
 	case undefined:
 		return Undefined, nil
 	}
+
 	return nil, NewArgumentTypeError(
 		"first",
 		"array|string|bytes",
@@ -608,6 +617,7 @@ func builtinSortReverseFunc(args ...Object) (Object, error) {
 			}
 			return false
 		})
+
 		if err != nil {
 			return nil, err
 		}
@@ -626,6 +636,7 @@ func builtinSortReverseFunc(args ...Object) (Object, error) {
 	case undefined:
 		return Undefined, nil
 	}
+
 	return nil, NewArgumentTypeError(
 		"first",
 		"array|string|bytes",
@@ -773,6 +784,7 @@ func builtinBytesFunc(args ...Object) (Object, error) {
 	if len(args) == 0 {
 		return Bytes{}, nil
 	}
+
 	switch obj := args[0].(type) {
 	case String:
 		return Bytes([]byte(obj)), nil
@@ -807,6 +819,7 @@ func builtinCharsFunc(args ...Object) (Object, error) {
 		var out = make(Array, 0, utf8.RuneCountInString(s))
 		sz := len(obj)
 		i := 0
+
 		for i < sz {
 			r, w := utf8.DecodeRuneInString(s[i:])
 			if r == utf8.RuneError {
@@ -820,6 +833,7 @@ func builtinCharsFunc(args ...Object) (Object, error) {
 		var out = make(Array, 0, utf8.RuneCount(obj))
 		sz := len(obj)
 		i := 0
+
 		for i < sz {
 			r, w := utf8.DecodeRune(obj[i:])
 			if r == utf8.RuneError {
@@ -841,6 +855,7 @@ func builtinPrintfFunc(args ...Object) (Object, error) {
 	if len(args) < 1 {
 		return nil, ErrWrongNumArguments.NewError("want>=1 got=0")
 	}
+
 	switch len(args) {
 	case 1:
 		if _, err := fmt.Fprint(PrintWriter, args[0].String()); err != nil {
@@ -885,10 +900,12 @@ func builtinSprintfFunc(args ...Object) (Object, error) {
 	if len(args) < 1 {
 		return nil, ErrWrongNumArguments.NewError("want>=1 got=0")
 	}
+
 	vargs := make([]interface{}, len(args)-1)
 	for i := range args[1:] {
 		vargs[i] = args[i+1]
 	}
+
 	return String(fmt.Sprintf(args[0].String(), vargs...)), nil
 }
 
@@ -971,10 +988,12 @@ func builtinIsFunctionFunc(args ...Object) (Object, error) {
 	if ok {
 		return True, nil
 	}
+
 	_, ok = args[0].(*BuiltinFunction)
 	if ok {
 		return True, nil
 	}
+
 	_, ok = args[0].(*Function)
 	return Bool(ok), nil
 }

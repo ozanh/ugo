@@ -216,9 +216,11 @@ func (o Bool) Equal(right Object) bool {
 	if v, ok := right.(Bool); ok {
 		return o == v
 	}
+
 	if v, ok := right.(Int); ok {
 		return bool((o && v == 1) || (!o && v == 0))
 	}
+
 	if v, ok := right.(Uint); ok {
 		return bool((o && v == 1) || (!o && v == 0))
 	}
@@ -460,9 +462,11 @@ func (o String) BinaryOp(tok token.Token, right Object) (Object, error) {
 			return True, nil
 		}
 	}
+
 	if tok == token.Add {
 		return o + String(right.String()), nil
 	}
+
 	return nil, NewOperandTypeError(
 		tok.String(),
 		o.TypeName(),
@@ -509,6 +513,7 @@ func (o Bytes) IndexSet(index, value Object) error {
 	default:
 		return NewIndexTypeError("int|uint", index.TypeName())
 	}
+
 	if idx >= 0 && idx < len(o) {
 		switch v := value.(type) {
 		case Int:
@@ -534,6 +539,7 @@ func (o Bytes) IndexGet(index Object) (Object, error) {
 	default:
 		return nil, NewIndexTypeError("int|uint|char", index.TypeName())
 	}
+
 	if idx >= 0 && idx < len(o) {
 		return Int(o[idx]), nil
 	}
@@ -545,6 +551,7 @@ func (o Bytes) Equal(right Object) bool {
 	if v, ok := right.(Bytes); ok {
 		return string(o) == string(v)
 	}
+
 	if v, ok := right.(String); ok {
 		return string(o) == string(v)
 	}
@@ -716,6 +723,7 @@ func (o Array) String() string {
 	var sb strings.Builder
 	sb.WriteString("[")
 	last := len(o) - 1
+
 	for i := range o {
 		switch v := o[i].(type) {
 		case String:
@@ -731,6 +739,7 @@ func (o Array) String() string {
 			sb.WriteString(", ")
 		}
 	}
+
 	sb.WriteString("]")
 	return sb.String()
 }
@@ -794,9 +803,11 @@ func (o Array) Equal(right Object) bool {
 	if !ok {
 		return false
 	}
+
 	if len(o) != len(v) {
 		return false
 	}
+
 	for i := range o {
 		if !o[i].Equal(v[i]) {
 			return false
@@ -826,6 +837,7 @@ func (o Array) BinaryOp(tok token.Token, right Object) (Object, error) {
 			arr = append(arr, v...)
 			return arr, nil
 		}
+
 		arr := make(Array, 0, len(o)+1)
 		arr = append(arr, o...)
 		arr = append(arr, right)
@@ -930,6 +942,7 @@ func (o Map) String() string {
 	sb.WriteString("{")
 	last := len(o) - 1
 	i := 0
+
 	for k := range o {
 		sb.WriteString(strconv.Quote(k))
 		sb.WriteString(": ")
@@ -948,6 +961,7 @@ func (o Map) String() string {
 		}
 		i++
 	}
+
 	sb.WriteString("}")
 	return sb.String()
 }
@@ -986,9 +1000,11 @@ func (o Map) Equal(right Object) bool {
 	if !ok {
 		return false
 	}
+
 	if len(o) != len(v) {
 		return false
 	}
+
 	for k := range o {
 		right, ok := v[k]
 		if !ok {
@@ -1022,6 +1038,7 @@ func (o Map) BinaryOp(tok token.Token, right Object) (Object, error) {
 			return True, nil
 		}
 	}
+
 	return nil, NewOperandTypeError(
 		tok.String(),
 		o.TypeName(),
@@ -1070,6 +1087,7 @@ func (o *SyncMap) Copy() Object {
 			Map: Map{},
 		}
 	}
+
 	return &SyncMap{
 		Map: o.Map.Copy().(Map),
 	}
@@ -1079,6 +1097,7 @@ func (o *SyncMap) Copy() Object {
 func (o *SyncMap) IndexSet(index, value Object) error {
 	o.mu.Lock()
 	defer o.mu.Unlock()
+
 	if o.Map != nil {
 		return o.Map.IndexSet(index, value)
 	}
@@ -1089,6 +1108,7 @@ func (o *SyncMap) IndexSet(index, value Object) error {
 func (o *SyncMap) IndexGet(index Object) (Object, error) {
 	o.mu.RLock()
 	defer o.mu.RUnlock()
+
 	if o.Map != nil {
 		return o.Map.IndexGet(index)
 	}
@@ -1099,6 +1119,7 @@ func (o *SyncMap) IndexGet(index Object) (Object, error) {
 func (o *SyncMap) Equal(right Object) bool {
 	o.mu.RLock()
 	defer o.mu.RUnlock()
+
 	if o.Map != nil {
 		return o.Map.Equal(right)
 	}
@@ -1109,6 +1130,7 @@ func (o *SyncMap) Equal(right Object) bool {
 func (o *SyncMap) IsFalsy() bool {
 	o.mu.RLock()
 	defer o.mu.RUnlock()
+
 	if o.Map != nil {
 		return o.Map.IsFalsy()
 	}
@@ -1122,6 +1144,7 @@ func (o *SyncMap) CanIterate() bool { return true }
 func (o *SyncMap) Iterate() Iterator {
 	o.mu.RLock()
 	defer o.mu.RUnlock()
+
 	if o.Map == nil {
 		return &MapIterator{V: Map{}, keys: []string{}}
 	}
@@ -1132,6 +1155,7 @@ func (o *SyncMap) Iterate() Iterator {
 func (o *SyncMap) Get(index string) (value Object, exists bool) {
 	o.mu.RLock()
 	defer o.mu.RUnlock()
+
 	value, exists = o.Map[index]
 	return
 }
@@ -1194,9 +1218,11 @@ func (o *Error) IndexGet(index Object) (Object, error) {
 	if s == "Name" {
 		return String(o.Name), nil
 	}
+
 	if s == "Message" {
 		return String(o.Message), nil
 	}
+
 	if s == "New" {
 		return &Function{
 			Name: "New",
@@ -1290,6 +1316,7 @@ func (o *RuntimeError) Copy() Object {
 	if o.Err != nil {
 		err = o.Err.Copy().(*Error)
 	}
+
 	return &RuntimeError{
 		Err:     err,
 		fileSet: o.fileSet,
@@ -1394,6 +1421,7 @@ func (o *RuntimeError) StackTrace() StackTrace {
 		}
 		return nil
 	}
+
 	sz := len(o.Trace)
 	trace := make(StackTrace, sz)
 	j := 0
