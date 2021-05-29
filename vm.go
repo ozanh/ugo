@@ -285,6 +285,12 @@ VMLoop:
 			}
 			vm.sp--
 			vm.stack[vm.sp] = nil
+		case OpTrue:
+			vm.stack[vm.sp] = True
+			vm.sp++
+		case OpFalse:
+			vm.stack[vm.sp] = False
+			vm.sp++
 		case OpCall:
 			if err := vm.execOpCall(); err != nil {
 				if err := vm.throwGenErr(err); err != nil {

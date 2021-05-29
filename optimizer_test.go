@@ -17,211 +17,225 @@ func TestOptimizer(t *testing.T) {
 		cf *CompiledFunction
 	}
 
-	f := compFunc(concatInsts(
-		makeInst(OpConstant, 0),
-		makeInst(OpPop),
-		makeInst(OpReturn, 0),
-	))
+	defF := compFunc(concatInsts(makeInst(OpConstant, 0)))
+
+	falseF := compFunc(concatInsts(makeInst(OpFalse)))
+
+	trueF := compFunc(concatInsts(makeInst(OpTrue)))
 
 	testCases := []values{
-		{s: `1 + 2`, c: Int(3), cf: f},
-		{s: `1 - 2`, c: Int(-1), cf: f},
-		{s: `2 * 2`, c: Int(4), cf: f},
-		{s: `2 / 2`, c: Int(1), cf: f},
-		{s: `1 << 2`, c: Int(4), cf: f},
-		{s: `4 >> 2`, c: Int(1), cf: f},
-		{s: `4 % 3`, c: Int(1), cf: f},
-		{s: `1 & 2`, c: Int(0), cf: f},
-		{s: `1 | 2`, c: Int(3), cf: f},
-		{s: `1 ^ 2`, c: Int(3), cf: f},
-		{s: `2 &^ 3`, c: Int(0), cf: f},
-		{s: `1 == 2`, c: False, cf: f},
-		{s: `1 != 2`, c: True, cf: f},
-		{s: `1 < 2`, c: True, cf: f},
-		{s: `1 <= 2`, c: True, cf: f},
-		{s: `1 > 2`, c: False, cf: f},
-		{s: `1 >= 2`, c: False, cf: f},
-		{s: `!0`, c: True, cf: f},
-		{s: `!1`, c: False, cf: f},
-		{s: `-1`, c: Int(-1), cf: f},
-		{s: `+1`, c: Int(1), cf: f},
-		{s: `(1 + 2)`, c: Int(3), cf: f},
-		{s: `1 + 2 + 3`, c: Int(6), cf: f},
-		{s: `1 + (2 + 3)`, c: Int(6), cf: f},
-		{s: `(1 + 2 + 3)`, c: Int(6), cf: f},
-		{s: `1 + (2 + 3 + 4)`, c: Int(10), cf: f},
-		{s: `(1 + 2) + (3 + 4)`, c: Int(10), cf: f},
-		{s: `!(1 << 2)`, c: False, cf: f},
+		{s: `1 + 2`, c: Int(3), cf: defF},
+		{s: `1 - 2`, c: Int(-1), cf: defF},
+		{s: `2 * 2`, c: Int(4), cf: defF},
+		{s: `2 / 2`, c: Int(1), cf: defF},
+		{s: `1 << 2`, c: Int(4), cf: defF},
+		{s: `4 >> 2`, c: Int(1), cf: defF},
+		{s: `4 % 3`, c: Int(1), cf: defF},
+		{s: `1 & 2`, c: Int(0), cf: defF},
+		{s: `1 | 2`, c: Int(3), cf: defF},
+		{s: `1 ^ 2`, c: Int(3), cf: defF},
+		{s: `2 &^ 3`, c: Int(0), cf: defF},
+		{s: `1 == 2`, cf: falseF},
+		{s: `1 != 2`, cf: trueF},
+		{s: `1 < 2`, cf: trueF},
+		{s: `1 <= 2`, cf: trueF},
+		{s: `1 > 2`, cf: falseF},
+		{s: `1 >= 2`, cf: falseF},
+		{s: `!0`, cf: trueF},
+		{s: `!1`, cf: falseF},
+		{s: `-1`, c: Int(-1), cf: defF},
+		{s: `+1`, c: Int(1), cf: defF},
+		{s: `(1 + 2)`, c: Int(3), cf: defF},
+		{s: `1 + 2 + 3`, c: Int(6), cf: defF},
+		{s: `1 + (2 + 3)`, c: Int(6), cf: defF},
+		{s: `(1 + 2 + 3)`, c: Int(6), cf: defF},
+		{s: `1 + (2 + 3 + 4)`, c: Int(10), cf: defF},
+		{s: `(1 + 2) + (3 + 4)`, c: Int(10), cf: defF},
+		{s: `!(1 << 2)`, cf: falseF},
 
-		{s: `1u + 2u`, c: Uint(3), cf: f},
-		{s: `1u - 2u`, c: Uint(^uint64(0)), cf: f},
-		{s: `2u * 2u`, c: Uint(4), cf: f},
-		{s: `2u / 2u`, c: Uint(1), cf: f},
-		{s: `1u << 2u`, c: Uint(4), cf: f},
-		{s: `4u >> 2u`, c: Uint(1), cf: f},
-		{s: `4u % 3u`, c: Uint(1), cf: f},
-		{s: `1u & 2u`, c: Uint(0), cf: f},
-		{s: `1u | 2u`, c: Uint(3), cf: f},
-		{s: `1u ^ 2u`, c: Uint(3), cf: f},
-		{s: `2u &^ 3u`, c: Uint(0), cf: f},
-		{s: `1u == 2u`, c: False, cf: f},
-		{s: `1u != 2u`, c: True, cf: f},
-		{s: `1u < 2u`, c: True, cf: f},
-		{s: `1u <= 2u`, c: True, cf: f},
-		{s: `1u > 2u`, c: False, cf: f},
-		{s: `1u >= 2u`, c: False, cf: f},
-		{s: `!0u`, c: True, cf: f},
-		{s: `!1u`, c: False, cf: f},
-		{s: `-1u`, c: Uint(^uint64(0)), cf: f},
-		{s: `+1u`, c: Uint(1), cf: f},
+		{s: `1u + 2u`, c: Uint(3), cf: defF},
+		{s: `1u - 2u`, c: Uint(^uint64(0)), cf: defF},
+		{s: `2u * 2u`, c: Uint(4), cf: defF},
+		{s: `2u / 2u`, c: Uint(1), cf: defF},
+		{s: `1u << 2u`, c: Uint(4), cf: defF},
+		{s: `4u >> 2u`, c: Uint(1), cf: defF},
+		{s: `4u % 3u`, c: Uint(1), cf: defF},
+		{s: `1u & 2u`, c: Uint(0), cf: defF},
+		{s: `1u | 2u`, c: Uint(3), cf: defF},
+		{s: `1u ^ 2u`, c: Uint(3), cf: defF},
+		{s: `2u &^ 3u`, c: Uint(0), cf: defF},
+		{s: `1u == 2u`, cf: falseF},
+		{s: `1u != 2u`, cf: trueF},
+		{s: `1u < 2u`, cf: trueF},
+		{s: `1u <= 2u`, cf: trueF},
+		{s: `1u > 2u`, cf: falseF},
+		{s: `1u >= 2u`, cf: falseF},
+		{s: `!0u`, cf: trueF},
+		{s: `!1u`, cf: falseF},
+		{s: `-1u`, c: Uint(^uint64(0)), cf: defF},
+		{s: `+1u`, c: Uint(1), cf: defF},
 
-		{s: `1.0 + 2.0`, c: Float(3), cf: f},
-		{s: `1.0 - 2.0`, c: Float(-1), cf: f},
-		{s: `2.0 * 2.0`, c: Float(4), cf: f},
-		{s: `2.0 / 2.0`, c: Float(1), cf: f},
-		{s: `1.0 == 2.0`, c: False, cf: f},
-		{s: `1.0 != 2.0`, c: True, cf: f},
-		{s: `1.0 < 2.0`, c: True, cf: f},
-		{s: `1.0 <= 2.0`, c: True, cf: f},
-		{s: `1.0 > 2.0`, c: False, cf: f},
-		{s: `1.0 >= 2.0`, c: False, cf: f},
-		{s: `!0.0`, c: False, cf: f},
-		{s: `!1.0`, c: False, cf: f},
-		{s: `-1.0`, c: Float(-1), cf: f},
-		{s: `+1.0`, c: Float(1), cf: f},
+		{s: `1.0 + 2.0`, c: Float(3), cf: defF},
+		{s: `1.0 - 2.0`, c: Float(-1), cf: defF},
+		{s: `2.0 * 2.0`, c: Float(4), cf: defF},
+		{s: `2.0 / 2.0`, c: Float(1), cf: defF},
+		{s: `1.0 == 2.0`, cf: falseF},
+		{s: `1.0 != 2.0`, cf: trueF},
+		{s: `1.0 < 2.0`, cf: trueF},
+		{s: `1.0 <= 2.0`, cf: trueF},
+		{s: `1.0 > 2.0`, cf: falseF},
+		{s: `1.0 >= 2.0`, cf: falseF},
+		{s: `!0.0`, cf: falseF},
+		{s: `!1.0`, cf: falseF},
+		{s: `-1.0`, c: Float(-1), cf: defF},
+		{s: `+1.0`, c: Float(1), cf: defF},
 
-		{s: `1 + true`, c: Int(2), cf: f},
-		{s: `true + 1`, c: Int(2), cf: f},
-		{s: `1 - false`, c: Int(1), cf: f},
-		{s: `false - 1`, c: Int(-1), cf: f},
-		{s: `2 * false`, c: Int(0), cf: f},
-		{s: `2 / (true + true)`, c: Int(1), cf: f},
-		{s: `2 / (true + false)`, c: Int(2), cf: f},
-		{s: `false / true`, c: Int(0), cf: f},
-		{s: `1 << (true + 1)`, c: Int(4), cf: f},
-		{s: `true << 2`, c: Int(4), cf: f},
-		{s: `4 >> (1 + true)`, c: Int(1), cf: f},
-		{s: `4 % true`, c: Int(0), cf: f},
-		{s: `true & 2`, c: Int(0), cf: f},
-		{s: `2 & true`, c: Int(0), cf: f},
-		{s: `true | 2`, c: Int(3), cf: f},
-		{s: `2 | true`, c: Int(3), cf: f},
-		{s: `1 ^ (true + true)`, c: Int(3), cf: f},
-		{s: `(true + true) ^ 1`, c: Int(3), cf: f},
-		{s: `(2 * true) &^ 3`, c: Int(0), cf: f},
-		{s: `1 == true * 2`, c: False, cf: f},
-		{s: `true != 2`, c: True, cf: f},
-		{s: `2 != true`, c: True, cf: f},
-		{s: `true < 2`, c: True, cf: f},
-		{s: `true <= 2`, c: True, cf: f},
-		{s: `true > 2`, c: False, cf: f},
-		{s: `true >= 2`, c: False, cf: f},
-		{s: `2 < true`, c: False, cf: f},
-		{s: `2 <= true`, c: False, cf: f},
-		{s: `2 > true`, c: True, cf: f},
-		{s: `2 >= true`, c: True, cf: f},
-		{s: `!false`, c: True, cf: f},
-		{s: `!true`, c: False, cf: f},
-		{s: `-true`, c: Int(-1), cf: f},
-		{s: `+true`, c: Int(1), cf: f},
-		{s: `bool(0)`, c: False, cf: f},
-		{s: `bool(1)`, c: True, cf: f},
+		{s: `1 + true`, c: Int(2), cf: defF},
+		{s: `true + 1`, c: Int(2), cf: defF},
+		{s: `1 - false`, c: Int(1), cf: defF},
+		{s: `false - 1`, c: Int(-1), cf: defF},
+		{s: `2 * false`, c: Int(0), cf: defF},
+		{s: `2 / (true + true)`, c: Int(1), cf: defF},
+		{s: `2 / (true + false)`, c: Int(2), cf: defF},
+		{s: `false / true`, c: Int(0), cf: defF},
+		{s: `1 << (true + 1)`, c: Int(4), cf: defF},
+		{s: `true << 2`, c: Int(4), cf: defF},
+		{s: `4 >> (1 + true)`, c: Int(1), cf: defF},
+		{s: `4 % true`, c: Int(0), cf: defF},
+		{s: `true & 2`, c: Int(0), cf: defF},
+		{s: `2 & true`, c: Int(0), cf: defF},
+		{s: `true | 2`, c: Int(3), cf: defF},
+		{s: `2 | true`, c: Int(3), cf: defF},
+		{s: `1 ^ (true + true)`, c: Int(3), cf: defF},
+		{s: `(true + true) ^ 1`, c: Int(3), cf: defF},
+		{s: `(2 * true) &^ 3`, c: Int(0), cf: defF},
+		{s: `1 == true * 2`, cf: falseF},
+		{s: `true != 2`, cf: trueF},
+		{s: `2 != true`, cf: trueF},
+		{s: `true < 2`, cf: trueF},
+		{s: `true <= 2`, cf: trueF},
+		{s: `true > 2`, cf: falseF},
+		{s: `true >= 2`, cf: falseF},
+		{s: `2 < true`, cf: falseF},
+		{s: `2 <= true`, cf: falseF},
+		{s: `2 > true`, cf: trueF},
+		{s: `2 >= true`, cf: trueF},
+		{s: `!false`, cf: trueF},
+		{s: `!true`, cf: falseF},
+		{s: `-true`, c: Int(-1), cf: defF},
+		{s: `+true`, c: Int(1), cf: defF},
+		{s: `bool(0)`, cf: falseF},
+		{s: `bool(1)`, cf: trueF},
 
-		{s: `"a" + "b"`, c: String("ab"), cf: f},
-		{s: `"a" + 1`, c: String("a1"), cf: f},
-		{s: `"a" + 1u`, c: String("a1"), cf: f},
-		{s: `"a" + 'c'`, c: String("ac"), cf: f},
-		{s: `'c' + "a"`, c: String("ca"), cf: f},
-		{s: `"a" + "b" + "c"`, c: String("abc"), cf: f},
-		{s: `"a" + 'b' + "c"`, c: String("abc"), cf: f},
-		{s: `"a" + 1 + "c"`, c: String("a1c"), cf: f},
-		{s: `char(0)`, c: Char(0), cf: f},
+		{s: `"a" + "b"`, c: String("ab"), cf: defF},
+		{s: `"a" + 1`, c: String("a1"), cf: defF},
+		{s: `"a" + 1u`, c: String("a1"), cf: defF},
+		{s: `"a" + 'c'`, c: String("ac"), cf: defF},
+		{s: `'c' + "a"`, c: String("ca"), cf: defF},
+		{s: `"a" + "b" + "c"`, c: String("abc"), cf: defF},
+		{s: `"a" + 'b' + "c"`, c: String("abc"), cf: defF},
+		{s: `"a" + 1 + "c"`, c: String("a1c"), cf: defF},
+		{s: `char(0)`, c: Char(0), cf: defF},
 
-		{s: `!undefined`, c: True, cf: f},
-		{s: `!!undefined`, c: False, cf: f},
+		{s: `!undefined`, cf: trueF},
+		{s: `!!undefined`, cf: falseF},
 	}
 
 	for _, tC := range testCases {
 		t.Run(tC.s, func(t *testing.T) {
-			expectEval(t, tC.s,
-				bytecode(
-					Array{tC.c},
-					tC.cf,
-				))
+			var consts Array
+			if tC.c != nil {
+				consts = Array{tC.c}
+			}
+
+			f := tC.cf.Copy().(*CompiledFunction)
+			f.Instructions = append(f.Instructions, makeInst(OpPop)...)
+			f.Instructions = append(f.Instructions, makeInst(OpReturn, 0)...)
+
+			expectEval(t, tC.s, bytecode(consts, f))
 		})
 	}
 
 	testCases2 := make([]values, len(testCases))
 
-	f = compFunc(concatInsts(
-		makeInst(OpConstant, 0),
-		makeInst(OpReturn, 1),
-	))
 	for i, tC := range testCases {
 		testCases2[i].s = "return " + tC.s
 		testCases2[i].c = tC.c
-		testCases2[i].cf = f
+		testCases2[i].cf = tC.cf
 	}
+
 	for _, tC := range testCases2 {
 		t.Run(tC.s, func(t *testing.T) {
-			expectEval(t, tC.s,
-				bytecode(
-					Array{tC.c},
-					tC.cf,
-				))
+			var consts Array
+			if tC.c != nil {
+				consts = Array{tC.c}
+			}
+
+			f := tC.cf.Copy().(*CompiledFunction)
+			f.Instructions = append(f.Instructions, makeInst(OpReturn, 1)...)
+
+			expectEval(t, tC.s, bytecode(consts, f))
 		})
 	}
 
 	testCases3 := make([]values, len(testCases2))
 
-	f = compFunc(concatInsts(
+	callF0 := compFunc(concatInsts(
+		makeInst(OpConstant, 0),
+		makeInst(OpCall, 0, 0),
+		makeInst(OpReturn, 1),
+	))
+
+	callF1 := compFunc(concatInsts(
 		makeInst(OpConstant, 1),
 		makeInst(OpCall, 0, 0),
 		makeInst(OpReturn, 1),
 	))
+
 	for i, tC := range testCases2 {
 		testCases3[i].s = fmt.Sprintf(`return func(){ %s }()`, tC.s)
 		testCases3[i].c = tC.c
-		testCases3[i].cf = f
+		testCases3[i].cf = tC.cf
 	}
-	ff := compFunc(
-		concatInsts(
-			makeInst(OpConstant, 0),
-			makeInst(OpReturn, 1),
-		),
-	)
+
 	for _, tC := range testCases3 {
 		t.Run(tC.s, func(t *testing.T) {
-			expectEval(t, tC.s,
-				bytecode(
-					Array{tC.c, ff},
-					tC.cf,
-				))
+			var consts Array
+			var cf *CompiledFunction
+			if tC.c != nil {
+				consts = append(consts, tC.c)
+				cf = callF1
+			} else {
+				cf = callF0
+			}
+			sub := tC.cf.Copy().(*CompiledFunction)
+			sub.Instructions = append(sub.Instructions, makeInst(OpReturn, 1)...)
+			consts = append(consts, sub)
+
+			expectEval(t, tC.s, bytecode(consts, cf))
 		})
 	}
 
 	testCases4 := make([]values, len(testCases))
 
-	f = compFunc(concatInsts(
-		makeInst(OpConstant, 0),
-		makeInst(OpDefineLocal, 0),
-		makeInst(OpReturn, 0),
-	),
-		withLocals(1),
-	)
-
 	for i, tC := range testCases {
 		testCases4[i].s = fmt.Sprintf(`var x = %s`, tC.s)
 		testCases4[i].c = tC.c
-		testCases4[i].cf = f
+		testCases4[i].cf = tC.cf
 	}
+
 	for _, tC := range testCases4 {
 		t.Run(tC.s, func(t *testing.T) {
-			expectEval(t, tC.s,
-				bytecode(
-					Array{tC.c},
-					tC.cf,
-				))
+			var consts Array
+			if tC.c != nil {
+				consts = append(consts, tC.c)
+			}
+
+			f := tC.cf.Copy().(*CompiledFunction)
+			f.Instructions = append(f.Instructions, makeInst(OpDefineLocal, 0)...)
+			f.Instructions = append(f.Instructions, makeInst(OpReturn, 0)...)
+			f.NumLocals = 1
+			expectEval(t, tC.s, bytecode(consts, f))
 		})
 	}
 
@@ -230,15 +244,21 @@ func TestOptimizer(t *testing.T) {
 	for i, tC := range testCases {
 		testCases5[i].s = fmt.Sprintf(`x := %s`, tC.s)
 		testCases5[i].c = tC.c
-		testCases5[i].cf = f
+		testCases5[i].cf = tC.cf
 	}
+
 	for _, tC := range testCases5 {
 		t.Run(tC.s, func(t *testing.T) {
-			expectEval(t, tC.s,
-				bytecode(
-					Array{tC.c},
-					tC.cf,
-				))
+			var consts Array
+			if tC.c != nil {
+				consts = append(consts, tC.c)
+			}
+
+			f := tC.cf.Copy().(*CompiledFunction)
+			f.Instructions = append(f.Instructions, makeInst(OpDefineLocal, 0)...)
+			f.Instructions = append(f.Instructions, makeInst(OpReturn, 0)...)
+			f.NumLocals = 1
+			expectEval(t, tC.s, bytecode(consts, f))
 		})
 	}
 }
@@ -429,9 +449,9 @@ func TestOptimizerMapSliceExpr(t *testing.T) {
 		))
 	expectEval(t, `[bool(1+2)]`,
 		bytecode(
-			Array{True},
+			Array{},
 			compFunc(concatInsts(
-				makeInst(OpConstant, 0),
+				makeInst(OpTrue),
 				makeInst(OpArray, 1),
 				makeInst(OpPop),
 				makeInst(OpReturn, 0),

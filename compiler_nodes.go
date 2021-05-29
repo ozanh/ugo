@@ -254,6 +254,7 @@ func (c *Compiler) compileDeclGlobal(node *parser.GenDecl) error {
 		if err != nil {
 			return c.error(node, err)
 		}
+
 		idx := c.addConstant(String(spec.Ident.Name))
 		symbol.Index = idx
 	}
@@ -418,6 +419,7 @@ func (c *Compiler) compileDestructuring(
 				return c.errorf(node, "no new variable on left side")
 			}
 		}
+
 		c.emit(node, OpGetLocal, tempArrSymbol.Index)
 		c.emit(node, OpConstant, c.addConstant(Int(lhsIndex)))
 		c.emit(node, OpGetIndex, 1)

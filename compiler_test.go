@@ -270,18 +270,18 @@ func TestCompiler_Compile(t *testing.T) {
 	))
 
 	expectCompile(t, `true`, bytecode(
-		Array{True},
+		Array{},
 		compFunc(concatInsts(
-			makeInst(OpConstant, 0),
+			makeInst(OpTrue),
 			makeInst(OpPop),
 			makeInst(OpReturn, 0),
 		)),
 	))
 
 	expectCompile(t, `false`, bytecode(
-		Array{False},
+		Array{},
 		compFunc(concatInsts(
-			makeInst(OpConstant, 0),
+			makeInst(OpFalse),
 			makeInst(OpPop),
 			makeInst(OpReturn, 0),
 		)),
@@ -354,10 +354,10 @@ func TestCompiler_Compile(t *testing.T) {
 	))
 
 	expectCompile(t, `true == false`, bytecode(
-		Array{True, False},
+		Array{},
 		compFunc(concatInsts(
-			makeInst(OpConstant, 0),
-			makeInst(OpConstant, 1),
+			makeInst(OpTrue),
+			makeInst(OpFalse),
 			makeInst(OpEqual),
 			makeInst(OpPop),
 			makeInst(OpReturn, 0),
@@ -365,10 +365,10 @@ func TestCompiler_Compile(t *testing.T) {
 	))
 
 	expectCompile(t, `true != false`, bytecode(
-		Array{True, False},
+		Array{},
 		compFunc(concatInsts(
-			makeInst(OpConstant, 0),
-			makeInst(OpConstant, 1),
+			makeInst(OpTrue),
+			makeInst(OpFalse),
 			makeInst(OpNotEqual),
 			makeInst(OpPop),
 			makeInst(OpReturn, 0),
@@ -386,9 +386,9 @@ func TestCompiler_Compile(t *testing.T) {
 	))
 
 	expectCompile(t, `!true`, bytecode(
-		Array{True},
+		Array{},
 		compFunc(concatInsts(
-			makeInst(OpConstant, 0),
+			makeInst(OpTrue),
 			makeInst(OpUnary, int(token.Not)),
 			makeInst(OpPop),
 			makeInst(OpReturn, 0),
@@ -408,15 +408,15 @@ func TestCompiler_Compile(t *testing.T) {
 
 	// `if (true)` => normal if
 	expectCompile(t, `if (true) { 10 }; 3333`, bytecode(
-		Array{True, Int(10), Int(3333)},
+		Array{Int(10), Int(3333)},
 		compFunc(concatInsts(
-			makeInst(OpConstant, 0),   // 0000
-			makeInst(OpJumpFalsy, 10), // 0003
-			makeInst(OpConstant, 1),   // 0006
-			makeInst(OpPop),           // 0009
-			makeInst(OpConstant, 2),   // 0010
-			makeInst(OpPop),           // 0013
-			makeInst(OpReturn, 0),     // 0014
+			makeInst(OpTrue),         // 0000
+			makeInst(OpJumpFalsy, 8), // 0001
+			makeInst(OpConstant, 0),  // 0004
+			makeInst(OpPop),          // 0007
+			makeInst(OpConstant, 1),  // 0008
+			makeInst(OpPop),          // 0011
+			makeInst(OpReturn, 0),    // 0012
 		)),
 	))
 
@@ -485,18 +485,18 @@ func TestCompiler_Compile(t *testing.T) {
 
 	// `if (true)` => normal if
 	expectCompile(t, `if (true) { 10 } else { 20 }; 3333;`, bytecode(
-		Array{True, Int(10), Int(20), Int(3333)},
+		Array{Int(10), Int(20), Int(3333)},
 		compFunc(concatInsts(
-			makeInst(OpConstant, 0),   // 0000
-			makeInst(OpJumpFalsy, 13), // 0003
-			makeInst(OpConstant, 1),   // 0006
-			makeInst(OpPop),           // 0009
-			makeInst(OpJump, 17),      // 0010
-			makeInst(OpConstant, 2),   // 0013
-			makeInst(OpPop),           // 0016
-			makeInst(OpConstant, 3),   // 0017
-			makeInst(OpPop),           // 0020
-			makeInst(OpReturn, 0),     // 0021
+			makeInst(OpTrue),          // 0000
+			makeInst(OpJumpFalsy, 11), // 0001
+			makeInst(OpConstant, 0),   // 0004
+			makeInst(OpPop),           // 0007
+			makeInst(OpJump, 15),      // 0008
+			makeInst(OpConstant, 1),   // 0011
+			makeInst(OpPop),           // 0014
+			makeInst(OpConstant, 2),   // 0015
+			makeInst(OpPop),           // 0018
+			makeInst(OpReturn, 0),     // 0019
 		)),
 	))
 
@@ -869,22 +869,21 @@ func TestCompiler_Compile(t *testing.T) {
 
 	expectCompile(t, `func() { if(true) { return 1 } else { return 2 } }`, bytecode(
 		Array{
-			True,
 			Int(1),
 			Int(2),
 			compFunc(concatInsts(
-				makeInst(OpConstant, 0),   // 0000
-				makeInst(OpJumpFalsy, 14), // 0003
-				makeInst(OpConstant, 1),   // 0006
-				makeInst(OpReturn, 1),     // 0009
-				makeInst(OpJump, 19),      // 0011
-				makeInst(OpConstant, 2),   // 0014
-				makeInst(OpReturn, 1),     // 0017
-				makeInst(OpReturn, 0),     // 0019
+				makeInst(OpTrue),          // 0000
+				makeInst(OpJumpFalsy, 12), // 0001
+				makeInst(OpConstant, 0),   // 0004
+				makeInst(OpReturn, 1),     // 0007
+				makeInst(OpJump, 17),      // 0009
+				makeInst(OpConstant, 1),   // 0012
+				makeInst(OpReturn, 1),     // 0015
+				makeInst(OpReturn, 0),     // 0017
 			)),
 		},
 		compFunc(concatInsts(
-			makeInst(OpConstant, 3),
+			makeInst(OpConstant, 2),
 			makeInst(OpPop),
 			makeInst(OpReturn, 0),
 		)),
@@ -893,27 +892,26 @@ func TestCompiler_Compile(t *testing.T) {
 	expectCompile(t, `func() { 1; if(true) { 2 } else { 3 }; 4 }`, bytecode(
 		Array{
 			Int(1),
-			True,
 			Int(2),
 			Int(3),
 			Int(4),
 			compFunc(concatInsts(
 				makeInst(OpConstant, 0),   // 0000
 				makeInst(OpPop),           // 0003
-				makeInst(OpConstant, 1),   // 0004
-				makeInst(OpJumpFalsy, 17), // 0007
-				makeInst(OpConstant, 2),   // 0010
-				makeInst(OpPop),           // 0013
-				makeInst(OpJump, 21),      // 0014
-				makeInst(OpConstant, 3),   // 0017
-				makeInst(OpPop),           // 0020
-				makeInst(OpConstant, 4),   // 0021
-				makeInst(OpPop),           // 0024
-				makeInst(OpReturn, 0),     // 0025
+				makeInst(OpTrue),          // 0004
+				makeInst(OpJumpFalsy, 15), // 0005
+				makeInst(OpConstant, 1),   // 0008
+				makeInst(OpPop),           // 0011
+				makeInst(OpJump, 19),      // 0012
+				makeInst(OpConstant, 2),   // 0015
+				makeInst(OpPop),           // 0018
+				makeInst(OpConstant, 3),   // 0019
+				makeInst(OpPop),           // 0022
+				makeInst(OpReturn, 0),     // 0023
 			)),
 		},
 		compFunc(concatInsts(
-			makeInst(OpConstant, 5),
+			makeInst(OpConstant, 4),
 			makeInst(OpPop),
 			makeInst(OpReturn, 0),
 		)),

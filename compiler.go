@@ -330,7 +330,11 @@ func (c *Compiler) Compile(node parser.Node) error {
 	case *parser.FloatLit:
 		c.emit(node, OpConstant, c.addConstant(Float(node.Value)))
 	case *parser.BoolLit:
-		c.emit(node, OpConstant, c.addConstant(Bool(node.Value)))
+		if node.Value {
+			c.emit(node, OpTrue)
+		} else {
+			c.emit(node, OpFalse)
+		}
 	case *parser.StringLit:
 		c.emit(node, OpConstant, c.addConstant(String(node.Value)))
 	case *parser.CharLit:
@@ -704,9 +708,9 @@ func MakeInstruction(buf []byte, op Opcode, args ...int) ([]byte, error) {
 		OpFinalizer, OpDefineLocal:
 		buf = append(buf, byte(args[0]))
 		return buf, nil
-	case OpEqual, OpNotEqual, OpNull, OpPop, OpSliceIndex, OpSetIndex,
-		OpIterInit, OpIterNext, OpIterKey, OpIterValue, OpSetupCatch,
-		OpSetupFinally, OpNoOp:
+	case OpEqual, OpNotEqual, OpNull, OpTrue, OpFalse, OpPop, OpSliceIndex,
+		OpSetIndex, OpIterInit, OpIterNext, OpIterKey, OpIterValue,
+		OpSetupCatch, OpSetupFinally, OpNoOp:
 		return buf, nil
 	default:
 		return nil, fmt.Errorf("MakeInstruction: unknown Opcode %d %s",

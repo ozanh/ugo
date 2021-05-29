@@ -50,6 +50,8 @@ const (
 	OpFinalizer
 	OpReturn
 	OpDefineLocal
+	OpTrue
+	OpFalse
 )
 
 // OpcodeNames are string representation of opcodes.
@@ -95,6 +97,8 @@ var OpcodeNames = [...]string{
 	OpThrow:        "THROW",
 	OpFinalizer:    "FINALIZER",
 	OpDefineLocal:  "DEFINELOCAL",
+	OpTrue:         "TRUE",
+	OpFalse:        "FALSE",
 }
 
 // OpcodeOperands is the number of operands.
@@ -140,6 +144,8 @@ var OpcodeOperands = [...][]int{
 	OpThrow:        {1}, // 0:re-throw (system), 1:throw <expression>
 	OpFinalizer:    {1}, // up to error handler index
 	OpDefineLocal:  {1},
+	OpTrue:         {},
+	OpFalse:        {},
 }
 
 // ReadOperands reads operands from the bytecode. Given operands slice is used to

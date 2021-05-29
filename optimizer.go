@@ -143,6 +143,7 @@ func canOptimizeInsts(constants []Object, insts []byte) bool {
 		OpNoOp: true, OpAndJump: true, OpOrJump: true, OpArray: true,
 		OpReturn: true, OpEqual: true, OpNotEqual: true, OpPop: true,
 		OpGetBuiltin: true, OpCall: true, OpSetLocal: true, OpDefineLocal: true,
+		OpTrue: true, OpFalse: true,
 		^byte(0): false,
 	}
 
@@ -167,11 +168,13 @@ func canOptimizeInsts(constants []Object, insts []byte) bool {
 				canOptimize = false
 				return false
 			}
+
 			if opcode == OpConstant &&
 				!isObjectConstant(constants[operands[0]]) {
 				canOptimize = false
 				return false
 			}
+
 			if opcode == OpGetBuiltin &&
 				!allowedBuiltins[operands[0]] {
 				canOptimize = false
@@ -369,9 +372,11 @@ func (opt *SimpleOptimizer) Optimize() error {
 		opt.enterScope()
 		opt.optimize(opt.file)
 		opt.leaveScope()
+
 		if opt.count == 0 {
 			break
 		}
+
 		if len(opt.errors) > 2 { // bailout
 			break
 		}
