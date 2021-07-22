@@ -223,64 +223,94 @@ VMLoop:
 		case OpBinaryOp:
 			tok := token.Token(vm.curInsts[vm.ip+1])
 			left, right := vm.stack[vm.sp-2], vm.stack[vm.sp-1]
+
 			var value Object
 			var err error
-			if v, ok := left.(Int); ok {
-				value, err = v.BinaryOp(tok, right)
-			} else {
+			switch left := left.(type) {
+			case Int:
+				value, err = left.BinaryOp(tok, right)
+			case String:
+				value, err = left.BinaryOp(tok, right)
+			case Float:
+				value, err = left.BinaryOp(tok, right)
+			case Uint:
+				value, err = left.BinaryOp(tok, right)
+			case Char:
+				value, err = left.BinaryOp(tok, right)
+			case Bool:
+				value, err = left.BinaryOp(tok, right)
+			default:
 				value, err = left.BinaryOp(tok, right)
 			}
-			if err != nil {
-				if err == ErrInvalidOperator {
-					e := ErrInvalidOperator.NewError(tok.String())
-					if err := vm.throwGenErr(e); err != nil {
-						vm.err = err
-						return
-					}
-					continue
-				}
-				if err := vm.throwGenErr(err); err != nil {
-					vm.err = err
-					return
-				}
+			if err == nil {
+				vm.stack[vm.sp-2] = value
+				vm.sp--
+				vm.stack[vm.sp] = nil
+				vm.ip++
 				continue
 			}
-			vm.stack[vm.sp-2] = value
-			vm.sp--
-			vm.stack[vm.sp] = nil
-			vm.ip++
+			if err == ErrInvalidOperator {
+				err = ErrInvalidOperator.NewError(tok.String())
+			}
+			if err = vm.throwGenErr(err); err != nil {
+				vm.err = err
+				return
+			}
 		case OpAndJump:
 			if vm.stack[vm.sp-1].IsFalsy() {
 				pos := int(vm.curInsts[vm.ip+2]) | int(vm.curInsts[vm.ip+1])<<8
 				vm.ip = pos - 1
-			} else {
-				vm.stack[vm.sp-1] = nil
-				vm.sp--
-				vm.ip += 2
+				continue
 			}
+			vm.stack[vm.sp-1] = nil
+			vm.sp--
+			vm.ip += 2
 		case OpOrJump:
 			if vm.stack[vm.sp-1].IsFalsy() {
 				vm.stack[vm.sp-1] = nil
 				vm.sp--
 				vm.ip += 2
-			} else {
-				pos := int(vm.curInsts[vm.ip+2]) | int(vm.curInsts[vm.ip+1])<<8
-				vm.ip = pos - 1
+				continue
 			}
+			pos := int(vm.curInsts[vm.ip+2]) | int(vm.curInsts[vm.ip+1])<<8
+			vm.ip = pos - 1
 		case OpEqual:
 			left, right := vm.stack[vm.sp-2], vm.stack[vm.sp-1]
-			if v, ok := left.(Int); ok {
-				vm.stack[vm.sp-2] = Bool(v.Equal(right))
-			} else {
+
+			switch left := left.(type) {
+			case Int:
+				vm.stack[vm.sp-2] = Bool(left.Equal(right))
+			case String:
+				vm.stack[vm.sp-2] = Bool(left.Equal(right))
+			case Float:
+				vm.stack[vm.sp-2] = Bool(left.Equal(right))
+			case Bool:
+				vm.stack[vm.sp-2] = Bool(left.Equal(right))
+			case Uint:
+				vm.stack[vm.sp-2] = Bool(left.Equal(right))
+			case Char:
+				vm.stack[vm.sp-2] = Bool(left.Equal(right))
+			default:
 				vm.stack[vm.sp-2] = Bool(left.Equal(right))
 			}
 			vm.sp--
 			vm.stack[vm.sp] = nil
 		case OpNotEqual:
 			left, right := vm.stack[vm.sp-2], vm.stack[vm.sp-1]
-			if v, ok := left.(Int); ok {
-				vm.stack[vm.sp-2] = Bool(!v.Equal(right))
-			} else {
+			switch left := left.(type) {
+			case Int:
+				vm.stack[vm.sp-2] = Bool(!left.Equal(right))
+			case String:
+				vm.stack[vm.sp-2] = Bool(!left.Equal(right))
+			case Float:
+				vm.stack[vm.sp-2] = Bool(!left.Equal(right))
+			case Bool:
+				vm.stack[vm.sp-2] = Bool(!left.Equal(right))
+			case Uint:
+				vm.stack[vm.sp-2] = Bool(!left.Equal(right))
+			case Char:
+				vm.stack[vm.sp-2] = Bool(!left.Equal(right))
+			default:
 				vm.stack[vm.sp-2] = Bool(!left.Equal(right))
 			}
 			vm.sp--
@@ -292,20 +322,19 @@ VMLoop:
 			vm.stack[vm.sp] = False
 			vm.sp++
 		case OpCall:
-			if err := vm.execOpCall(); err != nil {
-				if err := vm.throwGenErr(err); err != nil {
-					vm.err = err
-					return
-				}
+			err := vm.execOpCall()
+			if err == nil {
+				continue
+			}
+			if err = vm.throwGenErr(err); err != nil {
+				vm.err = err
+				return
 			}
 		case OpReturn:
-			numRet := int(vm.curInsts[vm.ip+1])
+			numRet := vm.curInsts[vm.ip+1]
 			bp := vm.curFrame.basePointer
-			if vm.frameIndex == 1 {
-				bp += vm.curFrame.fn.NumLocals + 1
-			}
 			if bp == 0 {
-				bp = 1
+				bp = vm.curFrame.fn.NumLocals + 1
 			}
 			if numRet == 1 {
 				vm.stack[bp-1] = vm.stack[vm.sp-1]
@@ -378,12 +407,26 @@ VMLoop:
 			vm.ip = (int(vm.curInsts[vm.ip+2]) |
 				int(vm.curInsts[vm.ip+1])<<8) - 1
 		case OpJumpFalsy:
-			obj := vm.stack[vm.sp-1]
 			vm.sp--
+			obj := vm.stack[vm.sp]
 			vm.stack[vm.sp] = nil
-			if obj.IsFalsy() {
-				vm.ip = (int(vm.curInsts[vm.ip+2]) |
-					int(vm.curInsts[vm.ip+1])<<8) - 1
+			var falsy bool
+			switch obj := obj.(type) {
+			case Bool:
+				falsy = obj.IsFalsy()
+			case Int:
+				falsy = obj.IsFalsy()
+			case Uint:
+				falsy = obj.IsFalsy()
+			case Float:
+				falsy = obj.IsFalsy()
+			case String:
+				falsy = obj.IsFalsy()
+			default:
+				falsy = obj.IsFalsy()
+			}
+			if falsy {
+				vm.ip = (int(vm.curInsts[vm.ip+2]) | int(vm.curInsts[vm.ip+1])<<8) - 1
 				continue
 			}
 			vm.ip += 2
@@ -473,21 +516,11 @@ VMLoop:
 				if err != nil {
 					switch err {
 					case ErrNotIndexable:
-						e := ErrNotIndexable.NewError(target.TypeName())
-						if err := vm.throwGenErr(e); err != nil {
-							vm.err = err
-							return
-						}
-						continue VMLoop
+						err = ErrNotIndexable.NewError(target.TypeName())
 					case ErrIndexOutOfBounds:
-						e := ErrIndexOutOfBounds.NewError(index.String())
-						if err := vm.throwGenErr(e); err != nil {
-							vm.err = err
-							return
-						}
-						continue VMLoop
+						err = ErrIndexOutOfBounds.NewError(index.String())
 					}
-					if err := vm.throwGenErr(err); err != nil {
+					if err = vm.throwGenErr(err); err != nil {
 						vm.err = err
 						return
 					}
@@ -509,21 +542,11 @@ VMLoop:
 			if err != nil {
 				switch err {
 				case ErrNotIndexAssignable:
-					e := ErrNotIndexAssignable.NewError(target.TypeName())
-					if err := vm.throwGenErr(e); err != nil {
-						vm.err = err
-						return
-					}
-					continue
+					err = ErrNotIndexAssignable.NewError(target.TypeName())
 				case ErrIndexOutOfBounds:
-					e := ErrIndexOutOfBounds.NewError(index.String())
-					if err := vm.throwGenErr(e); err != nil {
-						vm.err = err
-						return
-					}
-					continue
+					err = ErrIndexOutOfBounds.NewError(index.String())
 				}
-				if err := vm.throwGenErr(err); err != nil {
+				if err = vm.throwGenErr(err); err != nil {
 					vm.err = err
 					return
 				}
@@ -535,12 +558,13 @@ VMLoop:
 			vm.stack[vm.sp-1] = nil
 			vm.sp -= 3
 		case OpSliceIndex:
-			if err := vm.execOpSliceIndex(); err != nil {
-				if err := vm.throwGenErr(err); err != nil {
-					vm.err = err
-					return
-				}
+			err := vm.execOpSliceIndex()
+			if err == nil {
 				continue
+			}
+			if err = vm.throwGenErr(err); err != nil {
+				vm.err = err
+				return
 			}
 		case OpGetFree:
 			freeIndex := int(vm.curInsts[vm.ip+1])
@@ -589,17 +613,17 @@ VMLoop:
 		case OpIterInit:
 			dst := vm.stack[vm.sp-1]
 
-			if !dst.CanIterate() {
-				e := ErrNotIterable.NewError(dst.TypeName())
-				if err := vm.throwGenErr(e); err != nil {
-					vm.err = err
-					return
-				}
+			if dst.CanIterate() {
+				it := dst.Iterate()
+				vm.stack[vm.sp-1] = &iteratorObject{Iterator: it}
 				continue
 			}
 
-			it := dst.Iterate()
-			vm.stack[vm.sp-1] = &iteratorObject{Iterator: it}
+			var err error = ErrNotIterable.NewError(dst.TypeName())
+			if err = vm.throwGenErr(err); err != nil {
+				vm.err = err
+				return
+			}
 		case OpIterNext:
 			iterator := vm.stack[vm.sp-1]
 			hasMore := iterator.(Iterator).Next()
@@ -661,27 +685,29 @@ VMLoop:
 		case OpFinalizer:
 			upto := int(vm.curInsts[vm.ip+1])
 
-			if pos := vm.curFrame.errHandlers.findFinally(upto); pos > 0 {
-				// go to finally if set
-				handler := vm.curFrame.errHandlers.last()
-				// save current ip to come back to same position
-				handler.returnTo = vm.ip
-				// save current sp to come back to same position
-				handler.sp = vm.sp
-				// remove current error if any
-				vm.curFrame.errHandlers.err = nil
-				// set ip to finally's position
-				vm.ip = pos - 1
+			pos := vm.curFrame.errHandlers.findFinally(upto)
+			if pos <= 0 {
+				vm.ip++
 				continue
 			}
-			vm.ip++
+			// go to finally if set
+			handler := vm.curFrame.errHandlers.last()
+			// save current ip to come back to same position
+			handler.returnTo = vm.ip
+			// save current sp to come back to same position
+			handler.sp = vm.sp
+			// remove current error if any
+			vm.curFrame.errHandlers.err = nil
+			// set ip to finally's position
+			vm.ip = pos - 1
 		case OpUnary:
-			if err := vm.execOpUnary(); err != nil {
-				if err := vm.throwGenErr(err); err != nil {
-					vm.err = err
-					return
-				}
+			err := vm.execOpUnary()
+			if err == nil {
 				continue
+			}
+			if err = vm.throwGenErr(err); err != nil {
+				vm.err = err
+				return
 			}
 		case OpNoOp:
 		default:
