@@ -15,11 +15,8 @@ by Daniel Kang. A special thanks to Tengo's creater and contributors.
 To see how fast uGO is, please have a look at fibonacci
 [benchmarks](https://github.com/ozanh/ugobenchfib).
 
-**_uGO is currently in beta phase, use it at your own risk_**
-
 > Play with uGO via [Playground](https://play.verigraf.com) built for
-WebAssembly, thanks to Go's __experimental__
-[WebAssembly](https://github.com/golang/go/wiki/WebAssembly) support.
+> WebAssembly.
 
 **Fibonacci Example**
 
