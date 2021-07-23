@@ -1,1 +1,10 @@
 .vscode
+
+# repl binary
+cmd/ugo/ugo
+cmd/ugo/ugo.exe
+
+# test and benchmark files
+ugo.test
+cpu.out
+mem.out
