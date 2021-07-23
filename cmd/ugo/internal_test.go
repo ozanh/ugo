@@ -25,6 +25,7 @@ import (
 func TestREPL(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+
 	stdout := bytes.NewBuffer(nil)
 	cw := &mockConsoleWriter{}
 	var exited bool
@@ -110,6 +111,7 @@ func TestREPL(t *testing.T) {
 }
 
 func TestFlags(t *testing.T) {
+	defer resetGlobals()
 
 	testCases1 := []struct {
 		args            []string
@@ -128,11 +130,8 @@ func TestFlags(t *testing.T) {
 	}
 	for _, tC := range testCases1 {
 		t.Run("", func(t *testing.T) {
-			// trace flags are global variables, set to defaults at each run
-			traceEnabled = false
-			traceParser = false
-			traceOptimizer = false
-			traceCompiler = false
+			// trace flags are global variables, set to defaults after each run
+			defer resetGlobals()
 
 			fs := flag.NewFlagSet("test tracers", flag.ExitOnError)
 			fp, to, err := parseFlags(fs, tC.args)
@@ -152,15 +151,28 @@ func TestFlags(t *testing.T) {
 	require.Empty(t, to)
 	require.Equal(t, "testdata/fibtc.ugo", fp)
 
+	resetGlobals()
+
 	fs = flag.NewFlagSet("stdin", flag.ExitOnError)
 	fp, to, err = parseFlags(fs, []string{"-"})
 	require.NoError(t, err)
 	require.Empty(t, to)
 	require.Equal(t, "-", fp)
 
+	resetGlobals()
+
 	fs = flag.NewFlagSet("file does not exist", flag.ExitOnError)
 	_, _, err = parseFlags(fs, []string{"testdata/doesnotexist"})
 	require.Error(t, err)
+}
+
+func resetGlobals() {
+	isMultiline = false
+	noOptimizer = false
+	traceEnabled = false
+	traceParser = false
+	traceOptimizer = false
+	traceCompiler = false
 }
 
 func TestExecuteScript(t *testing.T) {
