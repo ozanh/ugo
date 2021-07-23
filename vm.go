@@ -297,6 +297,7 @@ VMLoop:
 			vm.stack[vm.sp] = nil
 		case OpNotEqual:
 			left, right := vm.stack[vm.sp-2], vm.stack[vm.sp-1]
+
 			switch left := left.(type) {
 			case Int:
 				vm.stack[vm.sp-2] = Bool(!left.Equal(right))
@@ -404,12 +405,12 @@ VMLoop:
 			vm.sp++
 			vm.ip += 3
 		case OpJump:
-			vm.ip = (int(vm.curInsts[vm.ip+2]) |
-				int(vm.curInsts[vm.ip+1])<<8) - 1
+			vm.ip = (int(vm.curInsts[vm.ip+2]) | int(vm.curInsts[vm.ip+1])<<8) - 1
 		case OpJumpFalsy:
 			vm.sp--
 			obj := vm.stack[vm.sp]
 			vm.stack[vm.sp] = nil
+
 			var falsy bool
 			switch obj := obj.(type) {
 			case Bool:
