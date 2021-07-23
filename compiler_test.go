@@ -1616,6 +1616,40 @@ func TestCompiler_Compile(t *testing.T) {
 			),
 		),
 	)
+
+	expectCompile(t, `var a; return a["b"]`,
+		bytecode(
+			Array{String("b")},
+			compFunc(concatInsts(
+				makeInst(OpNull),
+				makeInst(OpDefineLocal, 0),
+				makeInst(OpGetLocal, 0),
+				makeInst(OpConstant, 0),
+				makeInst(OpGetIndex, 1),
+				makeInst(OpReturn, 1),
+			),
+				withLocals(1),
+			),
+		),
+	)
+
+	expectCompile(t, `var a; return a["b"]["c"][2]`,
+		bytecode(
+			Array{String("b"), String("c"), Int(2)},
+			compFunc(concatInsts(
+				makeInst(OpNull),
+				makeInst(OpDefineLocal, 0),
+				makeInst(OpGetLocal, 0),
+				makeInst(OpConstant, 0),
+				makeInst(OpConstant, 1),
+				makeInst(OpConstant, 2),
+				makeInst(OpGetIndex, 3),
+				makeInst(OpReturn, 1),
+			),
+				withLocals(1),
+			),
+		),
+	)
 }
 
 func TestCompilerScopes(t *testing.T) {

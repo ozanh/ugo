@@ -547,7 +547,6 @@ func resolveAssignLHS(expr parser.Expr) (name string, selectors []parser.Expr) {
 	case *parser.SelectorExpr:
 		name, selectors = resolveAssignLHS(term.Expr)
 		selectors = append(selectors, term.Sel)
-		return
 	case *parser.IndexExpr:
 		name, selectors = resolveAssignLHS(term.Expr)
 		selectors = append(selectors, term.Index)
@@ -907,29 +906,49 @@ func (c *Compiler) compileUnaryExpr(node *parser.UnaryExpr) error {
 }
 
 func (c *Compiler) compileSelectorExpr(node *parser.SelectorExpr) error {
-	if err := c.Compile(node.Expr); err != nil {
+	expr, selectors := resolveSelectorExprs(node)
+	if err := c.Compile(expr); err != nil {
 		return err
 	}
-
-	if err := c.Compile(node.Sel); err != nil {
-		return err
+	for _, selector := range selectors {
+		if err := c.Compile(selector); err != nil {
+			return err
+		}
 	}
-
-	c.emit(node, OpGetIndex, 1)
+	c.emit(node, OpGetIndex, len(selectors))
 	return nil
 }
 
+func resolveSelectorExprs(node parser.Expr) (expr parser.Expr, selectors []parser.Expr) {
+	expr = node
+	if v, ok := node.(*parser.SelectorExpr); ok {
+		expr, selectors = resolveIndexExprs(v.Expr)
+		selectors = append(selectors, v.Sel)
+	}
+	return
+}
+
 func (c *Compiler) compileIndexExpr(node *parser.IndexExpr) error {
-	if err := c.Compile(node.Expr); err != nil {
+	expr, indexes := resolveIndexExprs(node)
+	if err := c.Compile(expr); err != nil {
 		return err
 	}
-
-	if err := c.Compile(node.Index); err != nil {
-		return err
+	for _, index := range indexes {
+		if err := c.Compile(index); err != nil {
+			return err
+		}
 	}
-
-	c.emit(node, OpGetIndex, 1)
+	c.emit(node, OpGetIndex, len(indexes))
 	return nil
+}
+
+func resolveIndexExprs(node parser.Expr) (expr parser.Expr, indexes []parser.Expr) {
+	expr = node
+	if v, ok := node.(*parser.IndexExpr); ok {
+		expr, indexes = resolveIndexExprs(v.Expr)
+		indexes = append(indexes, v.Index)
+	}
+	return
 }
 
 func (c *Compiler) compileSliceExpr(node *parser.SliceExpr) error {
