@@ -1,6 +1,6 @@
-SHELL := bash
+SHELL       := bash
 .SHELLFLAGS := -e -o pipefail -c
-MAKEFLAGS += --warn-undefined-variables
+MAKEFLAGS   += --warn-undefined-variables
 
 all: generate lint test
 
@@ -18,4 +18,9 @@ generate:
 lint:
 	golint -set_exit_status ./...
 	staticcheck ./...
+
+.PHONY: clean
+clean:
+	find . -type f \( -name "cpu.out" -o -name "*.test" -o -name "mem.out" \) -delete
+	rm -f cmd/ugo/ugo cmd/ugo/ugo.exe
 
