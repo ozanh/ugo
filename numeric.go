@@ -74,7 +74,6 @@ func (Int) IndexGet(index Object) (Object, error) {
 
 // BinaryOp implements Object interface.
 func (o Int) BinaryOp(tok token.Token, right Object) (Object, error) {
-switchpos:
 	switch v := right.(type) {
 	case Int:
 		switch tok {
@@ -113,65 +112,9 @@ switchpos:
 			return Bool(o >= v), nil
 		}
 	case Uint:
-		o := Uint(o)
-		switch tok {
-		case token.Add:
-			return o + v, nil
-		case token.Sub:
-			return o - v, nil
-		case token.Mul:
-			return o * v, nil
-		case token.Quo:
-			if v == 0 {
-				return nil, ErrZeroDivision
-			}
-			return o / v, nil
-		case token.Rem:
-			return o % v, nil
-		case token.And:
-			return o & v, nil
-		case token.Or:
-			return o | v, nil
-		case token.Xor:
-			return o ^ v, nil
-		case token.AndNot:
-			return o &^ v, nil
-		case token.Shl:
-			return o << v, nil
-		case token.Shr:
-			return o >> v, nil
-		case token.Less:
-			return Bool(o < v), nil
-		case token.LessEq:
-			return Bool(o <= v), nil
-		case token.Greater:
-			return Bool(o > v), nil
-		case token.GreaterEq:
-			return Bool(o >= v), nil
-		}
+		return Uint(o).BinaryOp(tok, right)
 	case Float:
-		o := Float(o)
-		switch tok {
-		case token.Add:
-			return o + v, nil
-		case token.Sub:
-			return o - v, nil
-		case token.Mul:
-			return o * v, nil
-		case token.Quo:
-			if v == 0 {
-				return nil, ErrZeroDivision
-			}
-			return o / v, nil
-		case token.Less:
-			return Bool(o < v), nil
-		case token.LessEq:
-			return Bool(o <= v), nil
-		case token.Greater:
-			return Bool(o > v), nil
-		case token.GreaterEq:
-			return Bool(o >= v), nil
-		}
+		return Float(o).BinaryOp(tok, right)
 	case Char:
 		switch tok {
 		case token.Add:
@@ -193,7 +136,7 @@ switchpos:
 		} else {
 			right = Int(0)
 		}
-		goto switchpos
+		return o.BinaryOp(tok, right)
 	case undefined:
 		switch tok {
 		case token.Less, token.LessEq:
@@ -205,7 +148,8 @@ switchpos:
 	return nil, NewOperandTypeError(
 		tok.String(),
 		o.TypeName(),
-		right.TypeName())
+		right.TypeName(),
+	)
 }
 
 // Uint represents unsigned integer values and implements Object interface.
@@ -270,7 +214,6 @@ func (Uint) IndexGet(index Object) (Object, error) {
 
 // BinaryOp implements Object interface.
 func (o Uint) BinaryOp(tok token.Token, right Object) (Object, error) {
-switchpos:
 	switch v := right.(type) {
 	case Uint:
 		switch tok {
@@ -309,31 +252,9 @@ switchpos:
 			return Bool(o >= v), nil
 		}
 	case Int:
-		right = Uint(v)
-		goto switchpos
+		return o.BinaryOp(tok, Uint(v))
 	case Float:
-		o := Float(o)
-		switch tok {
-		case token.Add:
-			return o + v, nil
-		case token.Sub:
-			return o - v, nil
-		case token.Mul:
-			return o * v, nil
-		case token.Quo:
-			if v == 0 {
-				return nil, ErrZeroDivision
-			}
-			return o / v, nil
-		case token.Less:
-			return Bool(o < v), nil
-		case token.LessEq:
-			return Bool(o <= v), nil
-		case token.Greater:
-			return Bool(o > v), nil
-		case token.GreaterEq:
-			return Bool(o >= v), nil
-		}
+		return Float(o).BinaryOp(tok, right)
 	case Char:
 		switch tok {
 		case token.Add:
@@ -355,7 +276,7 @@ switchpos:
 		} else {
 			right = Uint(0)
 		}
-		goto switchpos
+		return o.BinaryOp(tok, right)
 	case undefined:
 		switch tok {
 		case token.Less, token.LessEq:
@@ -367,7 +288,8 @@ switchpos:
 	return nil, NewOperandTypeError(
 		tok.String(),
 		o.TypeName(),
-		right.TypeName())
+		right.TypeName(),
+	)
 }
 
 // Float represents float values and implements Object interface.
@@ -430,7 +352,6 @@ func (Float) IndexGet(index Object) (Object, error) {
 
 // BinaryOp implements Object interface.
 func (o Float) BinaryOp(tok token.Token, right Object) (Object, error) {
-switchpos:
 	switch v := right.(type) {
 	case Float:
 		switch tok {
@@ -455,58 +376,16 @@ switchpos:
 			return Bool(o >= v), nil
 		}
 	case Int:
-		vv := Float(v)
-		switch tok {
-		case token.Add:
-			return o + vv, nil
-		case token.Sub:
-			return o - vv, nil
-		case token.Mul:
-			return o * vv, nil
-		case token.Quo:
-			if v == 0 {
-				return nil, ErrZeroDivision
-			}
-			return o / vv, nil
-		case token.Less:
-			return Bool(o < vv), nil
-		case token.LessEq:
-			return Bool(o <= vv), nil
-		case token.Greater:
-			return Bool(o > vv), nil
-		case token.GreaterEq:
-			return Bool(o >= vv), nil
-		}
+		return o.BinaryOp(tok, Float(v))
 	case Uint:
-		vv := Float(v)
-		switch tok {
-		case token.Add:
-			return o + vv, nil
-		case token.Sub:
-			return o - vv, nil
-		case token.Mul:
-			return o * vv, nil
-		case token.Quo:
-			if v == 0 {
-				return nil, ErrZeroDivision
-			}
-			return o / vv, nil
-		case token.Less:
-			return Bool(o < vv), nil
-		case token.LessEq:
-			return Bool(o <= vv), nil
-		case token.Greater:
-			return Bool(o > vv), nil
-		case token.GreaterEq:
-			return Bool(o >= vv), nil
-		}
+		return o.BinaryOp(tok, Float(v))
 	case Bool:
 		if v {
 			right = Float(1)
 		} else {
 			right = Float(0)
 		}
-		goto switchpos
+		return o.BinaryOp(tok, right)
 	case undefined:
 		switch tok {
 		case token.Less, token.LessEq:
@@ -518,7 +397,8 @@ switchpos:
 	return nil, NewOperandTypeError(
 		tok.String(),
 		o.TypeName(),
-		right.TypeName())
+		right.TypeName(),
+	)
 }
 
 // Char represents a rune and implements Object interface.
@@ -583,7 +463,6 @@ func (Char) IndexGet(index Object) (Object, error) {
 
 // BinaryOp implements Object interface.
 func (o Char) BinaryOp(tok token.Token, right Object) (Object, error) {
-switchpos:
 	switch v := right.(type) {
 	case Char:
 		switch tok {
@@ -657,7 +536,7 @@ switchpos:
 		} else {
 			right = Char(0)
 		}
-		goto switchpos
+		return o.BinaryOp(tok, right)
 	case String:
 		if tok == token.Add {
 			var sb strings.Builder
@@ -677,5 +556,6 @@ switchpos:
 	return nil, NewOperandTypeError(
 		tok.String(),
 		o.TypeName(),
-		right.TypeName())
+		right.TypeName(),
+	)
 }
