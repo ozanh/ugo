@@ -398,7 +398,7 @@ func builtinAppendFunc(args ...Object) (Object, error) {
 			return append(obj, rest...), nil
 		}
 		return obj, nil
-	case undefined:
+	case *UndefinedType:
 		if len(args) > 1 {
 			return append(Array{}, args[1:]...), nil
 		}
@@ -533,7 +533,7 @@ func builtinContainsFunc(args ...Object) (Object, error) {
 				args[1].TypeName(),
 			)
 		}
-	case undefined:
+	case *UndefinedType:
 		return False, nil
 	default:
 		return nil, NewArgumentTypeError(
@@ -591,7 +591,7 @@ func builtinSortFunc(args ...Object) (Object, error) {
 			return obj[i] < obj[j]
 		})
 		return obj, nil
-	case undefined:
+	case *UndefinedType:
 		return Undefined, nil
 	}
 
@@ -633,7 +633,7 @@ func builtinSortReverseFunc(args ...Object) (Object, error) {
 			return obj[j] < obj[i]
 		})
 		return obj, nil
-	case undefined:
+	case *UndefinedType:
 		return Undefined, nil
 	}
 

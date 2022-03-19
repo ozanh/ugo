@@ -386,12 +386,12 @@ func DecodeObject(r io.Reader) (Object, error) {
 }
 
 // MarshalBinary implements encoding.BinaryMarshaler
-func (o undefined) MarshalBinary() ([]byte, error) {
+func (o *UndefinedType) MarshalBinary() ([]byte, error) {
 	return []byte{binUndefinedV1}, nil
 }
 
 // UnmarshalBinary implements encoding.BinaryUnmarshaler
-func (o undefined) UnmarshalBinary(data []byte) error {
+func (o *UndefinedType) UnmarshalBinary(data []byte) error {
 	if len(data) < 1 || data[0] != binUndefinedV1 {
 		return errors.New("invalid undefined data")
 	}

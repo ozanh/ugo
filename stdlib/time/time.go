@@ -98,16 +98,14 @@ func (o *Time) BinaryOp(tok token.Token,
 		case token.Less:
 			return ugo.Bool(o.Value.Before(v.Value)), nil
 		case token.LessEq:
-			return ugo.Bool(o.Value.Before(v.Value) || o.Value.Equal(v.Value)),
-				nil
+			return ugo.Bool(o.Value.Before(v.Value) || o.Value.Equal(v.Value)), nil
 		case token.Greater:
 			return ugo.Bool(o.Value.After(v.Value)), nil
 		case token.GreaterEq:
 			return ugo.Bool(o.Value.After(v.Value) || o.Value.Equal(v.Value)),
 				nil
 		}
-	}
-	if right == ugo.Undefined {
+	case *ugo.UndefinedType:
 		switch tok {
 		case token.Less, token.LessEq:
 			return ugo.False, nil

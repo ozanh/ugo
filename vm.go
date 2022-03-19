@@ -1240,7 +1240,7 @@ func (vm *VM) execOpSliceIndex() error {
 	}
 	var lowIdx int
 	switch v := left.(type) {
-	case undefined:
+	case *UndefinedType:
 		lowIdx = 0
 	case Int:
 		lowIdx = int(v)
@@ -1253,7 +1253,7 @@ func (vm *VM) execOpSliceIndex() error {
 	}
 	var highIdx int
 	switch v := right.(type) {
-	case undefined:
+	case *UndefinedType:
 		highIdx = objLen
 	case Int:
 		highIdx = int(v)

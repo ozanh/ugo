@@ -27,7 +27,7 @@ const (
 
 var (
 	// Undefined represents undefined value.
-	Undefined Object = undefined{}
+	Undefined Object = &UndefinedType{}
 )
 
 // Object represents an object in the VM.
@@ -140,33 +140,33 @@ func (ObjectImpl) BinaryOp(_ token.Token, _ Object) (Object, error) {
 	return nil, ErrInvalidOperator
 }
 
-type undefined struct {
+type UndefinedType struct {
 	ObjectImpl
 }
 
 // TypeName implements Object interface.
-func (o undefined) TypeName() string {
+func (o *UndefinedType) TypeName() string {
 	return "undefined"
 }
 
 // String implements Object interface.
-func (o undefined) String() string {
+func (o *UndefinedType) String() string {
 	return "undefined"
 }
 
 // Call implements Object interface.
-func (undefined) Call(_ ...Object) (Object, error) {
+func (*UndefinedType) Call(_ ...Object) (Object, error) {
 	return nil, ErrNotCallable
 }
 
 // Equal implements Object interface.
-func (o undefined) Equal(right Object) bool {
+func (o *UndefinedType) Equal(right Object) bool {
 	return right == Undefined
 }
 
-func (o undefined) BinaryOp(tok token.Token, right Object) (Object, error) {
+func (o UndefinedType) BinaryOp(tok token.Token, right Object) (Object, error) {
 	switch right.(type) {
-	case undefined:
+	case *UndefinedType:
 		switch tok {
 		case token.Less, token.Greater:
 			return False, nil
@@ -187,11 +187,11 @@ func (o undefined) BinaryOp(tok token.Token, right Object) (Object, error) {
 		right.TypeName())
 }
 
-func (undefined) IndexGet(key Object) (Object, error) {
+func (*UndefinedType) IndexGet(key Object) (Object, error) {
 	return Undefined, nil
 }
 
-func (undefined) IndexSet(key, value Object) error {
+func (*UndefinedType) IndexSet(key, value Object) error {
 	return ErrNotIndexAssignable
 }
 
@@ -342,7 +342,7 @@ switchpos:
 			right = Int(0)
 		}
 		goto switchpos
-	case undefined:
+	case *UndefinedType:
 		switch tok {
 		case token.Less, token.LessEq:
 			return False, nil
@@ -454,7 +454,7 @@ func (o String) BinaryOp(tok token.Token, right Object) (Object, error) {
 		case token.GreaterEq:
 			return Bool(string(o) >= string(v)), nil
 		}
-	case undefined:
+	case *UndefinedType:
 		switch tok {
 		case token.Less, token.LessEq:
 			return False, nil
@@ -600,7 +600,7 @@ func (o Bytes) BinaryOp(tok token.Token, right Object) (Object, error) {
 		case token.GreaterEq:
 			return Bool(string(o) >= string(v)), nil
 		}
-	case undefined:
+	case *UndefinedType:
 		switch tok {
 		case token.Less, token.LessEq:
 			return False, nil
@@ -842,12 +842,12 @@ func (o Array) BinaryOp(tok token.Token, right Object) (Object, error) {
 		arr = append(arr, o...)
 		arr = append(arr, right)
 		return arr, nil
-	}
-	if right == Undefined {
-		switch tok {
-		case token.Less, token.LessEq:
+	case token.Less, token.LessEq:
+		if right == Undefined {
 			return False, nil
-		case token.Greater, token.GreaterEq:
+		}
+	case token.Greater, token.GreaterEq:
+		if right == Undefined {
 			return True, nil
 		}
 	}
@@ -1064,6 +1064,22 @@ type SyncMap struct {
 }
 
 var _ Object = (*SyncMap)(nil)
+
+func (o *SyncMap) RLock() {
+	o.mu.RLock()
+}
+
+func (o *SyncMap) RUnlock() {
+	o.mu.RUnlock()
+}
+
+func (o *SyncMap) Lock() {
+	o.mu.Lock()
+}
+
+func (o *SyncMap) Unlock() {
+	o.mu.Unlock()
+}
 
 // TypeName implements Object interface.
 func (*SyncMap) TypeName() string {

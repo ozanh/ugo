@@ -278,7 +278,7 @@ func (opt *SimpleOptimizer) slowEvalExpr(expr parser.Expr) (parser.Expr, bool) {
 			Literal:  l,
 			ValuePos: expr.Pos(),
 		}
-	case undefined:
+	case *UndefinedType:
 		expr = &parser.UndefinedLit{TokenPos: expr.Pos()}
 	case Bool:
 		l := strconv.FormatBool(bool(v))
@@ -926,7 +926,7 @@ func untraceoptim(opt *SimpleOptimizer) {
 
 func isObjectConstant(obj Object) bool {
 	switch obj.(type) {
-	case Bool, Int, Uint, Float, Char, String, undefined:
+	case Bool, Int, Uint, Float, Char, String, *UndefinedType:
 		return true
 	}
 	return false
