@@ -14,9 +14,8 @@ import (
 	"strconv"
 )
 
-// TODO (ozan): implement it in module.
-// Valid reports whether data is a valid JSON encoding.
-func Valid(data []byte) bool {
+// valid reports whether data is a valid JSON encoding.
+func valid(data []byte) bool {
 	scan := newScanner()
 	return checkValid(data, scan) == nil
 }

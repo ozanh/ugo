@@ -10,7 +10,7 @@ package futils
 // isFloat, isChar, isBool, isString, isBytes, isMap, isSyncMap, isArray
 // isUndefined, isFunction, isCallable, isIterable
 // time module IsTime
-// json module Marshal
+// json module Marshal, Quote, NoQuote, NoEscape
 //
 //ugo:callable func(o ugo.Object) (ret ugo.Object)
 
@@ -51,10 +51,14 @@ package futils
 //
 //ugo:callable func(i1 int64, i2 int64) (ret ugo.Object)
 
-// json module Unmarshal
+// json module Unmarshal, RawMessage, Valid
 //
 //ugo:callable func(b []byte) (ret ugo.Object)
 
 // json module MarshalIndent
 //
 //ugo:callable func(o ugo.Object, s1 string, s2 string) (ret ugo.Object)
+
+// json module Compact
+//
+//ugo:callable func(p []byte, b bool) (ret ugo.Object)

@@ -5,6 +5,8 @@
 package json
 
 import (
+	"bytes"
+
 	"github.com/ozanh/ugo"
 	"github.com/ozanh/ugo/futils"
 )
@@ -24,7 +26,7 @@ var Module = map[string]ugo.Object{
 		),
 	},
 	"MarshalIndent": &ugo.Function{
-		Name: "Marshal",
+		Name: "MarshalIndent",
 		Value: futils.FuncPOssRO(
 			func(o ugo.Object, prefix, indent string) ugo.Object {
 				b, err := MarshalIndent(o, prefix, indent)
@@ -34,6 +36,23 @@ var Module = map[string]ugo.Object{
 				return ugo.Bytes(b)
 			},
 		),
+	},
+	"RawMessage": &ugo.Function{
+		Name: "RawMessage",
+		Value: futils.FuncPb2RO(func(b []byte) ugo.Object {
+			return &RawMessage{Value: b}
+		}),
+	},
+	"Compact": &ugo.Function{
+		Name: "Compact",
+		Value: futils.FuncPb2bRO(func(data []byte, escape bool) ugo.Object {
+			var buf bytes.Buffer
+			err := compact(&buf, data, escape)
+			if err != nil {
+				return &ugo.Error{Message: err.Error(), Cause: err}
+			}
+			return ugo.Bytes(buf.Bytes())
+		}),
 	},
 	"Quote": &ugo.Function{
 		Name: "Quote",
@@ -45,8 +64,8 @@ var Module = map[string]ugo.Object{
 			return &EncoderOptions{Value: o, Quote: true, EscapeHTML: true}
 		}),
 	},
-	"Unquote": &ugo.Function{
-		Name: "Unquote",
+	"NoQuote": &ugo.Function{
+		Name: "NoQuote",
 		Value: futils.FuncPORO(func(o ugo.Object) ugo.Object {
 			if v, ok := o.(*EncoderOptions); ok {
 				v.Quote = false
@@ -73,6 +92,12 @@ var Module = map[string]ugo.Object{
 				return &ugo.Error{Message: err.Error(), Cause: err}
 			}
 			return v
+		}),
+	},
+	"Valid": &ugo.Function{
+		Name: "Valid",
+		Value: futils.FuncPb2RO(func(b []byte) ugo.Object {
+			return ugo.Bool(valid(b))
 		}),
 	},
 }

@@ -53,3 +53,26 @@ func (eo *EncoderOptions) IndexSet(index, value ugo.Object) error {
 	}
 	return nil
 }
+
+type RawMessage struct {
+	ugo.ObjectImpl
+	Value []byte
+}
+
+var _ Marshaler = (*RawMessage)(nil)
+
+func (rm *RawMessage) TypeName() string {
+	return "raw-message"
+}
+
+func (rm *RawMessage) String() string {
+	return string(rm.Value)
+}
+
+// MarshalJSON returns rm as the JSON encoding of rm.Value.
+func (rm *RawMessage) MarshalJSON() ([]byte, error) {
+	if rm == nil || rm.Value == nil {
+		return []byte("null"), nil
+	}
+	return rm.Value, nil
+}

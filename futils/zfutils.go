@@ -244,3 +244,25 @@ func FuncPOssRO(fn func(ugo.Object, string, string) ugo.Object) ugo.CallableFunc
 		return
 	}
 }
+
+// FuncPb2bRO is a generated function to make ugo.CallableFunc.
+// Source: func(p []byte, b bool) (ret ugo.Object)
+func FuncPb2bRO(fn func([]byte, bool) ugo.Object) ugo.CallableFunc {
+	return func(args ...ugo.Object) (ret ugo.Object, err error) {
+		if len(args) != 2 {
+			return ugo.Undefined, ugo.ErrWrongNumArguments.NewError("want=2 got=" + strconv.Itoa(len(args)))
+		}
+
+		p, ok := ugo.ToGoByteSlice(args[0])
+		if !ok {
+			return ugo.Undefined, ugo.NewArgumentTypeError("1st", "bytes", args[0].TypeName())
+		}
+		b, ok := ugo.ToGoBool(args[1])
+		if !ok {
+			return ugo.Undefined, ugo.NewArgumentTypeError("2nd", "bool", args[1].TypeName())
+		}
+
+		ret = fn(p, b)
+		return
+	}
+}
