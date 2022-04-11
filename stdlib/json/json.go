@@ -26,16 +26,16 @@ func (eo *EncoderOptions) String() string {
 		eo.Quote, eo.EscapeHTML, eo.Value)
 }
 
-func (eo *EncoderOptions) IndexGet(index ugo.Object) (value ugo.Object, err error) {
+func (eo *EncoderOptions) IndexGet(index ugo.Object) (ret ugo.Object, err error) {
 	switch index.String() {
 	case "Value":
-		value = eo.Value
+		ret = eo.Value
 	case "Quote":
-		value = ugo.Bool(eo.Quote)
+		ret = ugo.Bool(eo.Quote)
 	case "EscapeHTML":
-		value = ugo.Bool(eo.EscapeHTML)
+		ret = ugo.Bool(eo.EscapeHTML)
 	default:
-		value = ugo.Undefined
+		ret = ugo.Undefined
 	}
 	return
 }

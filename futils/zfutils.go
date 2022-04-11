@@ -204,9 +204,9 @@ func FuncPi64i64RO(fn func(int64, int64) ugo.Object) ugo.CallableFunc {
 	}
 }
 
-// FuncPb2ROe is a generated function to make ugo.CallableFunc.
-// Source: func(b []byte) (ret ugo.Object, err error)
-func FuncPb2ROe(fn func([]byte) (ugo.Object, error)) ugo.CallableFunc {
+// FuncPb2RO is a generated function to make ugo.CallableFunc.
+// Source: func(b []byte) (ret ugo.Object)
+func FuncPb2RO(fn func([]byte) ugo.Object) ugo.CallableFunc {
 	return func(args ...ugo.Object) (ret ugo.Object, err error) {
 		if len(args) != 1 {
 			return ugo.Undefined, ugo.ErrWrongNumArguments.NewError("want=1 got=" + strconv.Itoa(len(args)))
@@ -217,14 +217,14 @@ func FuncPb2ROe(fn func([]byte) (ugo.Object, error)) ugo.CallableFunc {
 			return ugo.Undefined, ugo.NewArgumentTypeError("1st", "bytes", args[0].TypeName())
 		}
 
-		ret, err = fn(b)
+		ret = fn(b)
 		return
 	}
 }
 
-// FuncPOssROe is a generated function to make ugo.CallableFunc.
-// Source: func(o ugo.Object, s1 string, s2 string) (ret ugo.Object, err error)
-func FuncPOssROe(fn func(ugo.Object, string, string) (ugo.Object, error)) ugo.CallableFunc {
+// FuncPOssRO is a generated function to make ugo.CallableFunc.
+// Source: func(o ugo.Object, s1 string, s2 string) (ret ugo.Object)
+func FuncPOssRO(fn func(ugo.Object, string, string) ugo.Object) ugo.CallableFunc {
 	return func(args ...ugo.Object) (ret ugo.Object, err error) {
 		if len(args) != 3 {
 			return ugo.Undefined, ugo.ErrWrongNumArguments.NewError("want=3 got=" + strconv.Itoa(len(args)))
@@ -240,7 +240,7 @@ func FuncPOssROe(fn func(ugo.Object, string, string) (ugo.Object, error)) ugo.Ca
 			return ugo.Undefined, ugo.NewArgumentTypeError("3rd", "string", args[2].TypeName())
 		}
 
-		ret, err = fn(o, s1, s2)
+		ret = fn(o, s1, s2)
 		return
 	}
 }

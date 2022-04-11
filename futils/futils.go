@@ -10,6 +10,7 @@ package futils
 // isFloat, isChar, isBool, isString, isBytes, isMap, isSyncMap, isArray
 // isUndefined, isFunction, isCallable, isIterable
 // time module IsTime
+// json module Marshal
 //
 //ugo:callable func(o ugo.Object) (ret ugo.Object)
 
@@ -22,7 +23,6 @@ package futils
 //ugo:callable func(o ugo.Object, v ugo.Object) (ret ugo.Object, err error)
 
 // builtin sort, sortReverse, int, uint, float, char, chars
-// json Marshal
 //
 //ugo:callable func(o ugo.Object) (ret ugo.Object, err error)
 
@@ -53,8 +53,8 @@ package futils
 
 // json module Unmarshal
 //
-//ugo:callable func(b []byte) (ret ugo.Object, err error)
+//ugo:callable func(b []byte) (ret ugo.Object)
 
 // json module MarshalIndent
 //
-//ugo:callable func(o ugo.Object, s1 string, s2 string) (ret ugo.Object, err error)
+//ugo:callable func(o ugo.Object, s1 string, s2 string) (ret ugo.Object)

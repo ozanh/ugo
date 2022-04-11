@@ -13,19 +13,25 @@ import (
 var Module = map[string]ugo.Object{
 	"Marshal": &ugo.Function{
 		Name: "Marshal",
-		Value: futils.FuncPOROe(
-			func(o ugo.Object) (ugo.Object, error) {
+		Value: futils.FuncPORO(
+			func(o ugo.Object) ugo.Object {
 				b, err := Marshal(o)
-				return ugo.Bytes(b), err
+				if err != nil {
+					return &ugo.Error{Message: err.Error(), Cause: err}
+				}
+				return ugo.Bytes(b)
 			},
 		),
 	},
 	"MarshalIndent": &ugo.Function{
 		Name: "Marshal",
-		Value: futils.FuncPOssROe(
-			func(o ugo.Object, prefix, indent string) (ugo.Object, error) {
+		Value: futils.FuncPOssRO(
+			func(o ugo.Object, prefix, indent string) ugo.Object {
 				b, err := MarshalIndent(o, prefix, indent)
-				return ugo.Bytes(b), err
+				if err != nil {
+					return &ugo.Error{Message: err.Error(), Cause: err}
+				}
+				return ugo.Bytes(b)
 			},
 		),
 	},
@@ -39,6 +45,16 @@ var Module = map[string]ugo.Object{
 			return &EncoderOptions{Value: o, Quote: true, EscapeHTML: true}
 		}),
 	},
+	"Unquote": &ugo.Function{
+		Name: "Unquote",
+		Value: futils.FuncPORO(func(o ugo.Object) ugo.Object {
+			if v, ok := o.(*EncoderOptions); ok {
+				v.Quote = false
+				return v
+			}
+			return &EncoderOptions{Value: o, Quote: false, EscapeHTML: true}
+		}),
+	},
 	"NoEscape": &ugo.Function{
 		Name: "NoEscape",
 		Value: futils.FuncPORO(func(o ugo.Object) ugo.Object {
@@ -50,7 +66,13 @@ var Module = map[string]ugo.Object{
 		}),
 	},
 	"Unmarshal": &ugo.Function{
-		Name:  "Unmarshal",
-		Value: futils.FuncPb2ROe(Unmarshal),
+		Name: "Unmarshal",
+		Value: futils.FuncPb2RO(func(b []byte) ugo.Object {
+			v, err := Unmarshal(b)
+			if err != nil {
+				return &ugo.Error{Message: err.Error(), Cause: err}
+			}
+			return v
+		}),
 	},
 }
