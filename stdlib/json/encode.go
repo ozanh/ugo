@@ -1,5 +1,9 @@
 // A moidified version of Go's json implementation.
 
+// Copyright (c) 2022 Ozan Hacıbekiroğlu.
+// Use of this source code is governed by a MIT License
+// that can be found in the LICENSE file.
+
 // Copyright 2010 The Go Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE.golang file.
@@ -46,41 +50,6 @@ func MarshalIndent(v ugo.Object, prefix, indent string) ([]byte, error) {
 		return nil, err
 	}
 	return buf.Bytes(), nil
-}
-
-// HTMLEscape appends to dst the JSON-encoded src with <, >, &, U+2028 and U+2029
-// characters inside string literals changed to \u003c, \u003e, \u0026, \u2028, \u2029
-// so that the JSON will be safe to embed inside HTML <script> tags.
-// For historical reasons, web browsers don't honor standard HTML
-// escaping within <script> tags, so an alternative JSON encoding must
-// be used.
-func HTMLEscape(dst *bytes.Buffer, src []byte) {
-	// The characters can only appear in string literals,
-	// so just scan the string one byte at a time.
-	start := 0
-	for i, c := range src {
-		if c == '<' || c == '>' || c == '&' {
-			if start < i {
-				dst.Write(src[start:i])
-			}
-			dst.WriteString(`\u00`)
-			dst.WriteByte(hex[c>>4])
-			dst.WriteByte(hex[c&0xF])
-			start = i + 1
-		}
-		// Convert U+2028 and U+2029 (E2 80 A8 and E2 80 A9).
-		if c == 0xE2 && i+2 < len(src) && src[i+1] == 0x80 && src[i+2]&^1 == 0xA8 {
-			if start < i {
-				dst.Write(src[start:i])
-			}
-			dst.WriteString(`\u202`)
-			dst.WriteByte(hex[src[i+2]&0xF])
-			start = i + 3
-		}
-	}
-	if start < len(src) {
-		dst.Write(src[start:])
-	}
 }
 
 // Marshaler is the interface implemented by types that
@@ -199,6 +168,8 @@ func objectEncoder(v ugo.Object) encoderFunc {
 		return arrayEncoder
 	case ugo.Char:
 		return charEncoder
+	case *EncoderOptions:
+		return optionsEncoder
 	case *ugo.ObjectPtr:
 		return objectPtrEncoder
 	case *ugo.UndefinedType:
@@ -217,6 +188,12 @@ func invalidValueEncoder(e *encodeState, _ ugo.Object, _ encOpts) {
 }
 
 func noopEncoder(_ *encodeState, _ ugo.Object, _ encOpts) {}
+
+func optionsEncoder(e *encodeState, v ugo.Object, opts encOpts) {
+	opts.quoted = v.(*EncoderOptions).Quote
+	opts.escapeHTML = v.(*EncoderOptions).EscapeHTML
+	e.encode(v.(*EncoderOptions).Value, opts)
+}
 
 func boolEncoder(e *encodeState, v ugo.Object, opts encOpts) {
 	if opts.quoted {
