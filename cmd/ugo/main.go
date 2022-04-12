@@ -2,6 +2,7 @@
 // Use of this source code is governed by a MIT License
 // that can be found in the LICENSE file.
 
+//go:build !js
 // +build !js
 
 package main
@@ -25,6 +26,7 @@ import (
 	"github.com/ozanh/ugo/token"
 
 	ugofmt "github.com/ozanh/ugo/stdlib/fmt"
+	ugojson "github.com/ozanh/ugo/stdlib/json"
 	ugostrings "github.com/ozanh/ugo/stdlib/strings"
 	ugotime "github.com/ozanh/ugo/stdlib/time"
 )
@@ -90,7 +92,8 @@ func newREPL(ctx context.Context, stdout io.Writer, cw prompt.ConsoleWriter) *re
 	moduleMap := ugo.NewModuleMap()
 	moduleMap.AddBuiltinModule("time", ugotime.Module).
 		AddBuiltinModule("strings", ugostrings.Module).
-		AddBuiltinModule("fmt", ugofmt.Module)
+		AddBuiltinModule("fmt", ugofmt.Module).
+		AddBuiltinModule("json", ugojson.Module)
 
 	opts := ugo.CompilerOptions{
 		ModulePath:        "(repl)",
@@ -352,7 +355,7 @@ func newPrompt(
 	_, _ = fmt.Fprintln(w, "Copyright (c) 2020 Ozan Hacıbekiroğlu")
 	_, _ = fmt.Fprintln(w, "License: MIT")
 	_, _ = fmt.Fprintln(w, "Press Ctrl+D to exit or use .exit command")
-	_, _ = fmt.Fprintln(w, logo)
+	_, _ = fmt.Fprint(w, logo)
 
 	options := []prompt.Option{
 		prompt.OptionPrefix(promptPrefix),
