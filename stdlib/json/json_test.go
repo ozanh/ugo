@@ -67,6 +67,8 @@ func TestScript(t *testing.T) {
 		nil, String("{\n \"a\": 1,\n \"b\": [\n  2,\n  true,\n  \"\\u003c\"\n ]\n}"))
 
 	expectRun(t, catchf(`json.Compact()`), nil, errnarg(2, 0))
+	expectRun(t, catchf(`string(json.Compact(json.Marshal(json.NoEscape(["<",">"])), true))`),
+		nil, String(`["\u003c","\u003e"]`))
 	expectRun(t, catchf(`string(json.Compact(json.MarshalIndent({a: 1, b: [2, true, "<"]},"", " "), true))`),
 		nil, String(`{"a":1,"b":[2,true,"\u003c"]}`))
 	expectRun(t, catchf(`string(json.Compact(json.MarshalIndent(json.NoEscape(["<",">"]), "", " "), false))`),
@@ -95,6 +97,35 @@ func TestScript(t *testing.T) {
 	expectRun(t, catchf(`json.Valid()`), nil, errnarg(1, 0))
 	expectRun(t, catchf(`json.Valid("{}")`), nil, True)
 	expectRun(t, catchf(`json.Valid("{")`), nil, False)
+
+	expectRun(t, catchf(`string(json.Marshal(json.NoEscape(json.Quote("<"))))`), nil, String(`"\"<\""`))
+	expectRun(t, catchf(`string(json.Marshal(json.NoQuote(json.NoEscape("<"))))`), nil, String(`"<"`))
+	expectRun(t, catchf(`string(json.Marshal(json.Quote(json.NoEscape("<"))))`), nil, String(`"\"<\""`))
+
+	expectRun(t, catchf(`string(json.Unmarshal(bytes(0)))`),
+		nil, String(`error: invalid character '\x00' looking for beginning of value`))
+	expectRun(t, catchf(`string(json.Compact(bytes(0), true))`),
+		nil, String(`error: invalid character '\x00' looking for beginning of value`))
+}
+
+func TestCycle(t *testing.T) {
+	expectRun(t, `json:=import("json");a:=[1,2];a[1]=a;return string(json.Marshal(a))`,
+		nil, String(`error: json: unsupported value: encountered a cycle via array`))
+	expectRun(t, `json:=import("json");a:=[1,2];a[1]=a;return string(json.MarshalIndent(a,""," "))`,
+		nil, String(`error: json: unsupported value: encountered a cycle via array`))
+	expectRun(t, `json:=import("json");m:={a:1};m.b=m;return string(json.Marshal(m))`,
+		nil, String(`error: json: unsupported value: encountered a cycle via map`))
+	expectRun(t, `param m;json:=import("json");m.b=m;return string(json.Marshal(m))`,
+		newOpts().Args(&SyncMap{Map: Map{}}),
+		String(`error: json: unsupported value: encountered a cycle via sync-map`))
+
+	ptr := &ObjectPtr{}
+	var m Object = Map{}
+	m.(Map)["a"] = ptr
+	ptr.Value = &m
+	_, err := Marshal(ptr)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), `json: unsupported value: encountered a cycle via object-ptr`)
 }
 
 type Opts struct {

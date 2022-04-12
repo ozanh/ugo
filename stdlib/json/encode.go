@@ -16,6 +16,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"math"
+	"reflect"
 	"sort"
 	"strconv"
 	"unicode/utf8"
@@ -103,11 +104,11 @@ type encodeState struct {
 	// startDetectingCyclesAfter, so that we skip the work if we're within a
 	// reasonable amount of nested pointers deep.
 	ptrLevel uint
-	ptrSeen  map[ugo.Object]struct{}
+	ptrSeen  map[interface{}]struct{}
 }
 
 func newEncodeState() *encodeState {
-	return &encodeState{ptrSeen: make(map[ugo.Object]struct{})}
+	return &encodeState{ptrSeen: make(map[interface{}]struct{})}
 }
 
 // jsonError is an error wrapper type for internal use only.
@@ -299,20 +300,23 @@ func mapEncoder(e *encodeState, v ugo.Object, opts encOpts) {
 		return
 	}
 	if e.ptrLevel++; e.ptrLevel > startDetectingCyclesAfter {
-		// We're a large number of nested ptrEncoder.encode calls deep;
-		// start checking if we've run into a pointer cycle.
-		if _, ok := e.ptrSeen[v]; ok {
+		// Start checking if we've run into a pointer cycle.
+		var ptr interface{}
+		if _, ok := v.(ugo.Map); ok {
+			ptr = reflect.ValueOf(v).Pointer()
+		} else { // *SyncMap
+			ptr = v
+		}
+		if _, ok := e.ptrSeen[ptr]; ok {
 			e.error(&UnsupportedValueError{v, fmt.Sprintf("encountered a cycle via %s", v.TypeName())})
 		}
-		e.ptrSeen[v] = struct{}{}
-		defer delete(e.ptrSeen, v)
+		e.ptrSeen[ptr] = struct{}{}
+		defer delete(e.ptrSeen, ptr)
 	}
 
 	var m ugo.Map
 	var ok bool
-	if m, ok = v.(ugo.Map); ok {
-
-	} else {
+	if m, ok = v.(ugo.Map); !ok {
 		sm := v.(*ugo.SyncMap)
 		if sm == nil {
 			e.WriteString("null")
@@ -384,15 +388,19 @@ func arrayEncoder(e *encodeState, v ugo.Object, opts encOpts) {
 		return
 	}
 	if e.ptrLevel++; e.ptrLevel > startDetectingCyclesAfter {
-		// We're a large number of nested ptrEncoder.encode calls deep;
-		// start checking if we've run into a pointer cycle.
+		// Start checking if we've run into a pointer cycle.
 		// Here we use a struct to memorize the pointer to the first element of the slice
 		// and its length.
-		if _, ok := e.ptrSeen[v]; ok {
+		rval := reflect.ValueOf(v)
+		ptr := struct {
+			ptr uintptr
+			len int
+		}{rval.Pointer(), rval.Len()}
+		if _, ok := e.ptrSeen[ptr]; ok {
 			e.error(&UnsupportedValueError{v, fmt.Sprintf("encountered a cycle via %s", v.TypeName())})
 		}
-		e.ptrSeen[v] = struct{}{}
-		defer delete(e.ptrSeen, v)
+		e.ptrSeen[ptr] = struct{}{}
+		defer delete(e.ptrSeen, ptr)
 	}
 	arr := v.(ugo.Array)
 	if arr == nil {
@@ -418,8 +426,7 @@ func objectPtrEncoder(e *encodeState, v ugo.Object, opts encOpts) {
 		return
 	}
 	if e.ptrLevel++; e.ptrLevel > startDetectingCyclesAfter {
-		// We're a large number of nested ptrEncoder.encode calls deep;
-		// start checking if we've run into a pointer cycle.
+		// Start checking if we've run into a pointer cycle.
 		if _, ok := e.ptrSeen[v]; ok {
 			e.error(&UnsupportedValueError{v, fmt.Sprintf("encountered a cycle via %s", v.TypeName())})
 		}
