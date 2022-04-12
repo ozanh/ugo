@@ -339,8 +339,7 @@ func ToGoFloat64(o Object) (v float64, ok bool) {
 	return
 }
 
-// ToGoFloat64 will try to convert a numeric, bool or string Object to Go rune
-// value.
+// ToGoRune will try to convert a int like Object to Go rune value.
 func ToGoRune(o Object) (v rune, ok bool) {
 	switch o := o.(type) {
 	case Int:
@@ -356,11 +355,5 @@ func ToGoRune(o Object) (v rune, ok bool) {
 // ToGoBool will try to convert an Object to Go bool value.
 func ToGoBool(o Object) (v bool, ok bool) {
 	v, ok = !o.IsFalsy(), true
-	return
-}
-
-// ToGoError will try to convert an Object to Go error interface.
-func ToGoError(o Object) (v error, ok bool) {
-	v, ok = o.(error)
 	return
 }

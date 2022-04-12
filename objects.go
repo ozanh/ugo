@@ -140,6 +140,8 @@ func (ObjectImpl) BinaryOp(_ token.Token, _ Object) (Object, error) {
 	return nil, ErrInvalidOperator
 }
 
+// UndefinedType represents the type of global Undefined Object. One should use
+// the UndefinedType in type switches only.
 type UndefinedType struct {
 	ObjectImpl
 }
@@ -164,7 +166,8 @@ func (o *UndefinedType) Equal(right Object) bool {
 	return right == Undefined
 }
 
-func (o UndefinedType) BinaryOp(tok token.Token, right Object) (Object, error) {
+// BinaryOp implements Object interface.
+func (o *UndefinedType) BinaryOp(tok token.Token, right Object) (Object, error) {
 	switch right.(type) {
 	case *UndefinedType:
 		switch tok {
@@ -187,10 +190,12 @@ func (o UndefinedType) BinaryOp(tok token.Token, right Object) (Object, error) {
 		right.TypeName())
 }
 
+// IndexGet implements Object interface.
 func (*UndefinedType) IndexGet(key Object) (Object, error) {
 	return Undefined, nil
 }
 
+// IndexSet implements Object interface.
 func (*UndefinedType) IndexSet(key, value Object) error {
 	return ErrNotIndexAssignable
 }
@@ -1065,18 +1070,22 @@ type SyncMap struct {
 
 var _ Object = (*SyncMap)(nil)
 
+// RLock locks the underlying mutex for reading.
 func (o *SyncMap) RLock() {
 	o.mu.RLock()
 }
 
+// RUnlock unlocks the underlying mutex for reading.
 func (o *SyncMap) RUnlock() {
 	o.mu.RUnlock()
 }
 
+// Lock locks the underlying mutex for writing.
 func (o *SyncMap) Lock() {
 	o.mu.Lock()
 }
 
+// Unlock unlocks the underlying mutex for writing.
 func (o *SyncMap) Unlock() {
 	o.mu.Unlock()
 }

@@ -11,11 +11,13 @@ import (
 //ugo:callable:convert *Location ToLocation
 //ugo:callable:convert *Time ToTime
 
-func ToLocation(o ugo.Object) (v *Location, ok bool) {
-	v, ok = o.(*Location)
+// ToLocation will try to convert given ugo.Object to *Location value.
+func ToLocation(o ugo.Object) (ret *Location, ok bool) {
+	ret, ok = o.(*Location)
 	return
 }
 
+// ToTime will try to convert given given ugo.Object to *Time value.
 func ToTime(o ugo.Object) (ret *Time, ok bool) {
 	switch o := o.(type) {
 	case *Time:
