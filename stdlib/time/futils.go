@@ -13,6 +13,13 @@ import (
 
 // ToLocation will try to convert given ugo.Object to *Location value.
 func ToLocation(o ugo.Object) (ret *Location, ok bool) {
+	if _, isString := o.(ugo.String); isString {
+		var err error
+		o, err = loadLocation(o)
+		if err != nil {
+			return
+		}
+	}
 	ret, ok = o.(*Location)
 	return
 }
