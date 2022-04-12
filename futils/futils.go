@@ -62,3 +62,7 @@ package futils
 // json module Compact
 //
 //ugo:callable func(p []byte, b bool) (ret ugo.Object)
+
+// json module Indent
+//
+//ugo:callable func(p []byte, s1 string, s2 string) (ret ugo.Object)

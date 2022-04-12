@@ -266,3 +266,29 @@ func FuncPb2bRO(fn func([]byte, bool) ugo.Object) ugo.CallableFunc {
 		return
 	}
 }
+
+// FuncPb2ssRO is a generated function to make ugo.CallableFunc.
+// Source: func(p []byte, s1 string, s2 string) (ret ugo.Object)
+func FuncPb2ssRO(fn func([]byte, string, string) ugo.Object) ugo.CallableFunc {
+	return func(args ...ugo.Object) (ret ugo.Object, err error) {
+		if len(args) != 3 {
+			return ugo.Undefined, ugo.ErrWrongNumArguments.NewError("want=3 got=" + strconv.Itoa(len(args)))
+		}
+
+		p, ok := ugo.ToGoByteSlice(args[0])
+		if !ok {
+			return ugo.Undefined, ugo.NewArgumentTypeError("1st", "bytes", args[0].TypeName())
+		}
+		s1, ok := ugo.ToGoString(args[1])
+		if !ok {
+			return ugo.Undefined, ugo.NewArgumentTypeError("2nd", "string", args[1].TypeName())
+		}
+		s2, ok := ugo.ToGoString(args[2])
+		if !ok {
+			return ugo.Undefined, ugo.NewArgumentTypeError("3rd", "string", args[2].TypeName())
+		}
+
+		ret = fn(p, s1, s2)
+		return
+	}
+}
