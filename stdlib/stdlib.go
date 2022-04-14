@@ -47,3 +47,25 @@ package stdlib
 // json module Indent
 //
 //ugo:callable func(p []byte, s1 string, s2 string) (ret ugo.Object)
+
+// strings module Contains, ContainsAny, Count, EqualFold, HasPrefix, HasSuffix
+// Index, IndexAny, LastIndex, LastIndexAny, Trim, TrimLeft, TrimPrefix,
+// TrimRight, TrimSuffix
+//
+//ugo:callable func(s1 string, s2 string) (ret ugo.Object)
+
+// strings module Fields, Title, ToLower, ToTitle, ToUpper, TrimSpace
+//
+//ugo:callable func(s string) (ret ugo.Object)
+
+// strings module ContainsChar, IndexByte, IndexChar, LastIndexByte
+//
+//ugo:callable func(s string, r rune) (ret ugo.Object)
+
+// strings module Join
+//
+//ugo:callable func(arr ugo.Array, s string) (ret ugo.Object)
+
+// strings module Repeat
+//
+//ugo:callable func(s string, v int) (ret ugo.Object)

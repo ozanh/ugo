@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Ozan Hacıbekiroğlu.
+// Copyright (c) 2020-2022 Ozan Hacıbekiroğlu.
 // Use of this source code is governed by a MIT License
 // that can be found in the LICENSE file.
 
@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"github.com/ozanh/ugo"
+	"github.com/ozanh/ugo/stdlib"
 )
 
 // Module represents time module.
@@ -24,29 +25,37 @@ var Module = map[string]ugo.Object{
 	// Contains(s string, substr string) -> bool
 	// Reports whether substr is within s.
 	"Contains": &ugo.Function{
-		Name:  "Contains",
-		Value: fnASSRB(strings.Contains),
+		Name: "Contains",
+		Value: stdlib.FuncPssRO(func(s, substr string) ugo.Object {
+			return ugo.Bool(strings.Contains(s, substr))
+		}),
 	},
 	// ugo:doc
 	// ContainsAny(s string, chars string) -> bool
 	// Reports whether any char in chars are within s.
 	"ContainsAny": &ugo.Function{
-		Name:  "ContainsAny",
-		Value: fnASSRB(strings.ContainsAny),
+		Name: "ContainsAny",
+		Value: stdlib.FuncPssRO(func(s, chars string) ugo.Object {
+			return ugo.Bool(strings.ContainsAny(s, chars))
+		}),
 	},
 	// ugo:doc
 	// ContainsChar(s string, c char) -> bool
 	// Reports whether the char c is within s.
 	"ContainsChar": &ugo.Function{
-		Name:  "ContainsChar",
-		Value: containsChar,
+		Name: "ContainsChar",
+		Value: stdlib.FuncPsrRO(func(s string, c rune) ugo.Object {
+			return ugo.Bool(strings.ContainsRune(s, c))
+		}),
 	},
 	// ugo:doc
 	// Count(s string, substr string) -> int
 	// Counts the number of non-overlapping instances of substr in s.
 	"Count": &ugo.Function{
-		Name:  "Count",
-		Value: fnASSRI(strings.Count),
+		Name: "Count",
+		Value: stdlib.FuncPssRO(func(s, substr string) ugo.Object {
+			return ugo.Int(strings.Count(s, substr))
+		}),
 	},
 	// ugo:doc
 	// EqualFold(s string, t string) -> bool
@@ -54,8 +63,10 @@ var Module = map[string]ugo.Object{
 	// are equal under Unicode case-folding, which is a more general form of
 	// case-insensitivity.
 	"EqualFold": &ugo.Function{
-		Name:  "EqualFold",
-		Value: fnASSRB(strings.EqualFold),
+		Name: "EqualFold",
+		Value: stdlib.FuncPssRO(func(s, t string) ugo.Object {
+			return ugo.Bool(strings.EqualFold(s, t))
+		}),
 	},
 	// ugo:doc
 	// Fields(s string) -> array
@@ -64,53 +75,65 @@ var Module = map[string]ugo.Object{
 	// if s contains only white space.
 	"Fields": &ugo.Function{
 		Name:  "Fields",
-		Value: fields,
+		Value: stdlib.FuncPsRO(fields),
 	},
 	// ugo:doc
 	// HasPrefix(s string, prefix string) -> bool
 	// Reports whether the string s begins with prefix.
 	"HasPrefix": &ugo.Function{
-		Name:  "HasPrefix",
-		Value: fnASSRB(strings.HasPrefix),
+		Name: "HasPrefix",
+		Value: stdlib.FuncPssRO(func(s, prefix string) ugo.Object {
+			return ugo.Bool(strings.HasPrefix(s, prefix))
+		}),
 	},
 	// ugo:doc
 	// HasSuffix(s string, suffix string) -> bool
 	// Reports whether the string s ends with prefix.
 	"HasSuffix": &ugo.Function{
-		Name:  "HasSuffix",
-		Value: fnASSRB(strings.HasSuffix),
+		Name: "HasSuffix",
+		Value: stdlib.FuncPssRO(func(s, suffix string) ugo.Object {
+			return ugo.Bool(strings.HasSuffix(s, suffix))
+		}),
 	},
 	// ugo:doc
 	// Index(s string, substr string) -> int
 	// Returns the index of the first instance of substr in s, or -1 if substr
 	// is not present in s.
 	"Index": &ugo.Function{
-		Name:  "Index",
-		Value: fnASSRI(strings.Index),
+		Name: "Index",
+		Value: stdlib.FuncPssRO(func(s, substr string) ugo.Object {
+			return ugo.Int(strings.Index(s, substr))
+		}),
 	},
 	// ugo:doc
 	// IndexAny(s string, chars string) -> int
 	// Returns the index of the first instance of any char from chars in s, or
 	// -1 if no char from chars is present in s.
 	"IndexAny": &ugo.Function{
-		Name:  "IndexAny",
-		Value: fnASSRI(strings.IndexAny),
+		Name: "IndexAny",
+		Value: stdlib.FuncPssRO(func(s, chars string) ugo.Object {
+			return ugo.Int(strings.IndexAny(s, chars))
+		}),
 	},
 	// ugo:doc
-	// IndexByte(s string, c char|int) -> int
+	// IndexByte(s string, c char) -> int
 	// Returns the index of the first byte value of c in s, or -1 if byte value
 	// of c is not present in s.
 	"IndexByte": &ugo.Function{
-		Name:  "IndexByte",
-		Value: indexByte,
+		Name: "IndexByte",
+		Value: stdlib.FuncPsrRO(func(s string, c rune) ugo.Object {
+			return ugo.Int(strings.IndexByte(s, byte(c)))
+		}),
 	},
 	// ugo:doc
 	// IndexChar(s string, c char) -> int
 	// Returns the index of the first instance of the char c, or -1 if char is
 	// not present in s.
 	"IndexChar": &ugo.Function{
-		Name:  "IndexChar",
-		Value: indexChar,
+		Name: "IndexChar",
+		Value: stdlib.FuncPsrRO(func(s string, c rune) ugo.Object {
+			return ugo.Int(strings.IndexRune(s, c))
+		}),
 	},
 	// ugo:doc
 	// Join(arr array, sep string) -> string
@@ -119,31 +142,37 @@ var Module = map[string]ugo.Object{
 	// resulting string.
 	"Join": &ugo.Function{
 		Name:  "Join",
-		Value: join,
+		Value: stdlib.FuncPAsRO(join),
 	},
 	// ugo:doc
 	// LastIndex(s string, substr string) -> int
 	// Returns the index of the last instance of substr in s, or -1 if substr
 	// is not present in s.
 	"LastIndex": &ugo.Function{
-		Name:  "LastIndex",
-		Value: fnASSRI(strings.LastIndex),
+		Name: "LastIndex",
+		Value: stdlib.FuncPssRO(func(s, substr string) ugo.Object {
+			return ugo.Int(strings.LastIndex(s, substr))
+		}),
 	},
 	// ugo:doc
 	// LastIndexAny(s string, chars string) -> int
 	// Returns the index of the last instance of any char from chars in s, or
 	// -1 if no char from chars is present in s.
 	"LastIndexAny": &ugo.Function{
-		Name:  "LastIndexAny",
-		Value: fnASSRI(strings.LastIndexAny),
+		Name: "LastIndexAny",
+		Value: stdlib.FuncPssRO(func(s, chars string) ugo.Object {
+			return ugo.Int(strings.LastIndexAny(s, chars))
+		}),
 	},
 	// ugo:doc
-	// LastIndexByte(s string, c char|int) -> int
+	// LastIndexByte(s string, c char) -> int
 	// Returns the index of byte value of the last instance of c in s, or -1
 	// if c is not present in s.
 	"LastIndexByte": &ugo.Function{
-		Name:  "LastIndexByte",
-		Value: lastIndexByte,
+		Name: "LastIndexByte",
+		Value: stdlib.FuncPsrRO(func(s string, c rune) ugo.Object {
+			return ugo.Int(strings.LastIndexByte(s, byte(c)))
+		}),
 	},
 	// ugo:doc
 	// PadLeft(s string, padLen int[, padWith any]) -> string
@@ -171,7 +200,7 @@ var Module = map[string]ugo.Object{
 	// - If (len(s) * count) overflows, it panics.
 	"Repeat": &ugo.Function{
 		Name:  "Repeat",
-		Value: repeat,
+		Value: stdlib.FuncPsiRO(repeat),
 	},
 	// ugo:doc
 	// Replace(s string, old string, new string[, n int]) -> string
@@ -194,7 +223,7 @@ var Module = map[string]ugo.Object{
 	// - n == 0: the result is empty array
 	"Split": &ugo.Function{
 		Name:  "Split",
-		Value: fnASSIRA(strings.SplitN),
+		Value: fnSplit(strings.SplitN),
 	},
 	// ugo:doc
 	// SplitAfter(s string, sep string[, n int]) -> [string]
@@ -208,174 +237,134 @@ var Module = map[string]ugo.Object{
 	// - n == 0: the result is empty array
 	"SplitAfter": &ugo.Function{
 		Name:  "SplitAfter",
-		Value: fnASSIRA(strings.SplitAfterN),
+		Value: fnSplit(strings.SplitAfterN),
 	},
 	// ugo:doc
 	// Title(s string) -> string
 	// Returns a copy of the string s with all Unicode letters that begin words
 	// mapped to their Unicode title case.
 	"Title": &ugo.Function{
-		Name:  "Title",
-		Value: fnASRS(strings.Title),
+		Name: "Title",
+		Value: stdlib.FuncPsRO(func(s string) ugo.Object {
+			return ugo.String(strings.Title(s))
+		}),
 	},
 	// ugo:doc
 	// ToLower(s string) -> string
 	// Returns s with all Unicode letters mapped to their lower case.
 	"ToLower": &ugo.Function{
-		Name:  "ToLower",
-		Value: fnASRS(strings.ToLower),
+		Name: "ToLower",
+		Value: stdlib.FuncPsRO(func(s string) ugo.Object {
+			return ugo.String(strings.ToLower(s))
+		}),
 	},
 	// ugo:doc
 	// ToTitle(s string) -> string
 	// Returns a copy of the string s with all Unicode letters mapped to their
 	// Unicode title case.
 	"ToTitle": &ugo.Function{
-		Name:  "ToTitle",
-		Value: fnASRS(strings.ToTitle),
+		Name: "ToTitle",
+		Value: stdlib.FuncPsRO(func(s string) ugo.Object {
+			return ugo.String(strings.ToTitle(s))
+		}),
 	},
 	// ugo:doc
 	// ToUpper(s string) -> string
 	// Returns s with all Unicode letters mapped to their upper case.
 	"ToUpper": &ugo.Function{
-		Name:  "ToUpper",
-		Value: fnASRS(strings.ToUpper),
+		Name: "ToUpper",
+		Value: stdlib.FuncPsRO(func(s string) ugo.Object {
+			return ugo.String(strings.ToUpper(s))
+		}),
 	},
 	// ugo:doc
-	// Trim(s, cutset string) -> string
+	// Trim(s string, cutset string) -> string
 	// Returns a slice of the string s with all leading and trailing Unicode
 	// code points contained in cutset removed.
 	"Trim": &ugo.Function{
-		Name:  "Trim",
-		Value: fnASSRS(strings.Trim),
+		Name: "Trim",
+		Value: stdlib.FuncPssRO(func(s, cutset string) ugo.Object {
+			return ugo.String(strings.Trim(s, cutset))
+		}),
 	},
 	// ugo:doc
-	// TrimLeft(s, cutset string) -> string
+	// TrimLeft(s string, cutset string) -> string
 	// Returns a slice of the string s with all leading Unicode code points
 	// contained in cutset removed.
 	"TrimLeft": &ugo.Function{
-		Name:  "TrimLeft",
-		Value: fnASSRS(strings.TrimLeft),
+		Name: "TrimLeft",
+		Value: stdlib.FuncPssRO(func(s, cutset string) ugo.Object {
+			return ugo.String(strings.TrimLeft(s, cutset))
+		}),
 	},
 	// ugo:doc
-	// TrimPrefix(s, prefix string) -> string
+	// TrimPrefix(s string, prefix string) -> string
 	// Returns s without the provided leading prefix string. If s doesn't start
 	// with prefix, s is returned unchanged.
 	"TrimPrefix": &ugo.Function{
-		Name:  "TrimPrefix",
-		Value: fnASSRS(strings.TrimPrefix),
+		Name: "TrimPrefix",
+		Value: stdlib.FuncPssRO(func(s, prefix string) ugo.Object {
+			return ugo.String(strings.TrimPrefix(s, prefix))
+		}),
 	},
 	// ugo:doc
-	// TrimRight(s, cutset string) -> string
+	// TrimRight(s string, cutset string) -> string
 	// Returns a slice of the string s with all trailing Unicode code points
 	// contained in cutset removed.
 	"TrimRight": &ugo.Function{
-		Name:  "TrimRight",
-		Value: fnASSRS(strings.TrimRight),
+		Name: "TrimRight",
+		Value: stdlib.FuncPssRO(func(s, cutset string) ugo.Object {
+			return ugo.String(strings.TrimRight(s, cutset))
+		}),
 	},
 	// ugo:doc
-	// TrimSpace(s) -> string
+	// TrimSpace(s string) -> string
 	// Returns a slice of the string s, with all leading and trailing white
 	// space removed, as defined by Unicode.
 	"TrimSpace": &ugo.Function{
-		Name:  "TrimSpace",
-		Value: fnASRS(strings.TrimSpace),
+		Name: "TrimSpace",
+		Value: stdlib.FuncPsRO(func(s string) ugo.Object {
+			return ugo.String(strings.TrimSpace(s))
+		}),
 	},
 	// ugo:doc
-	// TrimSuffix(s, suffix string) -> string
+	// TrimSuffix(s string, suffix string) -> string
 	// Returns s without the provided trailing suffix string. If s doesn't end
 	// with suffix, s is returned unchanged.
 	"TrimSuffix": &ugo.Function{
-		Name:  "TrimSuffix",
-		Value: fnASSRS(strings.TrimSuffix),
+		Name: "TrimSuffix",
+		Value: stdlib.FuncPssRO(func(s, suffix string) ugo.Object {
+			return ugo.String(strings.TrimSuffix(s, suffix))
+		}),
 	},
 }
 
-func fnASSRS(fn func(string, string) string) ugo.CallableFunc {
-	return func(args ...ugo.Object) (ugo.Object, error) {
-		if len(args) != 2 {
-			return nil, ugo.ErrWrongNumArguments.NewError(
-				wantEqXGotY(2, len(args)))
-		}
-		s1, ok := args[0].(ugo.String)
-		if !ok {
-			return nil, ugo.NewArgumentTypeError("first", "string",
-				args[0].TypeName())
-		}
-		s2, ok := args[1].(ugo.String)
-		if !ok {
-			return nil, ugo.NewArgumentTypeError("second", "string",
-				args[1].TypeName())
-		}
-		return ugo.String(fn(string(s1), string(s2))), nil
-	}
-}
-
-func fnASSRB(fn func(string, string) bool) ugo.CallableFunc {
-	return func(args ...ugo.Object) (ugo.Object, error) {
-		if len(args) != 2 {
-			return nil, ugo.ErrWrongNumArguments.NewError(
-				wantEqXGotY(2, len(args)))
-		}
-		s1, ok := args[0].(ugo.String)
-		if !ok {
-			return nil, ugo.NewArgumentTypeError("first", "string",
-				args[0].TypeName())
-		}
-		s2, ok := args[1].(ugo.String)
-		if !ok {
-			return nil, ugo.NewArgumentTypeError("second", "string",
-				args[1].TypeName())
-		}
-		return ugo.Bool(fn(string(s1), string(s2))), nil
-	}
-}
-
-func fnASSRI(fn func(string, string) int) ugo.CallableFunc {
-	return func(args ...ugo.Object) (ugo.Object, error) {
-		if len(args) != 2 {
-			return nil, ugo.ErrWrongNumArguments.NewError(
-				wantEqXGotY(2, len(args)))
-		}
-		s1, ok := args[0].(ugo.String)
-		if !ok {
-			return nil, ugo.NewArgumentTypeError("first", "string",
-				args[0].TypeName())
-		}
-		s2, ok := args[1].(ugo.String)
-		if !ok {
-			return nil, ugo.NewArgumentTypeError("second", "string",
-				args[1].TypeName())
-		}
-		return ugo.Int(fn(string(s1), string(s2))), nil
-	}
-}
-
-func fnASSIRA(fn func(string, string, int) []string) ugo.CallableFunc {
+func fnSplit(fn func(string, string, int) []string) ugo.CallableFunc {
 	return func(args ...ugo.Object) (ugo.Object, error) {
 		if len(args) != 2 && len(args) != 3 {
 			return nil, ugo.ErrWrongNumArguments.NewError(
 				"want=2..3 got=" + strconv.Itoa(len(args)))
 		}
-		s, ok := args[0].(ugo.String)
+		s, ok := ugo.ToGoString(args[0])
 		if !ok {
-			return nil, ugo.NewArgumentTypeError("first", "string",
+			return nil, ugo.NewArgumentTypeError("1st", "string",
 				args[0].TypeName())
 		}
-		sep, ok := args[1].(ugo.String)
+		sep, ok := ugo.ToGoString(args[1])
 		if !ok {
-			return nil, ugo.NewArgumentTypeError("second", "string",
+			return nil, ugo.NewArgumentTypeError("2nd", "string",
 				args[1].TypeName())
 		}
 		n := -1
 		if len(args) == 3 {
-			v, ok := args[2].(ugo.Int)
+			v, ok := ugo.ToGoInt(args[2])
 			if !ok {
-				return nil, ugo.NewArgumentTypeError("third", "int",
+				return nil, ugo.NewArgumentTypeError("3rd", "int",
 					args[2].TypeName())
 			}
-			n = int(v)
+			n = v
 		}
-		strs := fn(string(s), string(sep), n)
+		strs := fn(s, sep, n)
 		out := make(ugo.Array, len(strs))
 		for i := range strs {
 			out[i] = ugo.String(strs[i])
@@ -384,135 +373,21 @@ func fnASSIRA(fn func(string, string, int) []string) ugo.CallableFunc {
 	}
 }
 
-func fnASRS(fn func(string) string) ugo.CallableFunc {
-	return func(args ...ugo.Object) (ugo.Object, error) {
-		if len(args) != 1 {
-			return nil, ugo.ErrWrongNumArguments.NewError(
-				wantEqXGotY(1, len(args)))
-		}
-		s, ok := args[0].(ugo.String)
-		if !ok {
-			return nil, ugo.NewArgumentTypeError("first", "string",
-				args[0].TypeName())
-		}
-		return ugo.String(fn(string(s))), nil
-	}
-}
-
-func containsChar(args ...ugo.Object) (ugo.Object, error) {
-	if len(args) != 2 {
-		return nil, ugo.ErrWrongNumArguments.NewError(wantEqXGotY(2, len(args)))
-	}
-	s, ok := args[0].(ugo.String)
-	if !ok {
-		return nil, ugo.NewArgumentTypeError("first", "string",
-			args[0].TypeName())
-	}
-	c, ok := args[1].(ugo.Char)
-	if !ok {
-		return nil, ugo.NewArgumentTypeError("second", "char",
-			args[1].TypeName())
-	}
-	return ugo.Bool(strings.ContainsRune(string(s), rune(c))), nil
-}
-
-func fields(args ...ugo.Object) (ugo.Object, error) {
-	if len(args) != 1 {
-		return nil, ugo.ErrWrongNumArguments.NewError(wantEqXGotY(1, len(args)))
-	}
-	s, ok := args[0].(ugo.String)
-	if !ok {
-		return nil, ugo.NewArgumentTypeError("first", "string",
-			args[0].TypeName())
-	}
-	strs := strings.Fields(string(s))
+func fields(s string) ugo.Object {
+	strs := strings.Fields(s)
 	out := make(ugo.Array, len(strs))
 	for i := range strs {
 		out[i] = ugo.String(strs[i])
 	}
-	return out, nil
+	return out
 }
 
-func indexByte(args ...ugo.Object) (ugo.Object, error) {
-	if len(args) != 2 {
-		return nil, ugo.ErrWrongNumArguments.NewError(wantEqXGotY(2, len(args)))
-	}
-	s, ok := args[0].(ugo.String)
-	if !ok {
-		return nil, ugo.NewArgumentTypeError("first", "string",
-			args[0].TypeName())
-	}
-	var b byte
-	switch v := args[1].(type) {
-	case ugo.Char:
-		b = byte(v)
-	case ugo.Int:
-		b = byte(v)
-	default:
-		return nil, ugo.NewArgumentTypeError("second", "char|int",
-			args[1].TypeName())
-	}
-	return ugo.Int(strings.IndexByte(string(s), b)), nil
-}
-
-func indexChar(args ...ugo.Object) (ugo.Object, error) {
-	if len(args) != 2 {
-		return nil, ugo.ErrWrongNumArguments.NewError(wantEqXGotY(2, len(args)))
-	}
-	s, ok := args[0].(ugo.String)
-	if !ok {
-		return nil, ugo.NewArgumentTypeError("first", "string",
-			args[0].TypeName())
-	}
-	c, ok := args[1].(ugo.Char)
-	if !ok {
-		return nil, ugo.NewArgumentTypeError("second", "char",
-			args[1].TypeName())
-	}
-	return ugo.Int(strings.IndexRune(string(s), rune(c))), nil
-}
-
-func join(args ...ugo.Object) (ugo.Object, error) {
-	if len(args) != 2 {
-		return nil, ugo.ErrWrongNumArguments.NewError(wantEqXGotY(2, len(args)))
-	}
-	arr, ok := args[0].(ugo.Array)
-	if !ok {
-		return nil, ugo.NewArgumentTypeError("first", "array",
-			args[0].TypeName())
-	}
-	sep, ok := args[1].(ugo.String)
-	if !ok {
-		return nil, ugo.NewArgumentTypeError("second", "string",
-			args[1].TypeName())
-	}
+func join(arr ugo.Array, sep string) ugo.Object {
 	elems := make([]string, len(arr))
 	for i := range arr {
 		elems[i] = arr[i].String()
 	}
-	return ugo.String(strings.Join(elems, string(sep))), nil
-}
-
-func lastIndexByte(args ...ugo.Object) (ugo.Object, error) {
-	if len(args) != 2 {
-		return nil, ugo.ErrWrongNumArguments.NewError(wantEqXGotY(2, len(args)))
-	}
-	s, ok := args[0].(ugo.String)
-	if !ok {
-		return nil, ugo.NewArgumentTypeError("first", "string",
-			args[0].TypeName())
-	}
-	var b byte
-	switch v := args[1].(type) {
-	case ugo.Char:
-		b = byte(v)
-	case ugo.Int:
-		b = byte(v)
-	default:
-		return nil, ugo.NewArgumentTypeError("second", "char|int",
-			args[1].TypeName())
-	}
-	return ugo.Int(strings.LastIndexByte(string(s), b)), nil
+	return ugo.String(strings.Join(elems, sep))
 }
 
 func padLeft(args ...ugo.Object) (ugo.Object, error) {
@@ -520,34 +395,34 @@ func padLeft(args ...ugo.Object) (ugo.Object, error) {
 		return nil, ugo.ErrWrongNumArguments.NewError(
 			"want=2..3 got=" + strconv.Itoa(len(args)))
 	}
-	s, ok := args[0].(ugo.String)
+	s, ok := ugo.ToGoString(args[0])
 	if !ok {
-		return nil, ugo.NewArgumentTypeError("first", "string",
+		return nil, ugo.NewArgumentTypeError("1st", "string",
 			args[0].TypeName())
 	}
-	padLen, ok := args[1].(ugo.Int)
+	padLen, ok := ugo.ToGoInt(args[1])
 	if !ok {
-		return nil, ugo.NewArgumentTypeError("second", "int",
+		return nil, ugo.NewArgumentTypeError("2nd", "int",
 			args[1].TypeName())
 	}
-	diff := int(padLen) - len(s)
+	diff := padLen - len(s)
 	if diff <= 0 {
-		return s, nil
+		return ugo.String(s), nil
 	}
 	padWith := " "
 	if len(args) > 2 {
 		if padWith = args[2].String(); len(padWith) == 0 {
-			return s, nil
+			return ugo.String(s), nil
 		}
 	}
 	r := (diff-len(padWith))/len(padWith) + 2
 	if r <= 0 {
-		return s, nil
+		return ugo.String(s), nil
 	}
 	var sb strings.Builder
 	sb.Grow(int(padLen))
 	sb.WriteString(strings.Repeat(padWith, r)[:diff])
-	sb.WriteString(string(s))
+	sb.WriteString(s)
 	return ugo.String(sb.String()), nil
 }
 
@@ -556,56 +431,43 @@ func padRight(args ...ugo.Object) (ugo.Object, error) {
 		return nil, ugo.ErrWrongNumArguments.NewError(
 			"want=2..3 got=" + strconv.Itoa(len(args)))
 	}
-	s, ok := args[0].(ugo.String)
+	s, ok := ugo.ToGoString(args[0])
 	if !ok {
-		return nil, ugo.NewArgumentTypeError("first", "string",
+		return nil, ugo.NewArgumentTypeError("1st", "string",
 			args[0].TypeName())
 	}
-	padLen, ok := args[1].(ugo.Int)
+	padLen, ok := ugo.ToGoInt(args[1])
 	if !ok {
-		return nil, ugo.NewArgumentTypeError("second", "int",
+		return nil, ugo.NewArgumentTypeError("2nd", "int",
 			args[1].TypeName())
 	}
-	diff := int(padLen) - len(s)
+	diff := padLen - len(s)
 	if diff <= 0 {
-		return s, nil
+		return ugo.String(s), nil
 	}
 	padWith := " "
 	if len(args) > 2 {
 		if padWith = args[2].String(); len(padWith) == 0 {
-			return s, nil
+			return ugo.String(s), nil
 		}
 	}
 	r := (diff-len(padWith))/len(padWith) + 2
 	if r <= 0 {
-		return s, nil
+		return ugo.String(s), nil
 	}
 	var sb strings.Builder
 	sb.Grow(int(padLen))
-	sb.WriteString(string(s))
+	sb.WriteString(s)
 	sb.WriteString(strings.Repeat(padWith, r)[:diff])
 	return ugo.String(sb.String()), nil
 }
 
-func repeat(args ...ugo.Object) (ugo.Object, error) {
-	if len(args) != 2 {
-		return nil, ugo.ErrWrongNumArguments.NewError(wantEqXGotY(2, len(args)))
-	}
-	s, ok := args[0].(ugo.String)
-	if !ok {
-		return nil, ugo.NewArgumentTypeError("first", "string",
-			args[0].TypeName())
-	}
-	n, ok := args[1].(ugo.Int)
-	if !ok {
-		return nil, ugo.NewArgumentTypeError("second", "int",
-			args[1].TypeName())
-	}
+func repeat(s string, count int) ugo.Object {
 	// if n is negative strings.Repeat function panics
-	if n < 0 {
-		return ugo.String(""), nil
+	if count < 0 {
+		return ugo.String("")
 	}
-	return ugo.String(strings.Repeat(string(s), int(n))), nil
+	return ugo.String(strings.Repeat(string(s), count))
 }
 
 func replace(args ...ugo.Object) (ugo.Object, error) {
@@ -613,40 +475,29 @@ func replace(args ...ugo.Object) (ugo.Object, error) {
 		return nil, ugo.ErrWrongNumArguments.NewError(
 			"want=3..4 got=" + strconv.Itoa(len(args)))
 	}
-	s, ok := args[0].(ugo.String)
+	s, ok := ugo.ToGoString(args[0])
 	if !ok {
-		return nil, ugo.NewArgumentTypeError("first", "string",
+		return nil, ugo.NewArgumentTypeError("1st", "string",
 			args[0].TypeName())
 	}
-	old, ok := args[1].(ugo.String)
+	old, ok := ugo.ToGoString(args[1])
 	if !ok {
-		return nil, ugo.NewArgumentTypeError("second", "string",
+		return nil, ugo.NewArgumentTypeError("2nd", "string",
 			args[1].TypeName())
 	}
-	new, ok := args[2].(ugo.String)
+	news, ok := ugo.ToGoString(args[2])
 	if !ok {
-		return nil, ugo.NewArgumentTypeError("third", "string",
+		return nil, ugo.NewArgumentTypeError("3rd", "string",
 			args[2].TypeName())
 	}
 	n := -1
 	if len(args) == 4 {
-		v, ok := args[3].(ugo.Int)
+		v, ok := ugo.ToGoInt(args[3])
 		if !ok {
-			return nil, ugo.NewArgumentTypeError("fourth", "int",
-				args[3].TypeName())
+			return nil, ugo.NewArgumentTypeError(
+				"4th", "int", args[3].TypeName())
 		}
-		n = int(v)
+		n = v
 	}
-	return ugo.String(
-		strings.Replace(string(s), string(old), string(new), n),
-	), nil
-}
-
-func wantEqXGotY(x, y int) string {
-	buf := make([]byte, 0, 20)
-	buf = append(buf, "want="...)
-	buf = strconv.AppendInt(buf, int64(x), 10)
-	buf = append(buf, " got="...)
-	buf = strconv.AppendInt(buf, int64(y), 10)
-	return string(buf)
+	return ugo.String(strings.Replace(s, old, news, n)), nil
 }

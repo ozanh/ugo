@@ -222,3 +222,109 @@ func FuncPb2ssRO(fn func([]byte, string, string) ugo.Object) ugo.CallableFunc {
 		return
 	}
 }
+
+// FuncPssRO is a generated function to make ugo.CallableFunc.
+// Source: func(s1 string, s2 string) (ret ugo.Object)
+func FuncPssRO(fn func(string, string) ugo.Object) ugo.CallableFunc {
+	return func(args ...ugo.Object) (ret ugo.Object, err error) {
+		if len(args) != 2 {
+			return ugo.Undefined, ugo.ErrWrongNumArguments.NewError("want=2 got=" + strconv.Itoa(len(args)))
+		}
+
+		s1, ok := ugo.ToGoString(args[0])
+		if !ok {
+			return ugo.Undefined, ugo.NewArgumentTypeError("1st", "string", args[0].TypeName())
+		}
+		s2, ok := ugo.ToGoString(args[1])
+		if !ok {
+			return ugo.Undefined, ugo.NewArgumentTypeError("2nd", "string", args[1].TypeName())
+		}
+
+		ret = fn(s1, s2)
+		return
+	}
+}
+
+// FuncPsRO is a generated function to make ugo.CallableFunc.
+// Source: func(s string) (ret ugo.Object)
+func FuncPsRO(fn func(string) ugo.Object) ugo.CallableFunc {
+	return func(args ...ugo.Object) (ret ugo.Object, err error) {
+		if len(args) != 1 {
+			return ugo.Undefined, ugo.ErrWrongNumArguments.NewError("want=1 got=" + strconv.Itoa(len(args)))
+		}
+
+		s, ok := ugo.ToGoString(args[0])
+		if !ok {
+			return ugo.Undefined, ugo.NewArgumentTypeError("1st", "string", args[0].TypeName())
+		}
+
+		ret = fn(s)
+		return
+	}
+}
+
+// FuncPsrRO is a generated function to make ugo.CallableFunc.
+// Source: func(s string, r rune) (ret ugo.Object)
+func FuncPsrRO(fn func(string, rune) ugo.Object) ugo.CallableFunc {
+	return func(args ...ugo.Object) (ret ugo.Object, err error) {
+		if len(args) != 2 {
+			return ugo.Undefined, ugo.ErrWrongNumArguments.NewError("want=2 got=" + strconv.Itoa(len(args)))
+		}
+
+		s, ok := ugo.ToGoString(args[0])
+		if !ok {
+			return ugo.Undefined, ugo.NewArgumentTypeError("1st", "string", args[0].TypeName())
+		}
+		r, ok := ugo.ToGoRune(args[1])
+		if !ok {
+			return ugo.Undefined, ugo.NewArgumentTypeError("2nd", "char", args[1].TypeName())
+		}
+
+		ret = fn(s, r)
+		return
+	}
+}
+
+// FuncPAsRO is a generated function to make ugo.CallableFunc.
+// Source: func(arr ugo.Array, s string) (ret ugo.Object)
+func FuncPAsRO(fn func(ugo.Array, string) ugo.Object) ugo.CallableFunc {
+	return func(args ...ugo.Object) (ret ugo.Object, err error) {
+		if len(args) != 2 {
+			return ugo.Undefined, ugo.ErrWrongNumArguments.NewError("want=2 got=" + strconv.Itoa(len(args)))
+		}
+
+		arr, ok := ugo.ToArray(args[0])
+		if !ok {
+			return ugo.Undefined, ugo.NewArgumentTypeError("1st", "array", args[0].TypeName())
+		}
+		s, ok := ugo.ToGoString(args[1])
+		if !ok {
+			return ugo.Undefined, ugo.NewArgumentTypeError("2nd", "string", args[1].TypeName())
+		}
+
+		ret = fn(arr, s)
+		return
+	}
+}
+
+// FuncPsiRO is a generated function to make ugo.CallableFunc.
+// Source: func(s string, v int) (ret ugo.Object)
+func FuncPsiRO(fn func(string, int) ugo.Object) ugo.CallableFunc {
+	return func(args ...ugo.Object) (ret ugo.Object, err error) {
+		if len(args) != 2 {
+			return ugo.Undefined, ugo.ErrWrongNumArguments.NewError("want=2 got=" + strconv.Itoa(len(args)))
+		}
+
+		s, ok := ugo.ToGoString(args[0])
+		if !ok {
+			return ugo.Undefined, ugo.NewArgumentTypeError("1st", "string", args[0].TypeName())
+		}
+		v, ok := ugo.ToGoInt(args[1])
+		if !ok {
+			return ugo.Undefined, ugo.NewArgumentTypeError("2nd", "int", args[1].TypeName())
+		}
+
+		ret = fn(s, v)
+		return
+	}
+}
