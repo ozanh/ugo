@@ -2,6 +2,8 @@
 // Use of this source code is governed by a MIT License
 // that can be found in the LICENSE file.
 
+// EXPERIMENTAL code generation tool, use it at your own risk.
+
 // Inspired by golang.org/x/sys/windows/cmd/mkwinsyscall package.
 
 package main
@@ -29,6 +31,7 @@ import (
 // We support (ugo.Object) or (ugo.Object, error) or (error) results now.
 
 const ugoCallablePrefix = "//ugo:callable"
+const ugoDot = "ugo."
 
 type converterFunc func(index int, argsName string, p *Param) string
 
@@ -74,7 +77,9 @@ var builtinTypeAlias = map[string]string{
 	"[]byte":      "b2",
 	"int":         "i",
 	"int64":       "i64",
-	"uint64":      "ui64",
+	"uint64":      "u64",
+	"float64":     "f64",
+	"rune":        "r",
 	"error":       "e",
 }
 
@@ -95,6 +100,7 @@ var ugoTypeNames = map[string]string{
 	"int64":       "int",
 	"uint64":      "uint",
 	"float64":     "float",
+	"rune":        "char",
 	"error":       "error",
 	"*Time":       "time",
 	"*Location":   "location",
@@ -121,12 +127,22 @@ func ordinalize(num int) string {
 	return strconv.Itoa(num) + suffix
 }
 
-var filename = flag.String("output", "", "output file name (standard output if omitted)")
+var (
+	filename = flag.String("output", "", "output file name (standard output if omitted)")
+	export   = flag.Bool("export", false, "export auto generated function names")
+)
 
 var packageName string
 
 func packagename() string {
 	return packageName
+}
+
+func ugodot() string {
+	if packageName == "ugo" {
+		return ""
+	}
+	return ugoDot
 }
 
 func trim(s string) string {
@@ -181,12 +197,15 @@ func ParseFiles(files []string) (*Source, error) {
 	src := &Source{
 		Funcs:           make([]*Fn, 0),
 		GoImports:       []Pkg{{Path: "strconv"}},
-		ExternalImports: []Pkg{{Path: "github.com/ozanh/ugo"}},
+		ExternalImports: []Pkg{},
 	}
 	for _, file := range files {
 		if err := src.ParseFile(file); err != nil {
 			return nil, err
 		}
+	}
+	if ugodot() != "" {
+		src.ExternalImports = append(src.ExternalImports, Pkg{Path: "github.com/ozanh/ugo"})
 	}
 	err := src.checkConverters()
 	return src, err
@@ -218,6 +237,7 @@ type Source struct {
 func (src *Source) Generate(w io.Writer) error {
 	funcMap := template.FuncMap{
 		"packagename": packagename,
+		"ugodot":      ugodot,
 	}
 	t := template.Must(template.New("main").Funcs(funcMap).Parse(srcTemplate))
 	err := t.Execute(w, src)
@@ -394,10 +414,12 @@ func (src *Source) parseConvert(s string) error {
 func (src *Source) checkConverters() error {
 	for _, fn := range src.Funcs {
 		for _, p := range fn.Params {
-			if _, ok := converters[p.Type]; !ok {
+			if _, ok := converters[p.Type]; ok {
+				continue
+			}
+			if _, ok := converters[ugoDot+p.Type]; !ok {
 				return fmt.Errorf("converter is not found for type: %s", p.Type)
 			}
-
 		}
 	}
 	return nil
@@ -421,26 +443,38 @@ func (p *Param) IsError() bool {
 func (p *Param) HelperAssignVar() string {
 	conv := converters[p.Type]
 	if conv == nil {
-		conv = "CONVERTER_NOT_FOUND"
-	} else if fn, ok := conv.(converterFunc); ok {
-		return fn(p.idx, p.fn.argsName, p)
+		conv = converters[ugoDot+p.Type]
+		if conv == nil {
+			conv = "CONVERTER_NOT_FOUND"
+		}
+	}
+	if conv != nil {
+		if fn, ok := conv.(converterFunc); ok {
+			return fn(p.idx, p.fn.argsName, p)
+		}
+	}
+	if ugodot() == "" {
+		conv = strings.TrimPrefix(conv.(string), ugoDot)
 	}
 
-	ugoTypeName := p.toUgoTypeName()
+	ugoTypeName := p.ugoTypeName()
 
 	return fmt.Sprintf(`%s, ok := %s(%s[%d])
 		if !ok {
-			return ugo.Undefined, ugo.NewArgumentTypeError("%s", "%s", %s[%d].TypeName())
+			return %sUndefined, %sNewArgumentTypeError("%s", "%s", %s[%d].TypeName())
 		}`,
 		p.Name, conv, p.fn.argsName, p.idx,
-		ordinalize(p.idx+1), ugoTypeName, p.fn.argsName, p.idx,
+		ugodot(), ugodot(), ordinalize(p.idx+1), ugoTypeName, p.fn.argsName, p.idx,
 	)
 }
 
-func (p *Param) toUgoTypeName() string {
+func (p *Param) ugoTypeName() string {
 	n := ugoTypeNames[p.Type]
 	if n == "" {
-		return p.Type
+		n = ugoTypeNames[ugoDot+p.Type]
+		if n == "" {
+			return p.Type
+		}
 	}
 	return n
 }
@@ -579,8 +613,8 @@ func (f *Fn) SourceString() string { return f.src }
 // check number of arguments.
 func (f *Fn) HelperCheckNumArgs() string {
 	return fmt.Sprintf(`if len(%s)!=%d {
-			return ugo.Undefined, ugo.ErrWrongNumArguments.NewError("want=%d got=" + strconv.Itoa(len(%s)))
-	    }`, f.argsName, len(f.Params), len(f.Params), f.argsName)
+			return %sUndefined, %sErrWrongNumArguments.NewError("want=%d got=" + strconv.Itoa(len(%s)))
+	    }`, f.argsName, len(f.Params), ugodot(), ugodot(), len(f.Params), f.argsName)
 }
 
 // HelperCall is an helper used in template to return function call block with
@@ -589,14 +623,14 @@ func (f *Fn) HelperCall() string {
 	const retPrefix = "\n        " // just for formatting reasons.
 	var (
 		left string
-		ret  = retPrefix + f.retName + " = ugo.Undefined"
+		ret  = retPrefix + f.retName + " = " + ugodot() + "Undefined"
 	)
 	if rets := f.Rets.ToParams(); len(rets) > 0 {
 		switch len(rets) {
 		case 1:
 			if f.Rets.ReturnsError {
 				left = f.errName + " = "
-				ret = retPrefix + f.retName + " = ugo.Undefined"
+				ret = retPrefix + f.retName + " = " + ugodot() + "Undefined"
 			} else {
 				left = f.retName + " = "
 				ret = ""
@@ -647,7 +681,11 @@ func (f *Fn) genFuncName() {
 		return
 	}
 	var b strings.Builder
-	b.WriteString("FuncP")
+	if *export {
+		b.WriteString("FuncP")
+	} else {
+		b.WriteString("funcP")
+	}
 
 	gen := func(params []*Param) {
 		for _, param := range params {
@@ -656,6 +694,9 @@ func (f *Fn) genFuncName() {
 			}
 
 			n := builtinTypeAlias[param.Type]
+			if n == "" {
+				n = builtinTypeAlias[ugoDot+param.Type]
+			}
 			if n == "" {
 				i := strings.Index(param.Type, ".")
 				typ := strings.TrimPrefix(param.Type[i+1:], "*")
@@ -745,9 +786,9 @@ import ({{range .GoImports}}
 
 
 {{define "funcbody"}}
-// {{.FuncName}} is a generated function to make ugo.CallableFunc.
+// {{.FuncName}} is a generated function to make {{ugodot}}CallableFunc.
 // Source: {{.SourceString}}
-func {{.FuncName}}({{.FnName}} func({{.ParamList}}) {{.Rets.List}}) ugo.CallableFunc {
+func {{.FuncName}}({{.FnName}} func({{.ParamList}}) {{.Rets.List}}) {{ugodot}}CallableFunc {
 	return func{{template "ugocallparams" .}} {{template "ugoresults" .}} {
 		{{template "checknumargs" .}}
 		{{template "assignvars" .}}
@@ -757,9 +798,9 @@ func {{.FuncName}}({{.FnName}} func({{.ParamList}}) {{.Rets.List}}) ugo.Callable
 }
 {{end}}
 
-{{define "ugocallparams"}}({{.ArgsName}} ...ugo.Object){{end}}
+{{define "ugocallparams"}}({{.ArgsName}} ...{{ugodot}}Object){{end}}
 
-{{define "ugoresults"}}({{.RetName}} ugo.Object, {{.ErrName}} error){{end}}
+{{define "ugoresults"}}({{.RetName}} {{ugodot}}Object, {{.ErrName}} error){{end}}
 
 {{define "checknumargs"}}{{.HelperCheckNumArgs}}{{end}}
 

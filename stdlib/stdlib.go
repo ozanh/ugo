@@ -1,30 +1,11 @@
-package futils
+package stdlib
 
-//go:generate go run ../cmd/mkcallable -output zfutils.go futils.go
+//go:generate go run ../cmd/mkcallable -export -output zfuncs.go stdlib.go
 
-// builtin delete
-//
-//ugo:callable func(o ugo.Object, k string) (err error)
-
-// builtin copy, len, error, typeName, bool, string, isInt, isUint
-// isFloat, isChar, isBool, isString, isBytes, isMap, isSyncMap, isArray
-// isUndefined, isFunction, isCallable, isIterable
 // time module IsTime
 // json module Marshal, Quote, NoQuote, NoEscape
 //
 //ugo:callable func(o ugo.Object) (ret ugo.Object)
-
-// builtin repeat
-//
-//ugo:callable func(o ugo.Object, n int) (ret ugo.Object, err error)
-
-// builtin contains
-//
-//ugo:callable func(o ugo.Object, v ugo.Object) (ret ugo.Object, err error)
-
-// builtin sort, sortReverse, int, uint, float, char, chars
-//
-//ugo:callable func(o ugo.Object) (ret ugo.Object, err error)
 
 // time module MountString, WeekdayString
 //

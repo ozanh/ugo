@@ -8,7 +8,7 @@ import (
 	"bytes"
 
 	"github.com/ozanh/ugo"
-	"github.com/ozanh/ugo/futils"
+	"github.com/ozanh/ugo/stdlib"
 )
 
 // Module represents json module.
@@ -21,7 +21,7 @@ var Module = map[string]ugo.Object{
 	// Returns the JSON encoding v or error.
 	"Marshal": &ugo.Function{
 		Name: "Marshal",
-		Value: futils.FuncPORO(
+		Value: stdlib.FuncPORO(
 			func(o ugo.Object) ugo.Object {
 				b, err := Marshal(o)
 				if err != nil {
@@ -36,7 +36,7 @@ var Module = map[string]ugo.Object{
 	// MarshalIndent is like Marshal but applies Indent to format the output.
 	"MarshalIndent": &ugo.Function{
 		Name: "MarshalIndent",
-		Value: futils.FuncPOssRO(
+		Value: stdlib.FuncPOssRO(
 			func(o ugo.Object, prefix, indent string) ugo.Object {
 				b, err := MarshalIndent(o, prefix, indent)
 				if err != nil {
@@ -51,7 +51,7 @@ var Module = map[string]ugo.Object{
 	// Returns indented form of the JSON-encoded src or error.
 	"Indent": &ugo.Function{
 		Name: "Indent",
-		Value: futils.FuncPb2ssRO(
+		Value: stdlib.FuncPb2ssRO(
 			func(src []byte, prefix, indent string) ugo.Object {
 				var buf bytes.Buffer
 				err := indentBuffer(&buf, src, prefix, indent)
@@ -68,7 +68,7 @@ var Module = map[string]ugo.Object{
 	// functions.
 	"RawMessage": &ugo.Function{
 		Name: "RawMessage",
-		Value: futils.FuncPb2RO(func(b []byte) ugo.Object {
+		Value: stdlib.FuncPb2RO(func(b []byte) ugo.Object {
 			return &RawMessage{Value: b}
 		}),
 	},
@@ -77,7 +77,7 @@ var Module = map[string]ugo.Object{
 	// Returns elided insignificant space characters from data or error.
 	"Compact": &ugo.Function{
 		Name: "Compact",
-		Value: futils.FuncPb2bRO(func(data []byte, escape bool) ugo.Object {
+		Value: stdlib.FuncPb2bRO(func(data []byte, escape bool) ugo.Object {
 			var buf bytes.Buffer
 			err := compact(&buf, data, escape)
 			if err != nil {
@@ -91,7 +91,7 @@ var Module = map[string]ugo.Object{
 	// Returns a wrapped object to provide Marshal functions to quote v.
 	"Quote": &ugo.Function{
 		Name: "Quote",
-		Value: futils.FuncPORO(func(o ugo.Object) ugo.Object {
+		Value: stdlib.FuncPORO(func(o ugo.Object) ugo.Object {
 			if v, ok := o.(*EncoderOptions); ok {
 				v.Quote = true
 				return v
@@ -106,7 +106,7 @@ var Module = map[string]ugo.Object{
 	// This can be used not to quote all array or map items.
 	"NoQuote": &ugo.Function{
 		Name: "NoQuote",
-		Value: futils.FuncPORO(func(o ugo.Object) ugo.Object {
+		Value: stdlib.FuncPORO(func(o ugo.Object) ugo.Object {
 			if v, ok := o.(*EncoderOptions); ok {
 				v.Quote = false
 				return v
@@ -120,7 +120,7 @@ var Module = map[string]ugo.Object{
 	// while encoding.
 	"NoEscape": &ugo.Function{
 		Name: "NoEscape",
-		Value: futils.FuncPORO(func(o ugo.Object) ugo.Object {
+		Value: stdlib.FuncPORO(func(o ugo.Object) ugo.Object {
 			if v, ok := o.(*EncoderOptions); ok {
 				v.EscapeHTML = false
 				return v
@@ -133,7 +133,7 @@ var Module = map[string]ugo.Object{
 	// Unmarshal parses the JSON-encoded p and returns the result or error.
 	"Unmarshal": &ugo.Function{
 		Name: "Unmarshal",
-		Value: futils.FuncPb2RO(func(b []byte) ugo.Object {
+		Value: stdlib.FuncPb2RO(func(b []byte) ugo.Object {
 			v, err := Unmarshal(b)
 			if err != nil {
 				return &ugo.Error{Message: err.Error(), Cause: err}
@@ -146,7 +146,7 @@ var Module = map[string]ugo.Object{
 	// Reports whether p is a valid JSON encoding.
 	"Valid": &ugo.Function{
 		Name: "Valid",
-		Value: futils.FuncPb2RO(func(b []byte) ugo.Object {
+		Value: stdlib.FuncPb2RO(func(b []byte) ugo.Object {
 			return ugo.Bool(valid(b))
 		}),
 	},
