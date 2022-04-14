@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE.golang file.
 
-// Copyright (c) 2020 Ozan Hacıbekiroğlu.
+// Copyright (c) 2020-2022 Ozan Hacıbekiroğlu.
 // Use of this source code is governed by a MIT License
 // that can be found in the LICENSE file.
 
