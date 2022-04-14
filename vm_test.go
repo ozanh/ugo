@@ -659,7 +659,7 @@ func TestVMBuiltinFunction(t *testing.T) {
 	expectErrIs(t, `delete({})`, nil, ErrWrongNumArguments)
 	expectErrIs(t, `delete({}, "", "")`, nil, ErrWrongNumArguments)
 	expectErrIs(t, `delete([], "")`, nil, ErrType)
-	expectErrIs(t, `delete({}, 1)`, nil, ErrType)
+	expectRun(t, `delete({}, 1)`, nil, Undefined)
 
 	g := &SyncMap{Map: Map{"out": &SyncMap{Map: Map{"a": Int(1)}}}}
 	expectRun(t, `global out; delete(out, "a"); return out`,

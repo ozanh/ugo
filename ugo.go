@@ -1,12 +1,15 @@
-// Copyright (c) 2020 Ozan Hacıbekiroğlu.
+// Copyright (c) 2020-2022 Ozan Hacıbekiroğlu.
 // Use of this source code is governed by a MIT License
 // that can be found in the LICENSE file.
 
 package ugo
 
+//go:generate go run ./cmd/mkcallable -output zfuncs.go ugo.go
+
 import (
 	"fmt"
 	"strconv"
+	"unicode/utf8"
 )
 
 // CallableFunc is a function signature for a callable function.
@@ -244,14 +247,13 @@ func ToGoInt(o Object) (v int, ok bool) {
 	case Char:
 		v, ok = int(o), true
 	case Bool:
+		ok = true
 		if o {
-			v, ok = 1, true
-		} else {
-			v, ok = 0, true
+			v = 1
 		}
 	case String:
-		if vv, err := strconv.Atoi(string(o)); err == nil {
-			v = vv
+		if vv, err := strconv.ParseInt(string(o), 0, 0); err == nil {
+			v = int(vv)
 			ok = true
 		}
 	}
@@ -271,13 +273,12 @@ func ToGoInt64(o Object) (v int64, ok bool) {
 	case Char:
 		v, ok = int64(o), true
 	case Bool:
+		ok = true
 		if o {
-			v, ok = 1, true
-		} else {
-			v, ok = 0, true
+			v = 1
 		}
 	case String:
-		if vv, err := strconv.ParseInt(string(o), 10, 64); err == nil {
+		if vv, err := strconv.ParseInt(string(o), 0, 64); err == nil {
 			v = vv
 			ok = true
 		}
@@ -298,13 +299,12 @@ func ToGoUint64(o Object) (v uint64, ok bool) {
 	case Char:
 		v, ok = uint64(o), true
 	case Bool:
+		ok = true
 		if o {
-			v, ok = 1, true
-		} else {
-			v, ok = 0, true
+			v = 1
 		}
 	case String:
-		if vv, err := strconv.ParseUint(string(o), 10, 64); err == nil {
+		if vv, err := strconv.ParseUint(string(o), 0, 64); err == nil {
 			v = vv
 			ok = true
 		}
@@ -325,10 +325,9 @@ func ToGoFloat64(o Object) (v float64, ok bool) {
 	case Char:
 		v, ok = float64(o), true
 	case Bool:
+		ok = true
 		if o {
-			v, ok = 1, true
-		} else {
-			v, ok = 0, true
+			v = 1
 		}
 	case String:
 		if vv, err := strconv.ParseFloat(string(o), 64); err == nil {
@@ -348,6 +347,18 @@ func ToGoRune(o Object) (v rune, ok bool) {
 		v, ok = rune(o), true
 	case Char:
 		v, ok = rune(o), true
+	case Float:
+		v, ok = rune(o), true
+	case String:
+		v, _ = utf8.DecodeRuneInString(string(o))
+		if v != utf8.RuneError {
+			ok = true
+		}
+	case Bool:
+		ok = true
+		if o {
+			v = 1
+		}
 	}
 	return
 }
@@ -357,3 +368,51 @@ func ToGoBool(o Object) (v bool, ok bool) {
 	v, ok = !o.IsFalsy(), true
 	return
 }
+
+// functions to generate with mkcallable
+
+// builtin delete
+//
+//ugo:callable func(o Object, k string) (err error)
+
+// builtin copy, len, error, typeName, bool, string, isInt, isUint
+// isFloat, isChar, isBool, isString, isBytes, isMap, isSyncMap, isArray
+// isUndefined, isFunction, isCallable, isIterable
+//
+//ugo:callable func(o Object) (ret Object)
+
+// builtin repeat
+//
+//ugo:callable func(o Object, n int) (ret Object, err error)
+
+// builtin :makeArray
+//
+//ugo:callable func(n int, o Object) (ret Object, err error)
+
+// builtin contains
+//
+//ugo:callable func(o Object, v Object) (ret Object, err error)
+
+// builtin sort, sortReverse, int, uint, float, char, chars
+//
+//ugo:callable func(o Object) (ret Object, err error)
+
+// builtin error
+//
+//ugo:callable func(s string) (ret Object)
+
+// builtin int
+//
+//ugo:callable func(v int64) (ret Object)
+
+// builtin uint
+//
+//ugo:callable func(v uint64) (ret Object)
+
+// builtin char
+//
+//ugo:callable func(v rune) (ret Object)
+
+// builtin float
+//
+//ugo:callable func(v float64) (ret Object)

@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Ozan Hacıbekiroğlu.
+// Copyright (c) 2020-2022 Ozan Hacıbekiroğlu.
 // Use of this source code is governed by a MIT License
 // that can be found in the LICENSE file.
 
@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"runtime/debug"
+	"strconv"
 	"sync"
 	"sync/atomic"
 
@@ -1395,4 +1396,22 @@ func getFrameSourcePos(frame *frame) parser.Pos {
 		return parser.NoPos
 	}
 	return frame.fn.SourcePos(frame.ip + 1)
+}
+
+func wantEqXGotY(x, y int) string {
+	buf := make([]byte, 0, 20)
+	buf = append(buf, "want="...)
+	buf = strconv.AppendInt(buf, int64(x), 10)
+	buf = append(buf, " got="...)
+	buf = strconv.AppendInt(buf, int64(y), 10)
+	return string(buf)
+}
+
+func wantGEqXGotY(x, y int) string {
+	buf := make([]byte, 0, 20)
+	buf = append(buf, "want>="...)
+	buf = strconv.AppendInt(buf, int64(x), 10)
+	buf = append(buf, " got="...)
+	buf = strconv.AppendInt(buf, int64(y), 10)
+	return string(buf)
 }

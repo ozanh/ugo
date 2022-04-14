@@ -1099,6 +1099,7 @@ func (*SyncMap) TypeName() string {
 func (o *SyncMap) String() string {
 	o.mu.RLock()
 	defer o.mu.RUnlock()
+
 	if o.Map != nil {
 		return o.Map.String()
 	}
@@ -1107,12 +1108,14 @@ func (o *SyncMap) String() string {
 
 // Copy implements Copier interface.
 func (o *SyncMap) Copy() Object {
+	o.mu.RLock()
+	defer o.mu.RUnlock()
+
 	if o.Map == nil {
 		return &SyncMap{
 			Map: Map{},
 		}
 	}
-
 	return &SyncMap{
 		Map: o.Map.Copy().(Map),
 	}
@@ -1179,10 +1182,26 @@ func (o *SyncMap) Iterate() Iterator {
 // Get returns Object in map if exists.
 func (o *SyncMap) Get(index string) (value Object, exists bool) {
 	o.mu.RLock()
-	defer o.mu.RUnlock()
-
 	value, exists = o.Map[index]
+	o.mu.RUnlock()
 	return
+}
+
+// Len returns the number of items in the map.
+func (o *SyncMap) Len() int {
+	o.mu.RLock()
+	n := len(o.Map)
+	o.mu.RUnlock()
+	return n
+}
+
+// IndexDelete tries to delete the string value of key from the map.
+func (o *SyncMap) IndexDelete(key Object) error {
+	o.mu.Lock()
+	defer o.mu.Unlock()
+
+	delete(o.Map, key.String())
+	return nil
 }
 
 // Error represents Error Object and implements error and Object interfaces.
