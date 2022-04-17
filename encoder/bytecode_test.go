@@ -1,4 +1,4 @@
-package ugo_test
+package encoder_test
 
 // import (
 // 	. "github.com/ozanh/ugo"

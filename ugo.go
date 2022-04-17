@@ -12,6 +12,12 @@ import (
 	"unicode/utf8"
 )
 
+const (
+	// AttrModuleName is a special attribute injected into modules to identify
+	// the modules by name.
+	AttrModuleName = "__module_name__"
+)
+
 // CallableFunc is a function signature for a callable function.
 type CallableFunc = func(args ...Object) (ret Object, err error)
 

@@ -6,10 +6,8 @@ package ugo
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
 	"io"
-	"reflect"
 	"strconv"
 	"strings"
 
@@ -25,86 +23,18 @@ type Bytecode struct {
 	NumModules int
 }
 
-// Encode writes encoded data of Bytecode to writer.
-func (bc *Bytecode) Encode(w io.Writer) error {
-	data, err := bc.MarshalBinary()
-	if err != nil {
-		return err
-	}
-
-	n, err := w.Write(data)
-	if err != nil {
-		return err
-	}
-
-	if n != len(data) {
-		return errors.New("short write")
-	}
-	return nil
+// Fprint writes constants and instructions to given Writer in a human readable form.
+func (bc *Bytecode) Fprint(w io.Writer) {
+	_, _ = fmt.Fprintln(w, "Bytecode")
+	_, _ = fmt.Fprintf(w, "Modules:%d\n", bc.NumModules)
+	bc.putConstants(w)
+	bc.Main.Fprint(w)
 }
 
-// Decode decodes Bytecode data from the reader.
-func (bc *Bytecode) Decode(r io.Reader, modules *ModuleMap, tmpBuf []byte) error {
-	dst := bytes.NewBuffer(tmpBuf)
-	if _, err := io.Copy(dst, r); err != nil {
-		return err
-	}
-	return bc.Unmarshal(dst.Bytes(), modules)
-}
-
-// Unmarshal unmarshals data and assigns receiver to the new Bytecode.
-func (bc *Bytecode) Unmarshal(data []byte, modules *ModuleMap) error {
-	err := bc.UnmarshalBinary(data)
-	if err != nil {
-		return err
-	}
-
-	if modules == nil {
-		modules = NewModuleMap()
-	}
-
-	return bc.fixObjects(modules)
-}
-
-func (bc *Bytecode) fixObjects(modules *ModuleMap) error {
-	const moduleNameKey = "__module_name__"
-	for i := range bc.Constants {
-		switch obj := bc.Constants[i].(type) {
-		case Map:
-			if v, ok := obj[moduleNameKey]; ok {
-				name, ok := v.(String)
-				if !ok {
-					continue
-				}
-
-				bmod := modules.Get(string(name))
-				if bmod == nil {
-					return fmt.Errorf("module '%s' not found", name)
-				}
-
-				// copy items from given module to decoded object if key exists in obj
-				for item := range obj {
-					if item == moduleNameKey {
-						// module name may not present in given map, skip it.
-						continue
-					}
-					o := bmod.(*BuiltinModule).Attrs[item]
-					// if item not exists in module, nil will not pass type check
-					want := reflect.TypeOf(obj[item])
-					got := reflect.TypeOf(o)
-					if want != got {
-						// this must not happen
-						return fmt.Errorf("module '%s' item '%s' type mismatch:"+
-							"want '%v', got '%v'", name, item, want, got)
-					}
-					obj[item] = o
-				}
-			}
-		case *Function:
-			return fmt.Errorf("Function type not decodable:'%s'", obj.Name)
-		}
-	}
-	return nil
+func (bc *Bytecode) String() string {
+	var buf bytes.Buffer
+	bc.Fprint(&buf)
+	return buf.String()
 }
 
 func (bc *Bytecode) putConstants(w io.Writer) {
@@ -123,22 +53,9 @@ func (bc *Bytecode) putConstants(w io.Writer) {
 			_, _ = fmt.Fprint(w, strings.Replace(str, "\n", "\n\t", c-1))
 			continue
 		}
-		_, _ = fmt.Fprintf(w, "%4d: %#v|%s\n", i, bc.Constants[i], bc.Constants[i].TypeName())
+		_, _ = fmt.Fprintf(w, "%4d: %#v|%s\n",
+			i, bc.Constants[i], bc.Constants[i].TypeName())
 	}
-}
-
-// Fprint writes constants and instructions to given Writer in a human readable form.
-func (bc *Bytecode) Fprint(w io.Writer) {
-	_, _ = fmt.Fprintln(w, "Bytecode")
-	_, _ = fmt.Fprintf(w, "Modules:%d\n", bc.NumModules)
-	bc.putConstants(w)
-	bc.Main.Fprint(w)
-}
-
-func (bc *Bytecode) String() string {
-	var buf bytes.Buffer
-	bc.Fprint(&buf)
-	return buf.String()
 }
 
 // CompiledFunction holds the constants and instructions to pass VM.
@@ -158,11 +75,11 @@ var _ Object = (*CompiledFunction)(nil)
 
 // TypeName implements Object interface
 func (*CompiledFunction) TypeName() string {
-	return "compiled-function"
+	return "compiledFunction"
 }
 
 func (o *CompiledFunction) String() string {
-	return "<compiled-function>"
+	return "<compiledFunction>"
 }
 
 // Copy implements the Copier interface.

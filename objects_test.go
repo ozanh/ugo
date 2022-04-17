@@ -180,9 +180,9 @@ func TestObjectString(t *testing.T) {
 
 	require.Equal(t, "<function:>", (&Function{}).String())
 	require.Equal(t, "<function:xyz>", (&Function{Name: "xyz"}).String())
-	require.Equal(t, "<builtin-function:>", (&BuiltinFunction{}).String())
-	require.Equal(t, "<builtin-function:abc>", (&BuiltinFunction{Name: "abc"}).String())
-	require.Equal(t, "<compiled-function>", (&CompiledFunction{}).String())
+	require.Equal(t, "<builtinFunction:>", (&BuiltinFunction{}).String())
+	require.Equal(t, "<builtinFunction:abc>", (&BuiltinFunction{Name: "abc"}).String())
+	require.Equal(t, "<compiledFunction>", (&CompiledFunction{}).String())
 }
 
 func TestObjectTypeName(t *testing.T) {
@@ -200,8 +200,8 @@ func TestObjectTypeName(t *testing.T) {
 	require.Equal(t, "map", Map{}.TypeName())
 	require.Equal(t, "syncMap", (&SyncMap{}).TypeName())
 	require.Equal(t, "function", (&Function{}).TypeName())
-	require.Equal(t, "builtin-function", (&BuiltinFunction{}).TypeName())
-	require.Equal(t, "compiled-function", (&CompiledFunction{}).TypeName())
+	require.Equal(t, "builtinFunction", (&BuiltinFunction{}).TypeName())
+	require.Equal(t, "compiledFunction", (&CompiledFunction{}).TypeName())
 }
 
 func TestObjectIsFalsy(t *testing.T) {

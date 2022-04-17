@@ -242,7 +242,7 @@ func (src *Source) Generate(w io.Writer) error {
 	t := template.Must(template.New("main").Funcs(funcMap).Parse(srcTemplate))
 	err := t.Execute(w, src)
 	if err != nil {
-		return errors.New("Failed to execute template: " + err.Error())
+		return errors.New("failed to execute template: " + err.Error())
 	}
 	return nil
 }

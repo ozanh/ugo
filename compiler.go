@@ -723,8 +723,10 @@ func MakeInstruction(buf []byte, op Opcode, args ...int) ([]byte, error) {
 		OpSetupCatch, OpSetupFinally, OpNoOp:
 		return buf, nil
 	default:
-		return nil, fmt.Errorf("MakeInstruction: unknown Opcode %d %s",
-			op, OpcodeNames[op])
+		return nil, &Error{
+			Name:    "MakeInstruction",
+			Message: fmt.Sprintf("unknown Opcode %d %s", op, OpcodeNames[op]),
+		}
 	}
 }
 

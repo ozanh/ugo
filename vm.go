@@ -648,8 +648,8 @@ VMLoop:
 				vm.stack[vm.sp] = vm.constants[cidx]
 				vm.sp++
 				// load module by putting true for subsequent OpJumpFalsy
-				// if module is a compiled-function it will be called and result will be stored in module cache
-				// if module is not a compiled-function, copy of object will be stored in module cache
+				// if module is a compiledFunction it will be called and result will be stored in module cache
+				// if module is not a compiledFunction, copy of object will be stored in module cache
 				vm.stack[vm.sp] = True
 				vm.sp++
 			} else {

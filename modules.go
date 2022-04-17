@@ -136,6 +136,6 @@ func (m *BuiltinModule) Import(moduleName string) (interface{}, error) {
 	}
 
 	cp := Map(m.Attrs).Copy()
-	cp.(Map)["__module_name__"] = String(moduleName)
+	cp.(Map)[AttrModuleName] = String(moduleName)
 	return cp, nil
 }

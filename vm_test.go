@@ -824,8 +824,8 @@ func TestVMBuiltinFunction(t *testing.T) {
 	expectRun(t, `return typeName({})`, nil, String("map"))
 	expectRun(t, `return typeName(error(""))`, nil, String("error"))
 	expectRun(t, `return typeName(bytes())`, nil, String("bytes"))
-	expectRun(t, `return typeName(func(){})`, nil, String("compiled-function"))
-	expectRun(t, `return typeName(append)`, nil, String("builtin-function"))
+	expectRun(t, `return typeName(func(){})`, nil, String("compiledFunction"))
+	expectRun(t, `return typeName(append)`, nil, String("builtinFunction"))
 	expectErrIs(t, `typeName()`, nil, ErrWrongNumArguments)
 	expectErrIs(t, `typeName("", "")`, nil, ErrWrongNumArguments)
 

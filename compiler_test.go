@@ -5,10 +5,10 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/ozanh/ugo/token"
 	"github.com/stretchr/testify/require"
 
 	. "github.com/ozanh/ugo"
+	"github.com/ozanh/ugo/token"
 )
 
 func makeInst(op Opcode, args ...int) []byte {
@@ -57,12 +57,6 @@ func withVariadic() funcOpt {
 func withLocals(numLocals int) funcOpt {
 	return func(cf *CompiledFunction) {
 		cf.NumLocals = numLocals
-	}
-}
-
-func withSourceMap(m map[int]int) funcOpt {
-	return func(cf *CompiledFunction) {
-		cf.SourceMap = m
 	}
 }
 
@@ -1526,7 +1520,7 @@ func TestCompiler_Compile(t *testing.T) {
 		},
 		bytecode(
 			Array{
-				Map{"__module_name__": String("mod")},
+				Map{AttrModuleName: String("mod")},
 			},
 			compFunc(concatInsts(
 				makeInst(OpLoadModule, 0, 0), // 0000 constant, module indexes

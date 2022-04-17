@@ -1,3 +1,4 @@
+//go:build !js
 // +build !js
 
 package main
@@ -45,7 +46,7 @@ func TestREPL(t *testing.T) {
 
 	r.executor(".builtins")
 	testHasPrefix(t, string(testReadAll(t, stdout)),
-		"builtin-function:append\n")
+		"builtinFunction:append\n")
 
 	r.executor(".gc")
 	require.Equal(t, "", string(testReadAll(t, stdout)))

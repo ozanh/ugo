@@ -1108,8 +1108,8 @@ Reports whether given object value is undefined.
 
 ### isFunction
 
-Reports whether given object is of function, compiled-function or
-builtin-function type.
+Reports whether given object is of function, compiledFunction or
+builtinFunction type.
 
 **Syntax**
 

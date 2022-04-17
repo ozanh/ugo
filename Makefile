@@ -16,7 +16,6 @@ generate:
 
 .PHONY: lint
 lint:
-	golint -set_exit_status ./...
 	staticcheck ./...
 
 .PHONY: generate-docs

@@ -10,7 +10,7 @@ step before execution for remote processes, and deserialization will solve
 version differences to a certain degree.
 
 Main script and uGO source modules in uGO are all functions which have
-`compiled-function` type name. Parameters can be defined for main function with
+`compiledFunction` type name. Parameters can be defined for main function with
 [`param`](#param) statement and main function returns a value with `return`
 statement as well. If return statement is missing, `undefined` value is returned
 by default. All functions return single value but thanks to
@@ -432,7 +432,7 @@ types](runtime-types.md) for more information.
 | array             | value array                          | `[]Object`            |
 | map               | value map with string keys           | `map[string]Object`   |
 | undefined         | [undefined](#undefined-values) value | -                     |
-| compiled-function | [function](#function-values) value   | -                     |
+| compiledFunction  | [function](#function-values) value   | -                     |
 
 ### Error Values
 

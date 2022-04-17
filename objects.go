@@ -677,12 +677,12 @@ var _ Object = (*BuiltinFunction)(nil)
 
 // TypeName implements Object interface.
 func (*BuiltinFunction) TypeName() string {
-	return "builtin-function"
+	return "builtinFunction"
 }
 
 // String implements Object interface.
 func (o *BuiltinFunction) String() string {
-	return fmt.Sprintf("<builtin-function:%s>", o.Name)
+	return fmt.Sprintf("<builtinFunction:%s>", o.Name)
 }
 
 // Copy implements Copier interface.
