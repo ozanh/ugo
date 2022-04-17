@@ -144,7 +144,7 @@ func TestModuleDuration(t *testing.T) {
 	_, err = durParse.Call(String(""))
 	require.Error(t, err)
 	_, err = durParse.Call(Int(0))
-	require.Error(t, err)
+	require.NoError(t, err)
 
 	testCases := []struct {
 		dur time.Duration
@@ -166,7 +166,7 @@ func TestModuleDuration(t *testing.T) {
 				require.EqualValues(t, expect, ret)
 
 				// test illegal type
-				_, err = f.Call(Uint(tC.dur))
+				_, err = f.Call(&illegalDur{Value: tC.dur})
 				require.Error(t, err)
 				// test no arg
 				_, err = f.Call()
@@ -176,10 +176,6 @@ func TestModuleDuration(t *testing.T) {
 				s, err := durToString.Call(Int(tC.dur))
 				require.NoError(t, err)
 				require.EqualValues(t, tC.dur.String(), s)
-
-				// test to string errors
-				_, err = durToString.Call(Uint(tC.dur))
-				require.Error(t, err)
 
 				// test parse
 				d, err := durParse.Call(s)
@@ -225,8 +221,8 @@ func TestModuleLocation(t *testing.T) {
 	_, err = fixedZone.Call(String("Ankara"))
 	require.Error(t, err)
 	_, err = fixedZone.Call(String("Ankara"), Uint(0))
-	require.Error(t, err)
-	_, err = fixedZone.Call(Int(0), Int(0))
+	require.NoError(t, err)
+	_, err = fixedZone.Call(Int(0), Array{})
 	require.Error(t, err)
 	_, err = fixedZone.Call()
 	require.Error(t, err)
@@ -262,6 +258,9 @@ func TestModuleTime(t *testing.T) {
 	now := time.Now()
 
 	require.Equal(t, now.String(), (&Time{Value: now}).String())
+
+	_, err := (&Time{}).Call()
+	require.Same(t, ErrNotCallable, err)
 
 	zTime := Module["Time"].(*Function)
 	r, err := zTime.Call()
@@ -351,7 +350,7 @@ func TestModuleTime(t *testing.T) {
 	_, err = sub.Call(&Time{Value: now})
 	require.Error(t, err)
 	_, err = sub.Call(&Time{Value: now}, Int(0))
-	require.Error(t, err)
+	require.NoError(t, err)
 	_, err = sub.Call()
 	require.Error(t, err)
 
@@ -375,7 +374,7 @@ func TestModuleTime(t *testing.T) {
 	require.NoError(t, err)
 	require.EqualValues(t, true, r)
 	_, err = after.Call(&Time{Value: now}, Int(0))
-	require.Error(t, err)
+	require.NoError(t, err)
 	_, err = after.Call(&Time{Value: now})
 	require.Error(t, err)
 	_, err = after.Call()
@@ -389,7 +388,7 @@ func TestModuleTime(t *testing.T) {
 	require.NoError(t, err)
 	require.EqualValues(t, false, r)
 	_, err = before.Call(&Time{Value: now}, Int(0))
-	require.Error(t, err)
+	require.NoError(t, err)
 	_, err = before.Call(&Time{Value: now})
 	require.Error(t, err)
 	_, err = before.Call()
@@ -535,56 +534,38 @@ func TestScript(t *testing.T) {
 		nil, typeErr("3", "int", "string"))
 	expectRun(t, catch(`time.Date(1, 2, 3, 4, 5, 6, 7, "")`),
 		nil, typeErr("8", "location", "string"))
-	expectRun(t, catch(`time.Parse(1, 2)`),
-		nil, typeErr("first", "string", "int"))
 	expectRun(t, catch(`time.Parse("", 1)`),
-		nil, typeErr("second", "string", "int"))
+		nil, String("error: parsing time \"1\": extra text: \"1\""))
 	expectRun(t, catch(`time.Parse("", "", 1)`),
-		nil, typeErr("third", "location", "int"))
+		nil, typeErr("3rd", "location", "int"))
 	expectRun(t, catch(`time.Unix("")`),
-		nil, typeErr("first", "int", "string"))
+		nil, typeErr("1st", "int", "string"))
 	expectRun(t, catch(`time.Unix(1, "")`),
-		nil, typeErr("second", "int", "string"))
-	expectRun(t, catch(`time.Add(1, 2)`),
-		nil, typeErr("first", "time", "int"))
-	expectRun(t, catch(`time.Sub(1, 2)`),
-		nil, typeErr("first", "time", "int"))
-	expectRun(t, catch(`time.AddDate(1, 2, 3, 4)`),
-		nil, typeErr("first", "time", "int"))
+		nil, typeErr("2nd", "int", "string"))
 	expectRun(t, catch(`time.AddDate(time.Now(), "", 1, 2)`),
-		nil, typeErr("second", "int", "string"))
+		nil, typeErr("2nd", "int", "string"))
 	expectRun(t, catch(`time.AddDate(time.Now(), 1, "", 2)`),
-		nil, typeErr("third", "int", "string"))
+		nil, typeErr("3rd", "int", "string"))
 	expectRun(t, catch(`time.AddDate(time.Now(), 1, 2, "")`),
-		nil, typeErr("fourth", "int", "string"))
-	expectRun(t, catch(`time.After(1, 2)`),
-		nil, typeErr("first", "time", "int"))
-	expectRun(t, catch(`time.Before(1, 2)`),
-		nil, typeErr("first", "time", "int"))
+		nil, typeErr("4th", "int", "string"))
+	expectRun(t, catch(`time.After(1, 2)`), nil, False)
+	expectRun(t, catch(`time.Before(1, 2)`), nil, True)
 	expectRun(t, catch(`time.AppendFormat(1, 2, 3)`),
-		nil, typeErr("first", "time", "int"))
+		nil, typeErr("2nd", "bytes", "int"))
 	expectRun(t, catch(`time.AppendFormat(time.Now(), 1, 2)`),
-		nil, typeErr("second", "bytes", "int"))
-	expectRun(t, catch(`time.AppendFormat(time.Now(), bytes(), 1)`),
-		nil, typeErr("third", "string", "int"))
-	expectRun(t, catch(`time.Format(1, 2)`),
-		nil, typeErr("first", "time", "int"))
-	expectRun(t, catch(`time.Format(time.Now(), 2)`),
-		nil, typeErr("second", "string", "int"))
+		nil, typeErr("2nd", "bytes", "int"))
+	expectRun(t, catch(`time.AppendFormat(time.Time(), bytes(), 1)`),
+		nil, Bytes{0x31})
 	expectRun(t, catch(`time.In(1, 2)`),
-		nil, typeErr("first", "time", "int"))
+		nil, typeErr("2nd", "location", "int"))
 	expectRun(t, catch(`time.In(time.Now(), 2)`),
-		nil, typeErr("second", "location", "int"))
-	expectRun(t, catch(`time.Round(1, 2)`),
-		nil, typeErr("first", "time", "int"))
+		nil, typeErr("2nd", "location", "int"))
 	expectRun(t, catch(`time.Round(time.Now(), "")`),
-		nil, typeErr("second", "int", "string"))
-	expectRun(t, catch(`time.Truncate(1, 2)`),
-		nil, typeErr("first", "time", "int"))
+		nil, typeErr("2nd", "int", "string"))
 	expectRun(t, catch(`time.Truncate(time.Now(), "")`),
-		nil, typeErr("second", "int", "string"))
+		nil, typeErr("2nd", "int", "string"))
 	expectRun(t, catch(`time.Sleep("")`),
-		nil, typeErr("first", "int", "string"))
+		nil, typeErr("1st", "int", "string"))
 
 	expectRun(t, `mod := import("time"); return mod.__module_name__`,
 		nil, String("time"))
@@ -648,6 +629,14 @@ func TestScript(t *testing.T) {
 	return t2 - t1
 	`, nil, Int(time.Second))
 }
+
+type illegalDur struct {
+	ObjectImpl
+	Value time.Duration
+}
+
+func (*illegalDur) String() string   { return "illegal" }
+func (*illegalDur) TypeName() string { return "illegal" }
 
 type Opts struct {
 	global Object

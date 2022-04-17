@@ -56,7 +56,7 @@ value if successful and it mutates given map.
 
 **Parameters**
 
-- > `mapLike`: map or sync-map object to delete given key from.
+- > `mapLike`: map or syncMap object to delete given key from.
 - > `key`: map key as string type.
 
 **Return Value**
@@ -88,7 +88,7 @@ Creates a copy of the given variable. `copy` function calls `Copy() Object`
 method if implemented, which is expected to return a deep-copy of the value it
 holds. int, uint, char, float, string, bool types do not implement a
 [`Copier`](tutorial.md#interfaces) interface which wraps `Copy() Object` method.
-Assignment is sufficient to copy these types. array, bytes, map, sync-map can be
+Assignment is sufficient to copy these types. array, bytes, map, syncMap can be
 deeply copied with `copy` builtin function.
 
 **Syntax**
@@ -174,7 +174,7 @@ Reports whether given element is in object.
   - string
   - bytes
   - map
-  - sync-map
+  - syncMap
   - undefined: contains returns false if object value is undefined
 - > `element`:
   - if object's type is array, element can be of any type and sequential search
@@ -183,7 +183,7 @@ Reports whether given element is in object.
     representation is searched as substring.
   - if object's type is bytes, element can be of int, uint, char, string or
     bytes type.
-  - if object's type is map or sync-map, element's string representation is
+  - if object's type is map or syncMap, element's string representation is
     looked up in the map's keys.
   - if object value is undefined, element is ignored.
 
@@ -216,7 +216,7 @@ v = contains({foo: "bar"}, "foo")          // v == true
 ### len
 
 Returns the number of elements if the given variable is array, string, bytes,
-map, sync-map, otherwise it returns 0. Note that, `len` returns byte count of
+map, syncMap, otherwise it returns 0. Note that, `len` returns byte count of
 string values.
 
 **Syntax**
@@ -230,7 +230,7 @@ string values.
   - string
   - bytes
   - map
-  - sync-map
+  - syncMap
 
 **Return Value**
 
@@ -624,7 +624,7 @@ v4 := float(false)        // v4 == 0.0
 ### string
 
 Converts the given object to a string value and returns it. It calls `String`
-method of the object under the hood. Note that, map or sync-map types are
+method of the object under the hood. Note that, map or syncMap types are
 derived from Go's map type which has randomized iteration. This may cause
 different results.
 
@@ -1042,7 +1042,7 @@ Reports whether given object is of map type.
 
 ### isSyncMap
 
-Reports whether given object is of sync-map type.
+Reports whether given object is of syncMap type.
 
 **Syntax**
 

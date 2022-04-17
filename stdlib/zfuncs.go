@@ -23,9 +23,9 @@ func FuncPORO(fn func(ugo.Object) ugo.Object) ugo.CallableFunc {
 	}
 }
 
-// FuncPiROe is a generated function to make ugo.CallableFunc.
-// Source: func(i1 int) (ret ugo.Object, err error)
-func FuncPiROe(fn func(int) (ugo.Object, error)) ugo.CallableFunc {
+// FuncPiRO is a generated function to make ugo.CallableFunc.
+// Source: func(i1 int) (ret ugo.Object)
+func FuncPiRO(fn func(int) ugo.Object) ugo.CallableFunc {
 	return func(args ...ugo.Object) (ret ugo.Object, err error) {
 		if len(args) != 1 {
 			return ugo.Undefined, ugo.ErrWrongNumArguments.NewError("want=1 got=" + strconv.Itoa(len(args)))
@@ -36,14 +36,14 @@ func FuncPiROe(fn func(int) (ugo.Object, error)) ugo.CallableFunc {
 			return ugo.Undefined, ugo.NewArgumentTypeError("1st", "int", args[0].TypeName())
 		}
 
-		ret, err = fn(i1)
+		ret = fn(i1)
 		return
 	}
 }
 
-// FuncPi64ROe is a generated function to make ugo.CallableFunc.
-// Source: func(i1 int64) (ret ugo.Object, err error)
-func FuncPi64ROe(fn func(int64) (ugo.Object, error)) ugo.CallableFunc {
+// FuncPi64RO is a generated function to make ugo.CallableFunc.
+// Source: func(i1 int64) (ret ugo.Object)
+func FuncPi64RO(fn func(int64) ugo.Object) ugo.CallableFunc {
 	return func(args ...ugo.Object) (ret ugo.Object, err error) {
 		if len(args) != 1 {
 			return ugo.Undefined, ugo.ErrWrongNumArguments.NewError("want=1 got=" + strconv.Itoa(len(args)))
@@ -54,7 +54,26 @@ func FuncPi64ROe(fn func(int64) (ugo.Object, error)) ugo.CallableFunc {
 			return ugo.Undefined, ugo.NewArgumentTypeError("1st", "int", args[0].TypeName())
 		}
 
-		ret, err = fn(i1)
+		ret = fn(i1)
+		return
+	}
+}
+
+// FuncPi64R is a generated function to make ugo.CallableFunc.
+// Source: func(i1 int64)
+func FuncPi64R(fn func(int64)) ugo.CallableFunc {
+	return func(args ...ugo.Object) (ret ugo.Object, err error) {
+		if len(args) != 1 {
+			return ugo.Undefined, ugo.ErrWrongNumArguments.NewError("want=1 got=" + strconv.Itoa(len(args)))
+		}
+
+		i1, ok := ugo.ToGoInt64(args[0])
+		if !ok {
+			return ugo.Undefined, ugo.NewArgumentTypeError("1st", "int", args[0].TypeName())
+		}
+
+		fn(i1)
+		ret = ugo.Undefined
 		return
 	}
 }
@@ -77,9 +96,9 @@ func FuncPsROe(fn func(string) (ugo.Object, error)) ugo.CallableFunc {
 	}
 }
 
-// FuncPsi64ROe is a generated function to make ugo.CallableFunc.
-// Source: func(s string, i1 int64) (ret ugo.Object, err error)
-func FuncPsi64ROe(fn func(string, int64) (ugo.Object, error)) ugo.CallableFunc {
+// FuncPsiRO is a generated function to make ugo.CallableFunc.
+// Source: func(s string, i1 int) (ret ugo.Object)
+func FuncPsiRO(fn func(string, int) ugo.Object) ugo.CallableFunc {
 	return func(args ...ugo.Object) (ret ugo.Object, err error) {
 		if len(args) != 2 {
 			return ugo.Undefined, ugo.ErrWrongNumArguments.NewError("want=2 got=" + strconv.Itoa(len(args)))
@@ -89,12 +108,12 @@ func FuncPsi64ROe(fn func(string, int64) (ugo.Object, error)) ugo.CallableFunc {
 		if !ok {
 			return ugo.Undefined, ugo.NewArgumentTypeError("1st", "string", args[0].TypeName())
 		}
-		i1, ok := ugo.ToGoInt64(args[1])
+		i1, ok := ugo.ToGoInt(args[1])
 		if !ok {
 			return ugo.Undefined, ugo.NewArgumentTypeError("2nd", "int", args[1].TypeName())
 		}
 
-		ret, err = fn(s, i1)
+		ret = fn(s, i1)
 		return
 	}
 }
@@ -303,28 +322,6 @@ func FuncPAsRO(fn func(ugo.Array, string) ugo.Object) ugo.CallableFunc {
 		}
 
 		ret = fn(arr, s)
-		return
-	}
-}
-
-// FuncPsiRO is a generated function to make ugo.CallableFunc.
-// Source: func(s string, v int) (ret ugo.Object)
-func FuncPsiRO(fn func(string, int) ugo.Object) ugo.CallableFunc {
-	return func(args ...ugo.Object) (ret ugo.Object, err error) {
-		if len(args) != 2 {
-			return ugo.Undefined, ugo.ErrWrongNumArguments.NewError("want=2 got=" + strconv.Itoa(len(args)))
-		}
-
-		s, ok := ugo.ToGoString(args[0])
-		if !ok {
-			return ugo.Undefined, ugo.NewArgumentTypeError("1st", "string", args[0].TypeName())
-		}
-		v, ok := ugo.ToGoInt(args[1])
-		if !ok {
-			return ugo.Undefined, ugo.NewArgumentTypeError("2nd", "int", args[1].TypeName())
-		}
-
-		ret = fn(s, v)
 		return
 	}
 }

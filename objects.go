@@ -880,7 +880,7 @@ var _ Object = (*ObjectPtr)(nil)
 
 // TypeName implements Object interface.
 func (o *ObjectPtr) TypeName() string {
-	return "object-ptr"
+	return "objectPtr"
 }
 
 // String implements Object interface.
@@ -889,7 +889,7 @@ func (o *ObjectPtr) String() string {
 	if o.Value != nil {
 		v = *o.Value
 	}
-	return fmt.Sprintf("<object-ptr:%v>", v)
+	return fmt.Sprintf("<objectPtr:%v>", v)
 }
 
 // Copy implements Copier interface.
@@ -1092,7 +1092,7 @@ func (o *SyncMap) Unlock() {
 
 // TypeName implements Object interface.
 func (*SyncMap) TypeName() string {
-	return "sync-map"
+	return "syncMap"
 }
 
 // String implements Object interface.
@@ -1526,7 +1526,7 @@ func (st StackTrace) Format(s fmt.State, verb rune) {
 				} else {
 					_, _ = io.WriteString(s, "\n\tat ")
 				}
-				_, _ = fmt.Fprintf(s, "%+v", parser.SourceFilePos(f))
+				_, _ = fmt.Fprintf(s, "%+v", f)
 			}
 		default:
 			_, _ = fmt.Fprintf(s, "%v", []parser.SourceFilePos(st))

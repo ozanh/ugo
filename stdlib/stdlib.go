@@ -9,20 +9,25 @@ package stdlib
 
 // time module MountString, WeekdayString
 //
-//ugo:callable func(i1 int) (ret ugo.Object, err error)
+//ugo:callable func(i1 int) (ret ugo.Object)
 
 // time module DurationString, DurationHours, DurationMinutes, DurationSeconds
-// DurationMilliseconds, DurationMicroseconds, DurationNanoseconds, Sleep
+// DurationMilliseconds, DurationMicroseconds, DurationNanoseconds
 //
-//ugo:callable func(i1 int64) (ret ugo.Object, err error)
+//ugo:callable func(i1 int64) (ret ugo.Object)
+
+// time module Sleep
+//
+//ugo:callable func(i1 int64)
 
 // time module ParseDuration, LoadLocation
 //
 //ugo:callable func(s string) (ret ugo.Object, err error)
 
 // time module FixedZone
+// strings module Repeat
 //
-//ugo:callable func(s string, i1 int64) (ret ugo.Object, err error)
+//ugo:callable func(s string, i1 int) (ret ugo.Object)
 
 // time module Time, Now
 //
@@ -65,7 +70,3 @@ package stdlib
 // strings module Join
 //
 //ugo:callable func(arr ugo.Array, s string) (ret ugo.Object)
-
-// strings module Repeat
-//
-//ugo:callable func(s string, v int) (ret ugo.Object)

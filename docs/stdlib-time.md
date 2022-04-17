@@ -184,7 +184,7 @@ Pauses the current goroutine for at least the duration.
 
 `ParseDuration(s string) -> duration int`
 
-Parses duration s and returns duration as int.
+Parses duration s and returns duration as int or error.
 
 ---
 

@@ -116,12 +116,15 @@ var Module = map[string]ugo.Object{
 		}),
 	},
 	// ugo:doc
-	// IndexByte(s string, c char) -> int
+	// IndexByte(s string, c char|int) -> int
 	// Returns the index of the first byte value of c in s, or -1 if byte value
-	// of c is not present in s.
+	// of c is not present in s. c's integer value must be between 0 and 255.
 	"IndexByte": &ugo.Function{
 		Name: "IndexByte",
 		Value: stdlib.FuncPsrRO(func(s string, c rune) ugo.Object {
+			if c > 255 || c < 0 {
+				return ugo.Int(-1)
+			}
 			return ugo.Int(strings.IndexByte(s, byte(c)))
 		}),
 	},
@@ -165,12 +168,15 @@ var Module = map[string]ugo.Object{
 		}),
 	},
 	// ugo:doc
-	// LastIndexByte(s string, c char) -> int
+	// LastIndexByte(s string, c char|int) -> int
 	// Returns the index of byte value of the last instance of c in s, or -1
-	// if c is not present in s.
+	// if c is not present in s. c's integer value must be between 0 and 255.
 	"LastIndexByte": &ugo.Function{
 		Name: "LastIndexByte",
 		Value: stdlib.FuncPsrRO(func(s string, c rune) ugo.Object {
+			if c > 255 || c < 0 {
+				return ugo.Int(-1)
+			}
 			return ugo.Int(strings.LastIndexByte(s, byte(c)))
 		}),
 	},
@@ -420,7 +426,7 @@ func padLeft(args ...ugo.Object) (ugo.Object, error) {
 		return ugo.String(s), nil
 	}
 	var sb strings.Builder
-	sb.Grow(int(padLen))
+	sb.Grow(padLen)
 	sb.WriteString(strings.Repeat(padWith, r)[:diff])
 	sb.WriteString(s)
 	return ugo.String(sb.String()), nil
@@ -456,7 +462,7 @@ func padRight(args ...ugo.Object) (ugo.Object, error) {
 		return ugo.String(s), nil
 	}
 	var sb strings.Builder
-	sb.Grow(int(padLen))
+	sb.Grow(padLen)
 	sb.WriteString(s)
 	sb.WriteString(strings.Repeat(padWith, r)[:diff])
 	return ugo.String(sb.String()), nil
@@ -467,7 +473,7 @@ func repeat(s string, count int) ugo.Object {
 	if count < 0 {
 		return ugo.String("")
 	}
-	return ugo.String(strings.Repeat(string(s), count))
+	return ugo.String(strings.Repeat(s, count))
 }
 
 func replace(args ...ugo.Object) (ugo.Object, error) {

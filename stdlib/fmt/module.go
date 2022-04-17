@@ -211,7 +211,7 @@ func fnSscan(fn func(string, ...interface{}) (int, error)) ugo.CallableFunc {
 			return nil, err
 		}
 		n, err := fn(args[0].String(), vargs...)
-		return postScan(n, err, args[offset:])
+		return postScan(n, err, args[offset:]), nil
 	}
 }
 
@@ -230,7 +230,7 @@ func fnSscanf(
 			return nil, err
 		}
 		n, err := fn(args[0].String(), args[1].String(), vargs...)
-		return postScan(n, err, args[offset:])
+		return postScan(n, err, args[offset:]), nil
 	}
 }
 
@@ -257,7 +257,7 @@ func argsToPrintArgs(offset int, args []ugo.Object) []interface{} {
 }
 
 // args are always of ScanArg interface type.
-func postScan(n int, err error, args []ugo.Object) (ugo.Object, error) {
+func postScan(n int, err error, args []ugo.Object) ugo.Object {
 	for i := 0; i < n; i++ {
 		args[i].(ScanArg).Set(true)
 	}
@@ -265,7 +265,7 @@ func postScan(n int, err error, args []ugo.Object) (ugo.Object, error) {
 		return &ugo.Error{
 			Message: err.Error(),
 			Cause:   err,
-		}, nil
+		}
 	}
-	return ugo.Int(n), nil
+	return ugo.Int(n)
 }

@@ -122,7 +122,7 @@ func TestCycle(t *testing.T) {
 		nil, String(`error: json: unsupported value: encountered a cycle via map`))
 	expectRun(t, `param m;json:=import("json");m.b=m;return string(json.Marshal(m))`,
 		newOpts().Args(&SyncMap{Map: Map{}}),
-		String(`error: json: unsupported value: encountered a cycle via sync-map`))
+		String(`error: json: unsupported value: encountered a cycle via syncMap`))
 
 	ptr := &ObjectPtr{}
 	var m Object = Map{}
@@ -130,7 +130,7 @@ func TestCycle(t *testing.T) {
 	ptr.Value = &m
 	_, err := Marshal(ptr)
 	require.Error(t, err)
-	require.Contains(t, err.Error(), `json: unsupported value: encountered a cycle via object-ptr`)
+	require.Contains(t, err.Error(), `json: unsupported value: encountered a cycle via objectPtr`)
 }
 
 type Opts struct {

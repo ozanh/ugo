@@ -19,6 +19,13 @@ lint:
 	golint -set_exit_status ./...
 	staticcheck ./...
 
+.PHONY: generate-docs
+generate-docs:
+	go run ./cmd/ugodoc ./stdlib/time ./docs/stdlib-time.md
+	go run ./cmd/ugodoc ./stdlib/fmt ./docs/stdlib-fmt.md
+	go run ./cmd/ugodoc ./stdlib/strings ./docs/stdlib-strings.md
+	go run ./cmd/ugodoc ./stdlib/json ./docs/stdlib-json.md
+
 .PHONY: clean
 clean:
 	find . -type f \( -name "cpu.out" -o -name "*.test" -o -name "mem.out" \) -delete

@@ -8,24 +8,6 @@ import (
 	"github.com/ozanh/ugo"
 )
 
-// funcPLRO is a generated function to make ugo.CallableFunc.
-// Source: funcPLRO(loc *Location) (ret ugo.Object)
-func funcPLRO(fn func(*Location) ugo.Object) ugo.CallableFunc {
-	return func(args ...ugo.Object) (ret ugo.Object, err error) {
-		if len(args) != 1 {
-			return ugo.Undefined, ugo.ErrWrongNumArguments.NewError("want=1 got=" + strconv.Itoa(len(args)))
-		}
-
-		loc, ok := ToLocation(args[0])
-		if !ok {
-			return ugo.Undefined, ugo.NewArgumentTypeError("1st", "location", args[0].TypeName())
-		}
-
-		ret = fn(loc)
-		return
-	}
-}
-
 // funcPTRO is a generated function to make ugo.CallableFunc.
 // Source: funcPTRO(t *Time) (ret ugo.Object)
 func funcPTRO(fn func(*Time) ugo.Object) ugo.CallableFunc {

@@ -73,7 +73,7 @@ func FromInterface(v interface{}) (ret Object, err error) {
 			}
 			m[vk] = vo
 		}
-		ret = Map(m)
+		ret = m
 	case []Object:
 		if v != nil {
 			ret = Array(v)
@@ -89,7 +89,7 @@ func FromInterface(v interface{}) (ret Object, err error) {
 			}
 			arr[i] = vo
 		}
-		ret = Array(arr)
+		ret = arr
 	case Object:
 		if v != nil {
 			ret = v
@@ -150,48 +150,81 @@ func ToInterface(o Object) (ret interface{}) {
 
 // ToString will try to convert an Object to uGO string value.
 func ToString(o Object) (v String, ok bool) {
+	if v, ok = o.(String); ok {
+		return
+	}
 	vv, ok := ToGoString(o)
-	v = String(vv)
+	if ok {
+		v = String(vv)
+	}
 	return
 }
 
 // ToBytes will try to convert an Object to uGO bytes value.
 func ToBytes(o Object) (v Bytes, ok bool) {
+	if v, ok = o.(Bytes); ok {
+		return
+	}
 	vv, ok := ToGoByteSlice(o)
-	v = Bytes(vv)
+	if ok {
+		v = Bytes(vv)
+	}
 	return
 }
 
 // ToInt will try to convert an Object to uGO int value.
 func ToInt(o Object) (v Int, ok bool) {
+	if v, ok = o.(Int); ok {
+		return
+	}
 	vv, ok := ToGoInt64(o)
-	v = Int(vv)
+	if ok {
+		v = Int(vv)
+	}
 	return
 }
 
 // ToUint will try to convert an Object to uGO uint value.
 func ToUint(o Object) (v Uint, ok bool) {
+	if v, ok = o.(Uint); ok {
+		return
+	}
 	vv, ok := ToGoUint64(o)
-	v = Uint(vv)
+	if ok {
+		v = Uint(vv)
+	}
 	return
 }
 
 // ToFloat will try to convert an Object to uGO float value.
 func ToFloat(o Object) (v Float, ok bool) {
+	if v, ok = o.(Float); ok {
+		return
+	}
 	vv, ok := ToGoFloat64(o)
-	v = Float(vv)
+	if ok {
+		v = Float(vv)
+	}
 	return
 }
 
 // ToChar will try to convert an Object to uGO char value.
 func ToChar(o Object) (v Char, ok bool) {
+	if v, ok = o.(Char); ok {
+		return
+	}
 	vv, ok := ToGoRune(o)
-	v = Char(vv)
+	if ok {
+		v = Char(vv)
+	}
 	return
 }
 
 // ToBool will try to convert an Object to uGO bool value.
 func ToBool(o Object) (v Bool, ok bool) {
+	if v, ok = o.(Bool); ok {
+		return
+	}
 	vv, ok := ToGoBool(o)
 	v = Bool(vv)
 	return
@@ -209,7 +242,7 @@ func ToMap(o Object) (v Map, ok bool) {
 	return
 }
 
-// ToSyncMap will try to convert an Object to uGO sync-map value.
+// ToSyncMap will try to convert an Object to uGO syncMap value.
 func ToSyncMap(o Object) (v *SyncMap, ok bool) {
 	v, ok = o.(*SyncMap)
 	return
@@ -350,10 +383,8 @@ func ToGoRune(o Object) (v rune, ok bool) {
 	case Float:
 		v, ok = rune(o), true
 	case String:
+		ok = true
 		v, _ = utf8.DecodeRuneInString(string(o))
-		if v != utf8.RuneError {
-			ok = true
-		}
 	case Bool:
 		ok = true
 		if o {

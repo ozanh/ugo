@@ -41,7 +41,7 @@ func (o *Time) String() string {
 
 // IsFalsy implements ugo.Object interface.
 func (o *Time) IsFalsy() bool {
-	return bool(o.Value.IsZero())
+	return o.Value.IsZero()
 }
 
 // Equal implements ugo.Object interface.

@@ -198,7 +198,7 @@ func TestObjectTypeName(t *testing.T) {
 	require.Equal(t, "array", Array{}.TypeName())
 	require.Equal(t, "bytes", Bytes{}.TypeName())
 	require.Equal(t, "map", Map{}.TypeName())
-	require.Equal(t, "sync-map", (&SyncMap{}).TypeName())
+	require.Equal(t, "syncMap", (&SyncMap{}).TypeName())
 	require.Equal(t, "function", (&Function{}).TypeName())
 	require.Equal(t, "builtin-function", (&BuiltinFunction{}).TypeName())
 	require.Equal(t, "compiled-function", (&CompiledFunction{}).TypeName())

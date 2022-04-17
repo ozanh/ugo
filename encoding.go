@@ -120,7 +120,7 @@ func (bc *Bytecode) bytecodeV1Encoder(w io.Writer) (err error) {
 
 	// FileSet, field #0
 	if bc.FileSet != nil {
-		writeByteTo(w, 0)
+		_ = writeByteTo(w, 0)
 		var data []byte
 		fs := (*sourceFileSet)(bc.FileSet)
 		if data, err = fs.MarshalBinary(); err != nil {
@@ -130,13 +130,13 @@ func (bc *Bytecode) bytecodeV1Encoder(w io.Writer) (err error) {
 		if sz, err = Int(len(data)).MarshalBinary(); err != nil {
 			return
 		}
-		w.Write(sz)
-		w.Write(data)
+		_, _ = w.Write(sz)
+		_, _ = w.Write(data)
 	}
 
 	// Main, field #1
 	if bc.Main != nil {
-		writeByteTo(w, 1)
+		_ = writeByteTo(w, 1)
 		var data []byte
 		if data, err = bc.Main.MarshalBinary(); err != nil {
 			return
@@ -148,7 +148,7 @@ func (bc *Bytecode) bytecodeV1Encoder(w io.Writer) (err error) {
 
 	// Constants, field #2
 	if bc.Constants != nil {
-		writeByteTo(w, 2)
+		_ = writeByteTo(w, 2)
 		var data []byte
 		if data, err = Array(bc.Constants).MarshalBinary(); err != nil {
 			return
@@ -160,7 +160,7 @@ func (bc *Bytecode) bytecodeV1Encoder(w io.Writer) (err error) {
 
 	// NumModules, field #3
 	if bc.NumModules > 0 {
-		writeByteTo(w, 3)
+		_ = writeByteTo(w, 3)
 		var data []byte
 		data, err = Int(bc.NumModules).MarshalBinary()
 		if err != nil {

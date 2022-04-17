@@ -6,7 +6,7 @@ import (
 	"github.com/ozanh/ugo"
 )
 
-//go:generate go run ../../cmd/mkcallable -output zfutils.go futils.go
+//go:generate go run ../../cmd/mkcallable -output zfuncs.go funcs.go
 
 //ugo:callable:convert *Location ToLocation
 //ugo:callable:convert *Time ToTime
@@ -43,10 +43,6 @@ func ToTime(o ugo.Object) (ret *Time, ok bool) {
 	}
 	return
 }
-
-// IsLocation
-//
-//ugo:callable funcPLRO(loc *Location) (ret ugo.Object)
 
 // Since, Until
 //

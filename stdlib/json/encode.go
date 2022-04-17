@@ -376,8 +376,8 @@ func bytesEncoder(e *encodeState, v ugo.Object, _ encOpts) {
 		// The encoded bytes are too long to cheaply allocate, and
 		// Encoding.Encode is no longer noticeably cheaper.
 		enc := base64.NewEncoder(base64.StdEncoding, e)
-		enc.Write(s)
-		enc.Close()
+		_, _ = enc.Write(s)
+		_ = enc.Close()
 	}
 	e.WriteByte('"')
 }

@@ -6,6 +6,7 @@ package ugo
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -15,23 +16,6 @@ import (
 	"github.com/ozanh/ugo/parser"
 	"github.com/ozanh/ugo/token"
 )
-
-// CompilerOptions represents customizable options for Compile().
-type CompilerOptions struct {
-	ModuleMap         *ModuleMap
-	ModulePath        string
-	ModuleIndexes     *ModuleIndexes
-	Constants         []Object
-	SymbolTable       *SymbolTable
-	Trace             io.Writer
-	TraceParser       bool
-	TraceCompiler     bool
-	TraceOptimizer    bool
-	OptimizerMaxCycle int
-	OptimizeConst     bool
-	OptimizeExpr      bool
-	constsCache       map[Object]int
-}
 
 var (
 	// DefaultCompilerOptions holds default Compiler options.
@@ -53,19 +37,77 @@ var (
 	}
 )
 
-// loopStmts represents a loopStmts construct that the compiler uses to track the current loopStmts.
-type loopStmts struct {
-	Continues         []int
-	Breaks            []int
-	lastTryCatchIndex int
-}
+// errSkip is a sentinel error for compiler.
+var errSkip = errors.New("skip")
 
-// CompilerError represents a compiler error.
-type CompilerError struct {
-	FileSet *parser.SourceFileSet
-	Node    parser.Node
-	Err     error
-}
+type (
+
+	// Compiler compiles the AST into a bytecode.
+	Compiler struct {
+		parent        *Compiler
+		file          *parser.SourceFile
+		constants     []Object
+		constsCache   map[Object]int
+		symbolTable   *SymbolTable
+		instructions  []byte
+		sourceMap     map[int]int
+		moduleMap     *ModuleMap
+		moduleIndexes *ModuleIndexes
+		modulePath    string
+		variadic      bool
+		loops         []*loopStmts
+		loopIndex     int
+		tryCatchIndex int
+		opts          CompilerOptions
+		trace         io.Writer
+		indent        int
+	}
+
+	// CompilerOptions represents customizable options for Compile().
+	CompilerOptions struct {
+		ModuleMap         *ModuleMap
+		ModulePath        string
+		ModuleIndexes     *ModuleIndexes
+		Constants         []Object
+		SymbolTable       *SymbolTable
+		Trace             io.Writer
+		TraceParser       bool
+		TraceCompiler     bool
+		TraceOptimizer    bool
+		OptimizerMaxCycle int
+		OptimizeConst     bool
+		OptimizeExpr      bool
+		constsCache       map[Object]int
+	}
+
+	// CompilerError represents a compiler error.
+	CompilerError struct {
+		FileSet *parser.SourceFileSet
+		Node    parser.Node
+		Err     error
+	}
+
+	// ModuleIndex represents indexes of a single module.
+	ModuleIndex struct {
+		ConstantIndex int
+		ModuleIndex   int
+	}
+
+	// ModuleIndexes represents modules indexes and total count that are defined
+	// while compiling.
+	ModuleIndexes struct {
+		Count   int
+		Indexes map[string]ModuleIndex
+	}
+
+	// loopStmts represents a loopStmts construct that the compiler uses to
+	// track the current loopStmts.
+	loopStmts struct {
+		Continues         []int
+		Breaks            []int
+		lastTryCatchIndex int
+	}
+)
 
 func (e *CompilerError) Error() string {
 	filePos := e.FileSet.Position(e.Node.Pos())
@@ -74,18 +116,6 @@ func (e *CompilerError) Error() string {
 
 func (e *CompilerError) Unwrap() error {
 	return e.Err
-}
-
-// ModuleIndex represents indexes of a single module.
-type ModuleIndex struct {
-	ConstantIndex int
-	ModuleIndex   int
-}
-
-// ModuleIndexes represents modules indexes and total count that are defined while compiling.
-type ModuleIndexes struct {
-	Count   int
-	Indexes map[string]ModuleIndex
 }
 
 // NewModuleIndexes returns a new ModuleIndexes object.
@@ -102,27 +132,6 @@ func (mi *ModuleIndexes) Reset() *ModuleIndexes {
 		delete(mi.Indexes, k)
 	}
 	return mi
-}
-
-// Compiler compiles the AST into a bytecode.
-type Compiler struct {
-	parent        *Compiler
-	file          *parser.SourceFile
-	constants     []Object
-	constsCache   map[Object]int
-	symbolTable   *SymbolTable
-	instructions  []byte
-	sourceMap     map[int]int
-	moduleMap     *ModuleMap
-	moduleIndexes *ModuleIndexes
-	modulePath    string
-	variadic      bool
-	loops         []*loopStmts
-	loopIndex     int
-	tryCatchIndex int
-	opts          CompilerOptions
-	trace         io.Writer
-	indent        int
 }
 
 // NewCompiler creates a new Compiler object.
@@ -191,7 +200,7 @@ func Compile(script []byte, opts CompilerOptions) (*Bytecode, error) {
 	compiler := NewCompiler(srcFile, opts)
 	if opts.OptimizeConst || opts.OptimizeExpr {
 		optim, err := compiler.optimize(pf)
-		if err != nil {
+		if err != nil && err != errSkip {
 			return nil, err
 		}
 		if optim != nil && opts.TraceCompiler && !opts.TraceOptimizer {
@@ -213,10 +222,11 @@ func Compile(script []byte, opts CompilerOptions) (*Bytecode, error) {
 }
 
 // optimize runs the Optimizer and returns Optimizer object and error from Optimizer.
-// Note:If optimizer cannot run for some reason, all returned values will be nil.
+// Note:If optimizer cannot run for some reason, a nil optimizer and errSkip
+// error will be returned.
 func (c *Compiler) optimize(file *parser.File) (*SimpleOptimizer, error) {
 	if c.opts.OptimizerMaxCycle < 1 {
-		return nil, nil
+		return nil, errSkip
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
@@ -540,7 +550,7 @@ func (c *Compiler) compileModule(
 
 	fork := c.fork(modFile, modulePath, symbolTable)
 	_, err = fork.optimize(file)
-	if err != nil {
+	if err != nil && err != errSkip {
 		err = c.error(node, err)
 		return modIndex, err
 	}

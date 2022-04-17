@@ -63,7 +63,7 @@ var Module = map[string]ugo.Object{
 		),
 	},
 	// ugo:doc
-	// RawMessage(v bytes) -> raw-message
+	// RawMessage(v bytes) -> rawMessage
 	// Returns a wrapped bytes to provide raw encoded JSON value to Marshal
 	// functions.
 	"RawMessage": &ugo.Function{
@@ -87,7 +87,7 @@ var Module = map[string]ugo.Object{
 		}),
 	},
 	// ugo:doc
-	// Quote(v any) -> encoder-options
+	// Quote(v any) -> encoderOptions
 	// Returns a wrapped object to provide Marshal functions to quote v.
 	"Quote": &ugo.Function{
 		Name: "Quote",
@@ -100,7 +100,7 @@ var Module = map[string]ugo.Object{
 		}),
 	},
 	// ugo:doc
-	// NoQuote(v any) -> encoder-options
+	// NoQuote(v any) -> encoderOptions
 	// Returns a wrapped object to provide Marshal functions not to quote while
 	// encoding.
 	// This can be used not to quote all array or map items.
@@ -115,7 +115,7 @@ var Module = map[string]ugo.Object{
 		}),
 	},
 	// ugo:doc
-	// NoEscape(v any) -> encoder-options
+	// NoEscape(v any) -> encoderOptions
 	// Returns a wrapped object to provide Marshal functions not to escape html
 	// while encoding.
 	"NoEscape": &ugo.Function{

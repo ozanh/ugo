@@ -83,7 +83,7 @@ type Array []Object
 type Map map[string]Object
 ```
 
-- `sync-map`
+- `syncMap`
 
 ```go
 type SyncMap struct {

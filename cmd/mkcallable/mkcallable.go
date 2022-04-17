@@ -88,7 +88,7 @@ var ugoTypeNames = map[string]string{
 	"ugo.String":  "string",
 	"ugo.Bytes":   "bytes",
 	"ugo.Map":     "map",
-	"ugo.SyncMap": "sync-map",
+	"ugo.SyncMap": "syncMap",
 	"ugo.Array":   "array",
 	"ugo.Float":   "float",
 	"ugo.Int":     "int",

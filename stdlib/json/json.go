@@ -10,6 +10,23 @@ import (
 	"github.com/ozanh/ugo"
 )
 
+// ugo:doc
+// ## Types
+// ### encoderOptions
+//
+// Go Type
+//
+// ```go
+// // EncoderOptions represents the encoding options (quote, html escape) to
+// // Marshal any Object.
+// type EncoderOptions struct {
+// 	ugo.ObjectImpl
+// 	Value      ugo.Object
+// 	Quote      bool
+// 	EscapeHTML bool
+// }
+// ```
+
 // EncoderOptions represents the encoding options (quote, html escape) to
 // Marshal any Object.
 type EncoderOptions struct {
@@ -21,14 +38,24 @@ type EncoderOptions struct {
 
 // TypeName implements ugo.Object interface.
 func (eo *EncoderOptions) TypeName() string {
-	return "encoder-options"
+	return "encoderOptions"
 }
 
 // String implements ugo.Object interface.
 func (eo *EncoderOptions) String() string {
-	return fmt.Sprintf("encoder-options{Quote:%t EscapeHTML:%t Value:%s}",
+	return fmt.Sprintf("encoderOptions{Quote:%t EscapeHTML:%t Value:%s}",
 		eo.Quote, eo.EscapeHTML, eo.Value)
 }
+
+// ugo:doc
+// #### encoderOptions Getters
+//
+//
+// | Selector  | Return Type |
+// |:----------|:------------|
+// |.Value     | any         |
+// |.Quote     | bool        |
+// |.EscapeHTML| bool        |
 
 // IndexGet implements ugo.Object interface.
 func (eo *EncoderOptions) IndexGet(index ugo.Object) (ret ugo.Object, err error) {
@@ -45,6 +72,16 @@ func (eo *EncoderOptions) IndexGet(index ugo.Object) (ret ugo.Object, err error)
 	return
 }
 
+// ugo:doc
+// #### encoderOptions Setters
+//
+//
+// | Selector  | Value Type  |
+// |:----------|:------------|
+// |.Value     | any         |
+// |.Quote     | bool        |
+// |.EscapeHTML| bool        |
+
 // IndexSet implements ugo.Object interface.
 func (eo *EncoderOptions) IndexSet(index, value ugo.Object) error {
 	switch index.String() {
@@ -60,6 +97,21 @@ func (eo *EncoderOptions) IndexSet(index, value ugo.Object) error {
 	return nil
 }
 
+// ugo:doc
+// ## Types
+// ### rawMessage
+//
+// Go Type
+//
+// ```go
+// // RawMessage represents raw encoded json message to directly use value of
+// // MarshalJSON without encoding.
+// type RawMessage struct {
+// 	ugo.ObjectImpl
+// 	Value []byte
+// }
+// ```
+
 // RawMessage represents raw encoded json message to directly use value of
 // MarshalJSON without encoding.
 type RawMessage struct {
@@ -71,7 +123,7 @@ var _ Marshaler = (*RawMessage)(nil)
 
 // TypeName implements ugo.Object interface.
 func (rm *RawMessage) TypeName() string {
-	return "raw-message"
+	return "rawMessage"
 }
 
 // String implements ugo.Object interface.
@@ -86,4 +138,46 @@ func (rm *RawMessage) MarshalJSON() ([]byte, error) {
 		return []byte("null"), nil
 	}
 	return rm.Value, nil
+}
+
+// ugo:doc
+// #### rawMessage Getters
+//
+//
+// | Selector  | Return Type |
+// |:----------|:------------|
+// |.Value     | bytes       |
+
+// IndexGet implements ugo.Object interface.
+func (rm *RawMessage) IndexGet(index ugo.Object) (ret ugo.Object, err error) {
+	switch index.String() {
+	case "Value":
+		ret = ugo.Bytes(rm.Value)
+	default:
+		ret = ugo.Undefined
+	}
+	return
+}
+
+// ugo:doc
+// #### rawMessage Setters
+//
+//
+// | Selector  | Value Type  |
+// |:----------|:------------|
+// |.Value     | bytes       |
+
+// IndexSet implements ugo.Object interface.
+func (rm *RawMessage) IndexSet(index, value ugo.Object) error {
+	switch index.String() {
+	case "Value":
+		if v, ok := ugo.ToBytes(value); ok {
+			rm.Value = v
+		} else {
+			return ugo.ErrType
+		}
+	default:
+		return ugo.ErrInvalidIndex
+	}
+	return nil
 }

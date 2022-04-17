@@ -1398,7 +1398,7 @@ func TestVMForIn(t *testing.T) {
 	expectRun(t, `out := ""; func() { for k, v in {a:2,b:3,c:4} { out = k; if v==3 { break } } }(); return out`,
 		nil, String("b")) // key, value
 
-	// sync-map
+	// syncMap
 	g := Map{"syncMap": &SyncMap{Map: Map{"a": Int(2), "b": Int(3), "c": Int(4)}}}
 	expectRun(t, `out := 0; for v in globals().syncMap { out += v }; return out`,
 		newOpts().Globals(g).Skip2Pass(), Int(9)) // value
@@ -3421,7 +3421,7 @@ func expectErrorGen(
 	for _, tC := range testCases {
 		t.Run(tC.name, func(t *testing.T) {
 			t.Helper()
-			tC.opts.Trace = &tC.tracer
+			tC.opts.Trace = &tC.tracer // nolint exportloopref
 			compiled, err := Compile([]byte(script), tC.opts)
 			if opts.isCompilerErr {
 				require.Error(t, err)
@@ -3473,7 +3473,7 @@ func expectRun(t *testing.T, script string, opts *testopts, expect Object) {
 	for _, tC := range testCases {
 		t.Run(tC.name, func(t *testing.T) {
 			t.Helper()
-			tC.opts.Trace = &tC.tracer
+			tC.opts.Trace = &tC.tracer // nolint exportloopref
 			gotBc, err := Compile([]byte(script), tC.opts)
 			require.NoError(t, err)
 			// create a copy of the bytecode before execution to test bytecode

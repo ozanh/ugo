@@ -391,7 +391,7 @@ func builtinDeleteFunc(arg Object, key string) (err error) {
 	default:
 		err = NewArgumentTypeError(
 			"1st",
-			"map|sync-map",
+			"map|syncMap",
 			arg.TypeName(),
 		)
 	}
