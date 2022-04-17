@@ -382,16 +382,12 @@ func builtinAppendFunc(args ...Object) (Object, error) {
 }
 
 func builtinDeleteFunc(arg Object, key string) (err error) {
-	// TODO (ozan): Add IndexDeleter interface.
-	switch arg := arg.(type) {
-	case Map:
-		delete(arg, key)
-	case *SyncMap:
-		err = arg.IndexDelete(String(key))
-	default:
+	if v, ok := arg.(IndexDeleter); ok {
+		err = v.IndexDelete(String(key))
+	} else {
 		err = NewArgumentTypeError(
 			"1st",
-			"map|syncMap",
+			"map|syncMap|IndexDeleter",
 			arg.TypeName(),
 		)
 	}
@@ -483,17 +479,8 @@ func builtinContainsFunc(arg0, arg1 Object) (Object, error) {
 
 func builtinLenFunc(arg Object) Object {
 	var n int
-	switch v := arg.(type) {
-	case String:
-		n = len(v)
-	case Array:
-		n = len(v)
-	case Map:
-		n = len(v)
-	case *SyncMap:
+	if v, ok := arg.(LengthGetter); ok {
 		n = v.Len()
-	case Bytes:
-		n = len(v)
 	}
 	return Int(n)
 }

@@ -45,19 +45,21 @@ c := append(undefined, "a", "b", 'c')    // c == ["a", "b", 'c']
 
 ### delete
 
-Deletes the element with the specified key from the map type. First argument
-must be a map type and second argument must be a string type. (Like Go's
-`delete` builtin except keys are always string). `delete` returns `undefined`
-value if successful and it mutates given map.
+Deletes the element with the specified key from an object type. First argument
+should implement `IndexDeleter` interface and second argument is converted to
+string to delete specified string index. `map` and `syncMap` types implement
+`IndexDeleter` interface. `delete` returns `undefined` value if successful and
+it mutates given object.
 
 **Syntax**
 
-> `delete(mapLike, key)`
+> `delete(object, key)`
 
 **Parameters**
 
-- > `mapLike`: map or syncMap object to delete given key from.
-- > `key`: map key as string type.
+- > `object`: map, syncMap or object implementing `IndexDeleter` to delete given
+  > key from.
+- > `key`: String value of the key will be used as index.
 
 **Return Value**
 
@@ -215,9 +217,10 @@ v = contains({foo: "bar"}, "foo")          // v == true
 
 ### len
 
-Returns the number of elements if the given variable is array, string, bytes,
-map, syncMap, otherwise it returns 0. Note that, `len` returns byte count of
-string values.
+Returns the number of elements if the given variable implements `LengthGetter`
+interface. `array`, `string`, `bytes`, `map`, `syncMap` implements
+`LengthGetter`. If object doesn't implement `LengthGetter`, it returns 0.
+Note that, `len` returns byte count of string values.
 
 **Syntax**
 
@@ -231,10 +234,11 @@ string values.
   - bytes
   - map
   - syncMap
+  - other types implementing `LengthGetter`
 
 **Return Value**
 
-> non-negative int value
+> int value
 
 **Runtime Errors**
 

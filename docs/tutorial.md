@@ -1027,8 +1027,34 @@ implemented by object. If not implemented, same object is returned which copies
 the value under the hood by Go.
 
 ```go
-// Copier wraps the Copy method to create a deep copy of the object.
+// Copier wraps the Copy method to create a deep copy of an object.
 type Copier interface {
   Copy() Object
+}
+```
+
+### IndexDeleter interface
+
+`delete` builtin checks if the given object implements `IndexDeleter` interface
+to delete an element from the object. `map` and `syncMap` implement this
+interface.
+
+```go
+// IndexDeleter wraps the IndexDelete method to delete an index of an object.
+type IndexDeleter interface {
+	IndexDelete(Object) error
+}
+```
+
+### LengthGetter interface
+
+`len` builtin checks if the given object implements `IndexDeleter` interface
+to get the length of an object. `array`, `bytes`, `string`, `map` and `syncMap`
+implement this interface.
+
+```go
+// LengthGetter wraps the Len method to get the number of elements of an object.
+type LengthGetter interface {
+	Len() int
 }
 ```

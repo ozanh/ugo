@@ -87,6 +87,16 @@ type Copier interface {
 	Copy() Object
 }
 
+// IndexDeleter wraps the IndexDelete method to delete an index of an object.
+type IndexDeleter interface {
+	IndexDelete(Object) error
+}
+
+// LengthGetter wraps the Len method to get the number of elements of an object.
+type LengthGetter interface {
+	Len() int
+}
+
 // ObjectImpl is the basic Object implementation and it does not nothing, and
 // helps to implement Object interface by embedding and overriding methods in
 // custom implementations. String and TypeName must be implemented otherwise
@@ -364,6 +374,8 @@ switchpos:
 // String represents string values and implements Object interface.
 type String string
 
+var _ LengthGetter = String("")
+
 // TypeName implements Object interface.
 func (String) TypeName() string {
 	return "string"
@@ -478,10 +490,19 @@ func (o String) BinaryOp(tok token.Token, right Object) (Object, error) {
 		right.TypeName())
 }
 
+// Len implements LengthGetter interface.
+func (o String) Len() int {
+	return len(o)
+}
+
 // Bytes represents byte slice and implements Object interface.
 type Bytes []byte
 
-var _ Object = Bytes{}
+var (
+	_ Object       = Bytes{}
+	_ Copier       = Bytes{}
+	_ LengthGetter = Bytes{}
+)
 
 // TypeName implements Object interface.
 func (Bytes) TypeName() string {
@@ -619,6 +640,11 @@ func (o Bytes) BinaryOp(tok token.Token, right Object) (Object, error) {
 		right.TypeName())
 }
 
+// Len implements LengthGetter interface.
+func (o Bytes) Len() int {
+	return len(o)
+}
+
 // Function represents a function object and implements Object interface.
 type Function struct {
 	ObjectImpl
@@ -716,7 +742,10 @@ func (o *BuiltinFunction) Call(args ...Object) (Object, error) {
 // Array represents array of objects and implements Object interface.
 type Array []Object
 
-var _ Object = Array{}
+var (
+	_ Object       = Array{}
+	_ LengthGetter = Array{}
+)
 
 // TypeName implements Object interface.
 func (Array) TypeName() string {
@@ -870,13 +899,21 @@ func (o Array) Iterate() Iterator {
 	return &ArrayIterator{V: o}
 }
 
+// Len implements LengthGetter interface.
+func (o Array) Len() int {
+	return len(o)
+}
+
 // ObjectPtr represents a pointer variable.
 type ObjectPtr struct {
 	ObjectImpl
 	Value *Object
 }
 
-var _ Object = (*ObjectPtr)(nil)
+var (
+	_ Object = (*ObjectPtr)(nil)
+	_ Copier = (*ObjectPtr)(nil)
+)
 
 // TypeName implements Object interface.
 func (o *ObjectPtr) TypeName() string {
@@ -934,7 +971,12 @@ func (o *ObjectPtr) Call(args ...Object) (Object, error) {
 // Map represents map of objects and implements Object interface.
 type Map map[string]Object
 
-var _ Object = Map{}
+var (
+	_ Object       = Map{}
+	_ Copier       = Map{}
+	_ IndexDeleter = Map{}
+	_ LengthGetter = Map{}
+)
 
 // TypeName implements Object interface.
 func (Map) TypeName() string {
@@ -1062,13 +1104,30 @@ func (o Map) Iterate() Iterator {
 	return &MapIterator{V: o, keys: keys}
 }
 
+// IndexDelete tries to delete the string value of key from the map.
+// IndexDelete implements IndexDeleter interface.
+func (o Map) IndexDelete(key Object) error {
+	delete(o, key.String())
+	return nil
+}
+
+// Len implements LengthGetter interface.
+func (o Map) Len() int {
+	return len(o)
+}
+
 // SyncMap represents map of objects and implements Object interface.
 type SyncMap struct {
 	mu sync.RWMutex
 	Map
 }
 
-var _ Object = (*SyncMap)(nil)
+var (
+	_ Object       = (*SyncMap)(nil)
+	_ Copier       = (*SyncMap)(nil)
+	_ IndexDeleter = (*SyncMap)(nil)
+	_ LengthGetter = (*SyncMap)(nil)
+)
 
 // RLock locks the underlying mutex for reading.
 func (o *SyncMap) RLock() {
@@ -1188,6 +1247,7 @@ func (o *SyncMap) Get(index string) (value Object, exists bool) {
 }
 
 // Len returns the number of items in the map.
+// Len implements LengthGetter interface.
 func (o *SyncMap) Len() int {
 	o.mu.RLock()
 	n := len(o.Map)
@@ -1200,8 +1260,7 @@ func (o *SyncMap) IndexDelete(key Object) error {
 	o.mu.Lock()
 	defer o.mu.Unlock()
 
-	delete(o.Map, key.String())
-	return nil
+	return o.Map.IndexDelete(key)
 }
 
 // Error represents Error Object and implements error and Object interfaces.
@@ -1211,7 +1270,10 @@ type Error struct {
 	Cause   error
 }
 
-var _ Object = (*Error)(nil)
+var (
+	_ Object = (*Error)(nil)
+	_ Copier = (*Error)(nil)
+)
 
 func (o *Error) Unwrap() error {
 	return o.Cause
@@ -1327,6 +1389,11 @@ type RuntimeError struct {
 	fileSet *parser.SourceFileSet
 	Trace   []parser.Pos
 }
+
+var (
+	_ Object = (*RuntimeError)(nil)
+	_ Copier = (*RuntimeError)(nil)
+)
 
 func (o *RuntimeError) Unwrap() error {
 	if o.Err != nil {
