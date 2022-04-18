@@ -174,7 +174,7 @@ func TestObjectString(t *testing.T) {
 	require.Equal(t, "{}", Map{}.String())
 	m := Map{"a": Int(1)}
 	require.Equal(t, `{"a": 1}`, m.String())
-	require.Equal(t, "", (&SyncMap{}).String())
+	require.Equal(t, "{}", (&SyncMap{}).String())
 	require.Equal(t, m.String(), (&SyncMap{Map: m}).String())
 	require.Equal(t, "{}", (&SyncMap{Map: Map{}}).String())
 

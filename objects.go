@@ -1159,10 +1159,7 @@ func (o *SyncMap) String() string {
 	o.mu.RLock()
 	defer o.mu.RUnlock()
 
-	if o.Map != nil {
-		return o.Map.String()
-	}
-	return ""
+	return o.Map.String()
 }
 
 // Copy implements Copier interface.
@@ -1170,11 +1167,6 @@ func (o *SyncMap) Copy() Object {
 	o.mu.RLock()
 	defer o.mu.RUnlock()
 
-	if o.Map == nil {
-		return &SyncMap{
-			Map: Map{},
-		}
-	}
 	return &SyncMap{
 		Map: o.Map.Copy().(Map),
 	}
@@ -1185,10 +1177,10 @@ func (o *SyncMap) IndexSet(index, value Object) error {
 	o.mu.Lock()
 	defer o.mu.Unlock()
 
-	if o.Map != nil {
-		return o.Map.IndexSet(index, value)
+	if o.Map == nil {
+		o.Map = Map{}
 	}
-	return nil
+	return o.Map.IndexSet(index, value)
 }
 
 // IndexGet implements Object interface.
@@ -1196,10 +1188,7 @@ func (o *SyncMap) IndexGet(index Object) (Object, error) {
 	o.mu.RLock()
 	defer o.mu.RUnlock()
 
-	if o.Map != nil {
-		return o.Map.IndexGet(index)
-	}
-	return Undefined, nil
+	return o.Map.IndexGet(index)
 }
 
 // Equal implements Object interface.
@@ -1207,10 +1196,7 @@ func (o *SyncMap) Equal(right Object) bool {
 	o.mu.RLock()
 	defer o.mu.RUnlock()
 
-	if o.Map != nil {
-		return o.Map.Equal(right)
-	}
-	return false
+	return o.Map.Equal(right)
 }
 
 // IsFalsy implements Object interface.
@@ -1218,10 +1204,7 @@ func (o *SyncMap) IsFalsy() bool {
 	o.mu.RLock()
 	defer o.mu.RUnlock()
 
-	if o.Map != nil {
-		return o.Map.IsFalsy()
-	}
-	return true
+	return o.Map.IsFalsy()
 }
 
 // CanIterate implements Object interface.
@@ -1232,9 +1215,6 @@ func (o *SyncMap) Iterate() Iterator {
 	o.mu.RLock()
 	defer o.mu.RUnlock()
 
-	if o.Map == nil {
-		return &MapIterator{V: Map{}, keys: []string{}}
-	}
 	return &SyncIterator{Iterator: o.Map.Iterate()}
 }
 
