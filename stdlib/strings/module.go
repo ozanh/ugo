@@ -247,11 +247,12 @@ var Module = map[string]ugo.Object{
 	},
 	// ugo:doc
 	// Title(s string) -> string
-	// Returns a copy of the string s with all Unicode letters that begin words
-	// mapped to their Unicode title case.
+	// Deprecated: Returns a copy of the string s with all Unicode letters that
+	// begin words mapped to their Unicode title case.
 	"Title": &ugo.Function{
 		Name: "Title",
 		Value: stdlib.FuncPsRO(func(s string) ugo.Object {
+			//lint:ignore SA1019 Keep it for backward compatibility.
 			return ugo.String(strings.Title(s))
 		}),
 	},

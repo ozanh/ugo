@@ -14,7 +14,7 @@ import (
 )
 
 func TestModuleTypes(t *testing.T) {
-	l := &Location{Location: time.UTC}
+	l := &Location{Value: time.UTC}
 	require.Equal(t, "location", l.TypeName())
 	require.False(t, l.IsFalsy())
 	require.Equal(t, "UTC", l.String())
@@ -242,7 +242,7 @@ func TestModuleLocation(t *testing.T) {
 	require.Error(t, err)
 
 	isLocation := Module["IsLocation"].(*Function)
-	r, err = isLocation.Call(&Location{Location: time.Local})
+	r, err = isLocation.Call(&Location{Value: time.Local})
 	require.NoError(t, err)
 	require.EqualValues(t, true, r)
 	r, err = isLocation.Call(Int(0))
@@ -290,7 +290,7 @@ func TestModuleTime(t *testing.T) {
 	date := Module["Date"].(*Function)
 	r, err = date.Call(Int(2020), Int(11), Int(8),
 		Int(1), Int(2), Int(3), Int(4),
-		&Location{Location: time.Local})
+		&Location{Value: time.Local})
 	require.NoError(t, err)
 	require.Equal(t,
 		time.Date(2020, 11, 8, 1, 2, 3, 4, time.Local), r.(*Time).Value)
@@ -314,7 +314,7 @@ func TestModuleTime(t *testing.T) {
 		r.(*Time).Value.Format(time.RFC3339Nano))
 
 	r, err = parse.Call(RFC3339Nano, String(now.Format(time.RFC3339Nano)),
-		&Location{Location: time.Local})
+		&Location{Value: time.Local})
 	require.NoError(t, err)
 	require.Equal(t, now.Format(time.RFC3339Nano),
 		r.(*Time).Value.Format(time.RFC3339Nano))
@@ -417,7 +417,7 @@ func TestModuleTime(t *testing.T) {
 	require.Error(t, err)
 
 	timeIn := Module["In"].(*Function)
-	r, err = timeIn.Call(&Time{Value: now}, &Location{Location: time.Local})
+	r, err = timeIn.Call(&Time{Value: now}, &Location{Value: time.Local})
 	require.NoError(t, err)
 	require.False(t, r.(*Time).Value.IsZero())
 	_, err = timeIn.Call(&Time{Value: now})
@@ -474,7 +474,7 @@ func TestModuleTime(t *testing.T) {
 	testTimeSelector(t, &Time{Value: now}, "IsZero", Bool(false))
 	testTimeSelector(t, &Time{Value: now}, "Local", &Time{Value: now.Local()})
 	testTimeSelector(t, &Time{Value: now}, "Location",
-		&Location{Location: now.Location()})
+		&Location{Value: now.Location()})
 	testTimeSelector(t, &Time{Value: now}, "YearDay", Int(now.YearDay()))
 	testTimeSelector(t, &Time{Value: now}, "Weekday", Int(now.Weekday()))
 	y, w := now.ISOWeek()

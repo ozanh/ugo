@@ -175,8 +175,8 @@ n determines the number of substrings to return:
 
 `Title(s string) -> string`
 
-Returns a copy of the string s with all Unicode letters that begin words
-mapped to their Unicode title case.
+Deprecated: Returns a copy of the string s with all Unicode letters that
+begin words mapped to their Unicode title case.
 
 ---
 

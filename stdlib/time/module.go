@@ -9,18 +9,12 @@
 package time
 
 import (
-	"encoding/gob"
 	"strconv"
 	"time"
 
 	"github.com/ozanh/ugo"
 	"github.com/ozanh/ugo/stdlib"
 )
-
-func init() {
-	gob.Register(&Time{})
-	gob.Register(&Location{})
-}
 
 // Module represents time module.
 var Module = map[string]ugo.Object{
@@ -254,7 +248,7 @@ var Module = map[string]ugo.Object{
 	"FixedZone": &ugo.Function{
 		Name: "FixedZone",
 		Value: stdlib.FuncPsiRO(func(name string, sec int) ugo.Object {
-			return &Location{Location: time.FixedZone(name, sec)}
+			return &Location{Value: time.FixedZone(name, sec)}
 		}),
 	},
 	// ugo:doc
@@ -267,7 +261,7 @@ var Module = map[string]ugo.Object{
 			if err != nil {
 				return nil, err
 			}
-			return &Location{Location: l}, nil
+			return &Location{Value: l}, nil
 		}),
 	},
 	// ugo:doc
@@ -416,7 +410,7 @@ var Module = map[string]ugo.Object{
 	"In": &ugo.Function{
 		Name: "In",
 		Value: funcPTLRO(func(t *Time, loc *Location) ugo.Object {
-			return &Time{Value: t.Value.In(loc.Location)}
+			return &Time{Value: t.Value.In(loc.Value)}
 		}),
 	},
 	// ugo:doc
@@ -460,7 +454,7 @@ func loadLocation(args ...ugo.Object) (ugo.Object, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Location{Location: l}, nil
+	return &Location{Value: l}, nil
 }
 
 func date(args ...ugo.Object) (ugo.Object, error) {
@@ -469,7 +463,7 @@ func date(args ...ugo.Object) (ugo.Object, error) {
 			"want=3..8 got=" + strconv.Itoa(len(args)))
 	}
 	ymdHmsn := [7]int{}
-	var loc = &Location{Location: time.Local}
+	var loc = &Location{Value: time.Local}
 	var ok bool
 	for i := 0; i < len(args); i++ {
 		if i < 7 {
@@ -489,7 +483,7 @@ func date(args ...ugo.Object) (ugo.Object, error) {
 	}
 
 	tm := time.Date(ymdHmsn[0], time.Month(ymdHmsn[1]), ymdHmsn[2],
-		ymdHmsn[3], ymdHmsn[4], ymdHmsn[5], ymdHmsn[6], loc.Location)
+		ymdHmsn[3], ymdHmsn[4], ymdHmsn[5], ymdHmsn[6], loc.Value)
 	return &Time{Value: tm}, nil
 }
 
@@ -520,7 +514,7 @@ func parse(args ...ugo.Object) (ugo.Object, error) {
 		return nil, ugo.NewArgumentTypeError(
 			"3rd", "location", args[2].TypeName())
 	}
-	tm, err := time.ParseInLocation(layout, value, loc.Location)
+	tm, err := time.ParseInLocation(layout, value, loc.Value)
 	if err != nil {
 		return nil, err
 	}

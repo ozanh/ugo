@@ -17,16 +17,15 @@ import (
 
 	"github.com/ozanh/ugo"
 	"github.com/ozanh/ugo/parser"
+	"github.com/ozanh/ugo/stdlib/json"
+	"github.com/ozanh/ugo/stdlib/time"
 )
 
 // Bytecode signature and version are written to the header of encoded Bytecode.
-// Bytecode is encoded with current BytecodeVersion and its format,
-// and versions up to BytecodeMaxVersion will be supported.
-// Note: Always support 3 versions for Bytecode and Object encoding.
+// Bytecode is encoded with current BytecodeVersion and its format.
 const (
-	BytecodeSignature  uint32 = 0x75474F
-	BytecodeVersion    uint16 = 1
-	BytecodeMaxVersion uint16 = 3
+	BytecodeSignature uint32 = 0x75474F
+	BytecodeVersion   uint16 = 1
 )
 
 // Types implementing encoding.BinaryMarshaler encoding.BinaryUnmarshaler.
@@ -75,6 +74,24 @@ var (
 	errVarintOverflow = errors.New("read varint error: value larger than 64 bits (overflow)")
 )
 
+func init() {
+	gob.Register(ugo.Undefined)
+	gob.Register(ugo.Bool(true))
+	gob.Register(ugo.Int(0))
+	gob.Register(ugo.Uint(0))
+	gob.Register(ugo.Char(0))
+	gob.Register(ugo.Float(0))
+	gob.Register(ugo.String(""))
+	gob.Register(ugo.Bytes(nil))
+	gob.Register(ugo.Array(nil))
+	gob.Register(ugo.Map(nil))
+	gob.Register((*ugo.SyncMap)(nil))
+	gob.Register((*ugo.ObjectPtr)(nil))
+	gob.Register((*time.Time)(nil))
+	gob.Register((*json.EncoderOptions)(nil))
+	gob.Register((*json.RawMessage)(nil))
+}
+
 // MarshalBinary implements encoding.BinaryMarshaler
 func (bc *Bytecode) MarshalBinary() (data []byte, err error) {
 	switch BytecodeVersion {
@@ -108,8 +125,8 @@ func (bc *Bytecode) UnmarshalBinary(data []byte) error {
 	}
 
 	version := binary.BigEndian.Uint16(data[4:6])
-	switch {
-	case version >= 1 && version <= BytecodeMaxVersion:
+	switch version {
+	case BytecodeVersion:
 		buf := bytes.NewBuffer(data[6:])
 		err := bc.bytecodeV1Decoder(buf)
 		if err != nil {

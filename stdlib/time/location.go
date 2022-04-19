@@ -20,14 +20,14 @@ import (
 // // Location represents location values and implements ugo.Object interface.
 // type Location struct {
 //    ugo.ObjectImpl
-//    *time.Location
+//    Value *time.Location
 // }
 // ```
 
 // Location represents location values and implements ugo.Object interface.
 type Location struct {
 	ugo.ObjectImpl
-	*time.Location
+	Value *time.Location
 }
 
 // TypeName implements ugo.Object interface.
@@ -37,12 +37,12 @@ func (*Location) TypeName() string {
 
 // String implements ugo.Object interface.
 func (o *Location) String() string {
-	return o.Location.String()
+	return o.Value.String()
 }
 
 // IsFalsy implements ugo.Object interface.
 func (o *Location) IsFalsy() bool {
-	return o.Location == nil
+	return o.Value == nil
 }
 
 // Equal implements ugo.Object interface.

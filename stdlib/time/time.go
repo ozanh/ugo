@@ -189,7 +189,7 @@ func (o *Time) IndexGet(index ugo.Object) (ugo.Object, error) {
 	case "Local":
 		return &Time{Value: o.Value.Local()}, nil
 	case "Location":
-		return &Location{Location: o.Value.Location()}, nil
+		return &Location{Value: o.Value.Location()}, nil
 	case "YearDay":
 		return ugo.Int(o.Value.YearDay()), nil
 	case "Weekday":

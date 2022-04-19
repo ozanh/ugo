@@ -13,7 +13,7 @@ Go Type
 // Location represents location values and implements ugo.Object interface.
 type Location struct {
    ugo.ObjectImpl
-   *time.Location
+   Value *time.Location
 }
 ```
 

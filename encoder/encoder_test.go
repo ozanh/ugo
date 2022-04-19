@@ -8,14 +8,41 @@ import (
 	"math/rand"
 	"reflect"
 	"testing"
-	"time"
+	gotime "time"
 
 	"github.com/stretchr/testify/require"
 
 	"github.com/ozanh/ugo"
 	. "github.com/ozanh/ugo/encoder"
+	"github.com/ozanh/ugo/stdlib/json"
+	"github.com/ozanh/ugo/stdlib/time"
 	"github.com/ozanh/ugo/token"
 )
+
+func TestGobEncoder(t *testing.T) {
+	objects := []ugo.Object{
+		ugo.Undefined,
+		ugo.Bool(true),
+		ugo.Int(0),
+		ugo.Uint(0),
+		ugo.Char(0),
+		ugo.Float(0),
+		ugo.String("abc"),
+		ugo.Bytes{},
+		ugo.Array{ugo.Bool(true), ugo.String("")},
+		ugo.Map{"b": ugo.Bool(true), "s": ugo.String("")},
+		&ugo.SyncMap{Map: ugo.Map{"i": ugo.Int(0), "u": ugo.Uint(0)}},
+		&ugo.ObjectPtr{},
+		&time.Time{Value: gotime.Now()},
+		&json.EncoderOptions{Value: ugo.Float(0)},
+		&json.RawMessage{},
+	}
+	for _, obj := range objects {
+		var buf bytes.Buffer
+		err := gob.NewEncoder(&buf).Encode(obj)
+		require.NoError(t, err)
+	}
+}
 
 func TestEncDecObjects(t *testing.T) {
 	data, err := (*UndefinedType)(ugo.Undefined.(*ugo.UndefinedType)).MarshalBinary()
@@ -621,7 +648,7 @@ const charset = "abcdefghijklmnopqrstuvwxyz" +
 	"ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 
 var seededRand *rand.Rand = rand.New(
-	rand.NewSource(time.Now().UnixNano()))
+	rand.NewSource(gotime.Now().UnixNano()))
 
 func randStringWithCharset(length int, charset string) string {
 	b := make([]byte, length)
