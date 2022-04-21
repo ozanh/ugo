@@ -7,7 +7,7 @@ package ugo
 import (
 	"errors"
 	"fmt"
-	"runtime/debug"
+	"runtime"
 	"strconv"
 	"sync"
 	"sync/atomic"
@@ -508,7 +508,7 @@ VMLoop:
 			numSel := int(vm.curInsts[vm.ip+1])
 			tp := vm.sp - 1 - numSel
 			target := vm.stack[tp]
-			var value Object = Undefined
+			value := Undefined
 
 			for ; numSel > 0; numSel-- {
 				ptr := vm.sp - numSel
@@ -785,7 +785,7 @@ func (vm *VM) handlePanic(r interface{}, globals Object) {
 
 		if err := vm.throwGenErr(fmt.Errorf("%v", r)); err != nil {
 			vm.err = err
-			gostack := debug.Stack()
+			gostack := debugStack()
 			if vm.err != nil {
 				vm.err = fmt.Errorf("panic: %v %w\nGo Stack:\n%s",
 					r, vm.err, gostack)
@@ -797,7 +797,7 @@ func (vm *VM) handlePanic(r interface{}, globals Object) {
 		return
 	}
 
-	gostack := debug.Stack()
+	gostack := debugStack()
 
 	if vm.err != nil {
 		vm.err = fmt.Errorf("panic: %v error: %w\nGo Stack:\n%s",
@@ -830,7 +830,7 @@ func (vm *VM) execOpSetupTry() {
 }
 
 func (vm *VM) execOpSetupCatch() {
-	var value Object = Undefined
+	value := Undefined
 	errHandlers := vm.curFrame.errHandlers
 
 	if errHandlers.hasHandler() {
@@ -1414,4 +1414,16 @@ func wantGEqXGotY(x, y int) string {
 	buf = append(buf, " got="...)
 	buf = strconv.AppendInt(buf, int64(y), 10)
 	return string(buf)
+}
+
+// Ported from runtime/debug.Stack
+func debugStack() []byte {
+	buf := make([]byte, 1024)
+	for {
+		n := runtime.Stack(buf, false)
+		if n < len(buf) {
+			return buf[:n]
+		}
+		buf = make([]byte, 2*len(buf))
+	}
 }

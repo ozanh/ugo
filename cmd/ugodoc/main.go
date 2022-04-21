@@ -23,7 +23,7 @@ import (
 	"go/token"
 	"io"
 	"os"
-	"path"
+	"path/filepath"
 	"regexp"
 	"sort"
 	"strings"
@@ -235,7 +235,7 @@ func sortedFiles(pkg *ast.Package) []file {
 	files := make([]file, 0, len(pkg.Files))
 
 	for name, f := range pkg.Files {
-		files = append(files, file{file: f, name: path.Base(name)})
+		files = append(files, file{file: f, name: filepath.Base(name)})
 	}
 
 	// Sort files passed in according to these rules:

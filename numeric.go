@@ -5,7 +5,6 @@
 package ugo
 
 import (
-	"math"
 	"strconv"
 	"strings"
 
@@ -324,7 +323,12 @@ func (o Float) Equal(right Object) bool {
 }
 
 // IsFalsy implements Object interface.
-func (o Float) IsFalsy() bool { return math.IsNaN(float64(o)) }
+func (o Float) IsFalsy() bool {
+	// IEEE 754 says that only NaNs satisfy f != f.
+	// See math.IsNan
+	f := float64(o)
+	return f != f
+}
 
 // CanCall implements Object interface.
 func (o Float) CanCall() bool { return false }

@@ -5,13 +5,11 @@
 package ugo
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"io"
 	"os"
 	"reflect"
-	"time"
 
 	"github.com/ozanh/ugo/parser"
 	"github.com/ozanh/ugo/token"
@@ -199,15 +197,10 @@ func Compile(script []byte, opts CompilerOptions) (*Bytecode, error) {
 
 	compiler := NewCompiler(srcFile, opts)
 	if opts.OptimizeConst || opts.OptimizeExpr {
-		optim, err := compiler.optimize(pf)
+		err := compiler.optimize(pf)
 		if err != nil && err != errSkip {
 			return nil, err
 		}
-		if optim != nil && opts.TraceCompiler && !opts.TraceOptimizer {
-			_, _ = fmt.Fprintf(opts.Trace,
-				"<Optimization Took: %s>\n", optim.Duration())
-		}
-
 	}
 
 	if err := compiler.Compile(pf); err != nil {
@@ -224,27 +217,19 @@ func Compile(script []byte, opts CompilerOptions) (*Bytecode, error) {
 // optimize runs the Optimizer and returns Optimizer object and error from Optimizer.
 // Note:If optimizer cannot run for some reason, a nil optimizer and errSkip
 // error will be returned.
-func (c *Compiler) optimize(file *parser.File) (*SimpleOptimizer, error) {
+func (c *Compiler) optimize(file *parser.File) error {
 	if c.opts.OptimizerMaxCycle < 1 {
-		return nil, errSkip
+		return errSkip
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-	defer cancel()
+	optim := NewOptimizer(file, c.symbolTable, c.opts)
 
-	o := NewOptimizer(
-		ctx,
-		file,
-		c.symbolTable,
-		c.opts,
-	)
-
-	if err := o.Optimize(); err != nil {
-		return o, err
+	if err := optim.Optimize(); err != nil {
+		return err
 	}
 
-	c.opts.OptimizerMaxCycle -= o.Total()
-	return o, nil
+	c.opts.OptimizerMaxCycle -= optim.Total()
+	return nil
 }
 
 // Bytecode returns compiled Bytecode ready to run in VM.
@@ -549,7 +534,7 @@ func (c *Compiler) compileModule(
 		DisableBuiltin(c.symbolTable.DisabledBuiltins()...)
 
 	fork := c.fork(modFile, modulePath, symbolTable)
-	_, err = fork.optimize(file)
+	err = fork.optimize(file)
 	if err != nil && err != errSkip {
 		err = c.error(node, err)
 		return modIndex, err

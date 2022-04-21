@@ -58,12 +58,6 @@ func FromInterface(v interface{}) (ret Object, err error) {
 		} else {
 			ret = Bytes{}
 		}
-	case error:
-		if v != nil {
-			ret = &Error{Message: v.Error()}
-		} else {
-			ret = &Error{Message: "<nil>"}
-		}
 	case map[string]Object:
 		if v != nil {
 			ret = Map(v)
@@ -108,6 +102,12 @@ func FromInterface(v interface{}) (ret Object, err error) {
 		} else {
 			ret = Undefined
 		}
+	case error:
+		if v != nil {
+			ret = &Error{Message: v.Error(), Cause: v}
+		} else {
+			ret = &Error{Message: "<nil>"}
+		}
 	default:
 		err = fmt.Errorf("cannot convert to object: %T", v)
 	}
@@ -133,14 +133,14 @@ func ToInterface(o Object) (ret interface{}) {
 		for key, v := range o {
 			ret.(map[string]interface{})[key] = ToInterface(v)
 		}
-	case *UndefinedType:
-		ret = nil
 	case Uint:
 		ret = uint64(o)
 	case Char:
 		ret = rune(o)
 	case Float:
 		ret = float64(o)
+	case Bool:
+		ret = bool(o)
 	case *SyncMap:
 		o.RLock()
 		defer o.RUnlock()
@@ -148,8 +148,10 @@ func ToInterface(o Object) (ret interface{}) {
 		for key, v := range o.Map {
 			ret.(map[string]interface{})[key] = ToInterface(v)
 		}
+	case *UndefinedType:
+		ret = nil
 	default:
-		return o
+		ret = o
 	}
 	return
 }
