@@ -21,8 +21,8 @@ const (
 // CallableFunc is a function signature for a callable function.
 type CallableFunc = func(args ...Object) (ret Object, err error)
 
-// FromInterface will try to convert an interface{} v to a uGO Object.
-func FromInterface(v interface{}) (ret Object, err error) {
+// ToObject will try to convert an interface{} v to an Object.
+func ToObject(v interface{}) (ret Object, err error) {
 	switch v := v.(type) {
 	case nil:
 		ret = Undefined
@@ -67,7 +67,7 @@ func FromInterface(v interface{}) (ret Object, err error) {
 	case map[string]interface{}:
 		m := make(Map, len(v))
 		for vk, vv := range v {
-			vo, err := FromInterface(vv)
+			vo, err := ToObject(vv)
 			if err != nil {
 				return nil, err
 			}
@@ -82,20 +82,16 @@ func FromInterface(v interface{}) (ret Object, err error) {
 		}
 	case []interface{}:
 		arr := make(Array, len(v))
-		for i, e := range v {
-			vo, err := FromInterface(e)
+		for i, vv := range v {
+			obj, err := ToObject(vv)
 			if err != nil {
 				return nil, err
 			}
-			arr[i] = vo
+			arr[i] = obj
 		}
 		ret = arr
 	case Object:
-		if v != nil {
-			ret = v
-		} else {
-			ret = Undefined
-		}
+		ret = v
 	case CallableFunc:
 		if v != nil {
 			ret = &Function{Value: v}
@@ -103,18 +99,14 @@ func FromInterface(v interface{}) (ret Object, err error) {
 			ret = Undefined
 		}
 	case error:
-		if v != nil {
-			ret = &Error{Message: v.Error(), Cause: v}
-		} else {
-			ret = &Error{Message: "<nil>"}
-		}
+		ret = &Error{Message: v.Error(), Cause: v}
 	default:
 		err = fmt.Errorf("cannot convert to object: %T", v)
 	}
 	return
 }
 
-// ToInterface tries to convert an object o to an interface{} value.
+// ToInterface tries to convert an Object o to an interface{} value.
 func ToInterface(o Object) (ret interface{}) {
 	switch o := o.(type) {
 	case Int:
@@ -124,15 +116,17 @@ func ToInterface(o Object) (ret interface{}) {
 	case Bytes:
 		ret = []byte(o)
 	case Array:
-		ret = make([]interface{}, len(o))
+		arr := make([]interface{}, len(o))
 		for i, val := range o {
-			ret.([]interface{})[i] = ToInterface(val)
+			arr[i] = ToInterface(val)
 		}
+		ret = arr
 	case Map:
-		ret = make(map[string]interface{})
+		m := make(map[string]interface{}, len(o))
 		for key, v := range o {
-			ret.(map[string]interface{})[key] = ToInterface(v)
+			m[key] = ToInterface(v)
 		}
+		ret = m
 	case Uint:
 		ret = uint64(o)
 	case Char:
@@ -142,12 +136,16 @@ func ToInterface(o Object) (ret interface{}) {
 	case Bool:
 		ret = bool(o)
 	case *SyncMap:
+		if o == nil {
+			return map[string]interface{}{}
+		}
 		o.RLock()
 		defer o.RUnlock()
-		ret = make(map[string]interface{})
+		m := make(map[string]interface{}, len(o.Map))
 		for key, v := range o.Map {
-			ret.(map[string]interface{})[key] = ToInterface(v)
+			m[key] = ToInterface(v)
 		}
+		ret = m
 	case *UndefinedType:
 		ret = nil
 	default:
