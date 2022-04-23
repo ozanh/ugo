@@ -142,8 +142,7 @@ func NewCompiler(file *parser.SourceFile, opts CompilerOptions) *Compiler {
 		opts.constsCache = make(map[Object]int)
 		for i := range opts.Constants {
 			switch opts.Constants[i].(type) {
-			case Int, Uint, String, Bool, Float, Char, *UndefinedType,
-				*CompiledFunction:
+			case Int, Uint, String, Bool, Float, Char, *UndefinedType:
 				opts.constsCache[opts.Constants[i]] = i
 			}
 		}
@@ -423,15 +422,6 @@ func (c *Compiler) addConstant(obj Object) (index int) {
 		if ok {
 			index = i
 			return
-		}
-	case *CompiledFunction:
-		for i, v := range c.constants {
-			if f, ok := v.(*CompiledFunction); ok {
-				if reflect.DeepEqual(f, obj) {
-					index = i
-					return
-				}
-			}
 		}
 	default:
 		// unhashable types cannot be stored in constsCache, append them to constants slice
