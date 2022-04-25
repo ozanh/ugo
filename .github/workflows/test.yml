@@ -44,7 +44,6 @@ jobs:
         run: make build-cli
 
   build-new:
-    if: ${{ false }}
     strategy:
       matrix:
         os:  [ 'ubuntu-latest' ]
