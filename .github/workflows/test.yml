@@ -67,4 +67,12 @@ jobs:
       run: make test
 
     - name: Build CLI
-      run: make build-cli
+      run: |
+        make build-cli
+        mv ugo ugo_go${{ matrix.go }}_$(go env GOOS)_$(go env GOARCH)
+    
+    - uses: actions/upload-artifact@v3
+      with:
+        path: ugo_go*
+        if-no-files-found: error
+        retention-days: 7
