@@ -12,7 +12,39 @@ on:
       - development
 
 jobs:
-  build:
+  build-old:
+      strategy:
+        matrix:
+          os:  [ 'ubuntu-latest' ]
+          go: [ '1.15', '1.16' ]
+      runs-on: ${{ matrix.os }}
+      name: Test and Build for Go ${{ matrix.go }}  ${{ matrix.os }}
+
+      steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Setup Go ${{ matrix.go }}
+        uses: actions/setup-go@v3
+        with:
+          go-version: ${{ matrix.go }}
+
+      - name: Install Staticcheck
+        run: |
+          GOBIN=${GOBIN:-"$HOME/go/bin"}
+          mkdir -p "$GOBIN"
+          echo "$GOBIN" >> "$GITHUB_PATH"
+          export GOPATH="$(dirname "$GOBIN")"
+          cd "$GOBIN" && go get honnef.co/go/tools/cmd/staticcheck@2022.1
+
+      - name: Test
+        run: make test
+
+      - name: Build CLI
+        run: make build-cli
+
+  build-new:
+    if: ${{ false }}
     strategy:
       matrix:
         os:  [ 'ubuntu-latest' ]
