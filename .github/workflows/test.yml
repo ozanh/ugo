@@ -34,7 +34,7 @@ jobs:
           GOBIN=${GOBIN:-"$HOME/go/bin"}
           mkdir -p "$GOBIN"
           echo "$GOBIN" >> "$GITHUB_PATH"
-          export GOPATH="$(dirname "$GOBIN")"
+          export GO111MODULE=on
           cd "$GOBIN" && go get honnef.co/go/tools/cmd/staticcheck@2022.1
 
       - name: Test
