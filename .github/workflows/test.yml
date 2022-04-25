@@ -15,7 +15,7 @@ jobs:
   build-old:
       strategy:
         matrix:
-          os:  [ 'ubuntu-latest' ]
+          os:  [ 'ubuntu-latest', 'macOS-latest' ]
           go: [ '1.15', '1.16' ]
       runs-on: ${{ matrix.os }}
       name: Test and Build for Go ${{ matrix.go }}  ${{ matrix.os }}
@@ -46,7 +46,7 @@ jobs:
   build-new:
     strategy:
       matrix:
-        os:  [ 'ubuntu-latest' ]
+        os:  [ 'ubuntu-latest', 'macOS-latest' ]
         go: [ '1.17', '1.18' ]
     runs-on: ${{ matrix.os }}
     name: Test and Build for Go ${{ matrix.go }}  ${{ matrix.os }}
