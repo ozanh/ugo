@@ -13,10 +13,11 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/ozanh/ugo"
-	. "github.com/ozanh/ugo/encoder"
 	"github.com/ozanh/ugo/stdlib/json"
 	"github.com/ozanh/ugo/stdlib/time"
 	"github.com/ozanh/ugo/token"
+
+	. "github.com/ozanh/ugo/encoder"
 )
 
 func TestGobEncoder(t *testing.T) {

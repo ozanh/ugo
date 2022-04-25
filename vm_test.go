@@ -6,12 +6,13 @@ import (
 	"fmt"
 	"os"
 	"reflect"
-	"strconv"
 	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/ozanh/ugo/tests"
 
 	. "github.com/ozanh/ugo"
 )
@@ -3501,74 +3502,9 @@ func expectRun(t *testing.T, script string, opts *testopts, expect Object) {
 				var buf bytes.Buffer
 				gotBc.Fprint(&buf)
 				t.Fatalf("Objects not equal:\nExpected:\n%s\nGot:\n%s\nScript:\n%s\n%s\n",
-					sdump(expect), sdump(got), script, buf.String())
+					tests.Sdump(expect), tests.Sdump(got), script, buf.String())
 			}
 			testBytecodesEqual(t, &expectBc, gotBc, true)
 		})
-	}
-}
-
-func sdump(value interface{}) string {
-	if value == nil {
-		return fmt.Sprintf("(%[1]T) %[1]v\n", value)
-	}
-	typ := reflect.TypeOf(value)
-	switch typ.Kind() {
-	case reflect.Slice:
-		val := reflect.ValueOf(value)
-		var sb strings.Builder
-		sb.WriteString(fmt.Sprintf("(%+v len=%d cap=%d) {",
-			typ, val.Len(), val.Cap()))
-		sz := val.Len()
-		if sz > 0 {
-			sb.WriteString("\n")
-		} else {
-			sb.WriteString("}\n")
-			return sb.String()
-		}
-		for i := 0; i < sz; i++ {
-			sb.WriteString("#")
-			sb.WriteString(strconv.Itoa(i))
-			sb.WriteString("  | ")
-			elem := val.Index(i).Elem()
-			var iface interface{}
-			if elem.IsValid() && elem.CanInterface() {
-				iface = elem.Interface()
-			}
-			sb.WriteString(sdump(iface))
-		}
-		sb.WriteString(fmt.Sprintf("= %#v\n", value))
-		sb.WriteString("}\n")
-		return sb.String()
-	case reflect.Map:
-		val := reflect.ValueOf(value)
-		keys := val.MapKeys()
-		var sb strings.Builder
-		sb.WriteString(fmt.Sprintf("(%+v len=%d) {", typ, len(keys)))
-		if len(keys) == 0 {
-			sb.WriteString("}\n")
-			return sb.String()
-		}
-		sb.WriteString("\n")
-		for _, k := range keys {
-			sb.WriteString(fmt.Sprintf("%#v:", k))
-			var iface interface{}
-			vkind := val.MapIndex(k).Kind()
-			if vkind == reflect.Ptr || vkind == reflect.Interface {
-				elem := val.MapIndex(k).Elem()
-				if elem.IsValid() && elem.CanInterface() {
-					iface = elem.Interface()
-				}
-				sb.WriteString(sdump(iface))
-			} else {
-				v := val.MapIndex(k).Interface()
-				sb.WriteString(sdump(v))
-			}
-		}
-		sb.WriteString(fmt.Sprintf("= %#v\n", value))
-		sb.WriteString("}\n")
-		return sb.String()
-	default:
-		return fmt.Sprintf("(%+v) %+v\n", typ, value)
 	}
 }

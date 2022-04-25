@@ -85,6 +85,8 @@ func init() {
 	gob.Register(ugo.Bytes(nil))
 	gob.Register(ugo.Array(nil))
 	gob.Register(ugo.Map(nil))
+	gob.Register((*ugo.Error)(nil))
+	gob.Register((*ugo.RuntimeError)(nil))
 	gob.Register((*ugo.SyncMap)(nil))
 	gob.Register((*ugo.ObjectPtr)(nil))
 	gob.Register((*time.Time)(nil))
@@ -416,15 +418,11 @@ func DecodeObject(r io.Reader) (ugo.Object, error) {
 			return (*ugo.BuiltinFunction)(&v), nil
 		}
 	case binUnkownType:
-		var x interface{}
-		if err := gob.NewDecoder(r).Decode(&x); err != nil {
+		var v ugo.Object
+		if err := gob.NewDecoder(r).Decode(&v); err != nil {
 			return nil, err
 		}
-
-		if v, ok := x.(ugo.Object); ok {
-			return v, nil
-		}
-		return nil, fmt.Errorf("decode error: unknown type '%T'", x)
+		return v, nil
 	}
 	return nil, errors.New(
 		"decode error: unknown encoding type:" + strconv.Itoa(int(btype)),
@@ -746,7 +744,7 @@ func (o Array) MarshalBinary() ([]byte, error) {
 			tmpBuf.Write(d)
 		} else {
 			tmpBuf.WriteByte(binUnkownType)
-			if err := gob.NewEncoder(&tmpBuf).Encode(v); err != nil {
+			if err := gob.NewEncoder(&tmpBuf).Encode(&v); err != nil {
 				return nil, err
 			}
 		}
@@ -820,7 +818,7 @@ func (o Map) MarshalBinary() ([]byte, error) {
 			tmpBuf.Write(d)
 		} else {
 			tmpBuf.WriteByte(binUnkownType)
-			if err := gob.NewEncoder(&tmpBuf).Encode(v); err != nil {
+			if err := gob.NewEncoder(&tmpBuf).Encode(&v); err != nil {
 				return nil, err
 			}
 		}
