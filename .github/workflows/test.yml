@@ -61,7 +61,7 @@ jobs:
         go-version: ${{ matrix.go }}
 
     - name: Install Staticcheck
-      run: go install honnef.co/go/tools/cmd/staticcheck@2022.1
+      run: go install honnef.co/go/tools/cmd/staticcheck@2021.1
 
     - name: Test
       run: make test
