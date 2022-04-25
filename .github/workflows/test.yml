@@ -50,6 +50,9 @@ jobs:
         go: [ '1.17', '1.18' ]
     runs-on: ${{ matrix.os }}
     name: Test and Build for Go ${{ matrix.go }}  ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
 
     steps:
     - name: Checkout
