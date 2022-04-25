@@ -1,6 +1,7 @@
 .vscode
 
 # repl binary
+ugo
 cmd/ugo/ugo
 cmd/ugo/ugo.exe
 

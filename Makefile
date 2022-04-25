@@ -4,6 +4,9 @@ MAKEFLAGS   += --warn-undefined-variables
 
 all: version generate lint test
 
+build-cli:
+	go build ./cmd/ugo
+
 .PHONY: test
 test: version generate lint
 	go test -count=1 ./...
