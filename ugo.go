@@ -141,8 +141,8 @@ func ToInterface(o Object) (ret interface{}) {
 		}
 		o.RLock()
 		defer o.RUnlock()
-		m := make(map[string]interface{}, len(o.Map))
-		for key, v := range o.Map {
+		m := make(map[string]interface{}, len(o.Value))
+		for key, v := range o.Value {
 			m[key] = ToInterface(v)
 		}
 		ret = m

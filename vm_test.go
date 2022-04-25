@@ -661,9 +661,9 @@ func TestVMBuiltinFunction(t *testing.T) {
 	expectErrIs(t, `delete([], "")`, nil, ErrType)
 	expectRun(t, `delete({}, 1)`, nil, Undefined)
 
-	g := &SyncMap{Map: Map{"out": &SyncMap{Map: Map{"a": Int(1)}}}}
+	g := &SyncMap{Value: Map{"out": &SyncMap{Value: Map{"a": Int(1)}}}}
 	expectRun(t, `global out; delete(out, "a"); return out`,
-		newOpts().Globals(g).Skip2Pass(), &SyncMap{Map: Map{}})
+		newOpts().Globals(g).Skip2Pass(), &SyncMap{Value: Map{}})
 
 	expectRun(t, `return copy(undefined)`, nil, Undefined)
 	expectRun(t, `return copy(1)`, nil, Int(1))
@@ -746,7 +746,7 @@ func TestVMBuiltinFunction(t *testing.T) {
 	expectRun(t, `return contains(bytes(1, 2, 3, 4), bytes(1, 3))`, nil, False)
 	expectRun(t, `return contains(undefined, "")`, nil, False)
 	expectRun(t, `return contains(undefined, 1)`, nil, False)
-	g = &SyncMap{Map: Map{"a": Int(1)}}
+	g = &SyncMap{Value: Map{"a": Int(1)}}
 	expectRun(t, `return contains(globals(), "a")`,
 		newOpts().Globals(g).Skip2Pass(), True)
 	expectErrIs(t, `contains()`, nil, ErrWrongNumArguments)
@@ -768,7 +768,7 @@ func TestVMBuiltinFunction(t *testing.T) {
 	expectRun(t, `return len(["a"])`, nil, Int(1))
 	expectRun(t, `return len({a: 2})`, nil, Int(1))
 	expectRun(t, `return len(bytes(0, 1, 2))`, nil, Int(3))
-	g = &SyncMap{Map: Map{"a": Int(5)}}
+	g = &SyncMap{Value: Map{"a": Int(5)}}
 	expectRun(t, `return len(globals())`,
 		newOpts().Globals(g).Skip2Pass(), Int(1))
 	expectErrIs(t, `len()`, nil, ErrWrongNumArguments)
@@ -1152,7 +1152,7 @@ func TestVMBuiltinFunction(t *testing.T) {
 	}
 
 	expectRun(t, `global sm; return isSyncMap(sm)`,
-		newOpts().Globals(Map{"sm": &SyncMap{Map: Map{}}}), True)
+		newOpts().Globals(Map{"sm": &SyncMap{Value: Map{}}}), True)
 
 	expectRun(t, `return isError(WrongNumArgumentsError.New(""), WrongNumArgumentsError)`,
 		nil, True)
@@ -1399,13 +1399,13 @@ func TestVMForIn(t *testing.T) {
 		nil, String("b")) // key, value
 
 	// syncMap
-	g := Map{"syncMap": &SyncMap{Map: Map{"a": Int(2), "b": Int(3), "c": Int(4)}}}
+	g := Map{"syncMap": &SyncMap{Value: Map{"a": Int(2), "b": Int(3), "c": Int(4)}}}
 	expectRun(t, `out := 0; for v in globals().syncMap { out += v }; return out`,
 		newOpts().Globals(g).Skip2Pass(), Int(9)) // value
 	expectRun(t, `out := ""; for k, v in globals().syncMap { out = k; if v==3 { break } }; return out`,
 		newOpts().Globals(g).Skip2Pass(), String("b")) // key, value
 	expectRun(t, `out := ""; for k, _ in globals().syncMap { out += k }; return out`,
-		newOpts().Globals(Map{"syncMap": &SyncMap{Map: Map{"a": Int(2)}}}).Skip2Pass(), String("a")) // key, _
+		newOpts().Globals(Map{"syncMap": &SyncMap{Value: Map{"a": Int(2)}}}).Skip2Pass(), String("a")) // key, _
 	expectRun(t, `out := 0; for _, v in globals().syncMap { out += v }; return out`,
 		newOpts().Globals(g).Skip2Pass(), Int(9)) // _, value
 	expectRun(t, `out := ""; func() { for k, v in globals().syncMap { out = k; if v==3 { break } } }(); return out`,

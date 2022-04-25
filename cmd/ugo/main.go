@@ -63,7 +63,7 @@ var (
 )
 
 var scriptGlobals = &ugo.SyncMap{
-	Map: ugo.Map{
+	Value: ugo.Map{
 		"Gosched": &ugo.Function{
 			Name: "Gosched",
 			Value: func(args ...ugo.Object) (ugo.Object, error) {

@@ -325,7 +325,7 @@ func mapEncoder(e *encodeState, v ugo.Object, opts encOpts) {
 		}
 		sm.RLock()
 		defer sm.RUnlock()
-		m = sm.Map
+		m = sm.Value
 	}
 	if m == nil {
 		e.WriteString("null")

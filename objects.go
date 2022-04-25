@@ -1118,8 +1118,8 @@ func (o Map) Len() int {
 
 // SyncMap represents map of objects and implements Object interface.
 type SyncMap struct {
-	mu sync.RWMutex
-	Map
+	mu    sync.RWMutex
+	Value Map
 }
 
 var (
@@ -1159,7 +1159,7 @@ func (o *SyncMap) String() string {
 	o.mu.RLock()
 	defer o.mu.RUnlock()
 
-	return o.Map.String()
+	return o.Value.String()
 }
 
 // Copy implements Copier interface.
@@ -1168,7 +1168,7 @@ func (o *SyncMap) Copy() Object {
 	defer o.mu.RUnlock()
 
 	return &SyncMap{
-		Map: o.Map.Copy().(Map),
+		Value: o.Value.Copy().(Map),
 	}
 }
 
@@ -1177,10 +1177,10 @@ func (o *SyncMap) IndexSet(index, value Object) error {
 	o.mu.Lock()
 	defer o.mu.Unlock()
 
-	if o.Map == nil {
-		o.Map = Map{}
+	if o.Value == nil {
+		o.Value = Map{}
 	}
-	return o.Map.IndexSet(index, value)
+	return o.Value.IndexSet(index, value)
 }
 
 // IndexGet implements Object interface.
@@ -1188,7 +1188,7 @@ func (o *SyncMap) IndexGet(index Object) (Object, error) {
 	o.mu.RLock()
 	defer o.mu.RUnlock()
 
-	return o.Map.IndexGet(index)
+	return o.Value.IndexGet(index)
 }
 
 // Equal implements Object interface.
@@ -1196,7 +1196,7 @@ func (o *SyncMap) Equal(right Object) bool {
 	o.mu.RLock()
 	defer o.mu.RUnlock()
 
-	return o.Map.Equal(right)
+	return o.Value.Equal(right)
 }
 
 // IsFalsy implements Object interface.
@@ -1204,7 +1204,7 @@ func (o *SyncMap) IsFalsy() bool {
 	o.mu.RLock()
 	defer o.mu.RUnlock()
 
-	return o.Map.IsFalsy()
+	return o.Value.IsFalsy()
 }
 
 // CanIterate implements Object interface.
@@ -1215,13 +1215,13 @@ func (o *SyncMap) Iterate() Iterator {
 	o.mu.RLock()
 	defer o.mu.RUnlock()
 
-	return &SyncIterator{Iterator: o.Map.Iterate()}
+	return &SyncIterator{Iterator: o.Value.Iterate()}
 }
 
 // Get returns Object in map if exists.
 func (o *SyncMap) Get(index string) (value Object, exists bool) {
 	o.mu.RLock()
-	value, exists = o.Map[index]
+	value, exists = o.Value[index]
 	o.mu.RUnlock()
 	return
 }
@@ -1230,7 +1230,7 @@ func (o *SyncMap) Get(index string) (value Object, exists bool) {
 // Len implements LengthGetter interface.
 func (o *SyncMap) Len() int {
 	o.mu.RLock()
-	n := len(o.Map)
+	n := len(o.Value)
 	o.mu.RUnlock()
 	return n
 }
@@ -1240,7 +1240,23 @@ func (o *SyncMap) IndexDelete(key Object) error {
 	o.mu.Lock()
 	defer o.mu.Unlock()
 
-	return o.Map.IndexDelete(key)
+	return o.Value.IndexDelete(key)
+}
+
+// BinaryOp implements Object interface.
+func (o *SyncMap) BinaryOp(tok token.Token, right Object) (Object, error) {
+	o.mu.RLock()
+	defer o.mu.RUnlock()
+
+	return o.Value.BinaryOp(tok, right)
+}
+
+// CanCall implements Object interface.
+func (*SyncMap) CanCall() bool { return false }
+
+// Call implements Object interface.
+func (*SyncMap) Call(...Object) (Object, error) {
+	return nil, ErrNotCallable
 }
 
 // Error represents Error Object and implements error and Object interfaces.

@@ -31,7 +31,7 @@ func TestGobEncoder(t *testing.T) {
 		ugo.Bytes{},
 		ugo.Array{ugo.Bool(true), ugo.String("")},
 		ugo.Map{"b": ugo.Bool(true), "s": ugo.String("")},
-		&ugo.SyncMap{Map: ugo.Map{"i": ugo.Int(0), "u": ugo.Uint(0)}},
+		&ugo.SyncMap{Value: ugo.Map{"i": ugo.Int(0), "u": ugo.Uint(0)}},
 		&ugo.ObjectPtr{},
 		&time.Time{Value: gotime.Now()},
 		&json.EncoderOptions{Value: ugo.Float(0)},
@@ -283,7 +283,7 @@ func TestEncDecObjects(t *testing.T) {
 
 	syncMaps := []*ugo.SyncMap{}
 	for _, m := range maps {
-		syncMaps = append(syncMaps, &ugo.SyncMap{Map: m})
+		syncMaps = append(syncMaps, &ugo.SyncMap{Value: m})
 	}
 	for _, tC := range syncMaps {
 		msg := fmt.Sprintf("SyncMap(%v)", tC)

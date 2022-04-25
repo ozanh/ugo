@@ -887,13 +887,13 @@ func (o *SyncMap) MarshalBinary() ([]byte, error) {
 	defer (*ugo.SyncMap)(o).RUnlock()
 
 	var buf bytes.Buffer
-	if o.Map == nil {
+	if o.Value == nil {
 		buf.WriteByte(binSyncMapV1)
 		buf.WriteByte(0)
 		return buf.Bytes(), nil
 	}
 
-	b, err := Map(o.Map).MarshalBinary()
+	b, err := Map(o.Value).MarshalBinary()
 	if err != nil {
 		return nil, err
 	}
@@ -922,7 +922,7 @@ func (o *SyncMap) UnmarshalBinary(data []byte) error {
 	}
 
 	data[0] = binSyncMapV1
-	o.Map = (ugo.Map)(m)
+	o.Value = (ugo.Map)(m)
 	return nil
 }
 

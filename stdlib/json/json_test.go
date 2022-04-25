@@ -121,7 +121,7 @@ func TestCycle(t *testing.T) {
 	expectRun(t, `json:=import("json");m:={a:1};m.b=m;return string(json.Marshal(m))`,
 		nil, String(`error: json: unsupported value: encountered a cycle via map`))
 	expectRun(t, `param m;json:=import("json");m.b=m;return string(json.Marshal(m))`,
-		newOpts().Args(&SyncMap{Map: Map{}}),
+		newOpts().Args(&SyncMap{Value: Map{}}),
 		String(`error: json: unsupported value: encountered a cycle via syncMap`))
 
 	ptr := &ObjectPtr{}

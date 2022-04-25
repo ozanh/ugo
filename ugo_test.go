@@ -46,7 +46,7 @@ func TestToObject(t *testing.T) {
 		{iface: Object(nil), want: Undefined},
 		{iface: String("a"), want: String("a")},
 		{iface: CallableFunc(nil), want: Undefined},
-		{iface: CallableFunc(fn), want: &Function{Value: fn}},
+		{iface: fn, want: &Function{Value: fn}},
 		{iface: err, want: &Error{Message: err.Error(), Cause: err}},
 		{iface: error(nil), want: Undefined},
 		{iface: uint16(1), wantErr: true},
@@ -99,7 +99,7 @@ func TestToInterface(t *testing.T) {
 		{object: False, want: false},
 		{object: (*SyncMap)(nil), want: map[string]interface{}{}},
 		{
-			object: &SyncMap{Map: Map{"a": Int(1)}},
+			object: &SyncMap{Value: Map{"a": Int(1)}},
 			want:   map[string]interface{}{"a": int64(1)},
 		},
 	}

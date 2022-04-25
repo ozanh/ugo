@@ -175,8 +175,8 @@ func TestObjectString(t *testing.T) {
 	m := Map{"a": Int(1)}
 	require.Equal(t, `{"a": 1}`, m.String())
 	require.Equal(t, "{}", (&SyncMap{}).String())
-	require.Equal(t, m.String(), (&SyncMap{Map: m}).String())
-	require.Equal(t, "{}", (&SyncMap{Map: Map{}}).String())
+	require.Equal(t, m.String(), (&SyncMap{Value: m}).String())
+	require.Equal(t, "{}", (&SyncMap{Value: Map{}}).String())
 
 	require.Equal(t, "<function:>", (&Function{}).String())
 	require.Equal(t, "<function:xyz>", (&Function{Name: "xyz"}).String())
@@ -224,7 +224,7 @@ func TestObjectIsFalsy(t *testing.T) {
 	require.True(t, Map{}.IsFalsy())
 	require.False(t, Map{"a": Int(1)}.IsFalsy())
 	require.True(t, (&SyncMap{}).IsFalsy())
-	require.False(t, (&SyncMap{Map: Map{"a": Int(1)}}).IsFalsy())
+	require.False(t, (&SyncMap{Value: Map{"a": Int(1)}}).IsFalsy())
 	require.False(t, (&Function{}).IsFalsy())
 	require.False(t, (&BuiltinFunction{}).IsFalsy())
 	require.False(t, (&CompiledFunction{}).IsFalsy())
@@ -413,15 +413,15 @@ func TestObjectIndexGet(t *testing.T) {
 	require.Nil(t, err)
 	require.Equal(t, Int(1), v)
 
-	v, err = (&SyncMap{Map: Map{}}).IndexGet(Undefined)
+	v, err = (&SyncMap{Value: Map{}}).IndexGet(Undefined)
 	require.Nil(t, err)
 	require.Equal(t, Undefined, v)
 
-	v, err = (&SyncMap{Map: Map{"a": Int(1)}}).IndexGet(Int(0))
+	v, err = (&SyncMap{Value: Map{"a": Int(1)}}).IndexGet(Int(0))
 	require.Nil(t, err)
 	require.Equal(t, Undefined, v)
 
-	v, err = (&SyncMap{Map: Map{"a": Int(1)}}).IndexGet(String("a"))
+	v, err = (&SyncMap{Value: Map{"a": Int(1)}}).IndexGet(String("a"))
 	require.Nil(t, err)
 	require.Equal(t, Int(1), v)
 }
@@ -511,13 +511,13 @@ func TestObjectIndexSet(t *testing.T) {
 	require.Nil(t, err)
 	require.Equal(t, Int(2), v.(Map)["a"])
 
-	v = &SyncMap{Map: Map{}}
+	v = &SyncMap{Value: Map{}}
 	err = v.IndexSet(Undefined, Undefined)
 	require.Nil(t, err)
-	require.Equal(t, Undefined, v.(*SyncMap).Map["undefined"])
+	require.Equal(t, Undefined, v.(*SyncMap).Value["undefined"])
 
-	v = &SyncMap{Map: Map{"a": Int(1)}}
+	v = &SyncMap{Value: Map{"a": Int(1)}}
 	err = v.IndexSet(String("a"), Int(2))
 	require.Nil(t, err)
-	require.Equal(t, Int(2), v.(*SyncMap).Map["a"])
+	require.Equal(t, Int(2), v.(*SyncMap).Value["a"])
 }
