@@ -23,6 +23,7 @@ generate: version
 .PHONY: lint
 lint: version
 	staticcheck -checks all,-SA1019,-ST1000 ./...
+	go vet ./...
 
 .PHONY: generate-docs
 generate-docs: version
