@@ -1015,8 +1015,7 @@ func (c *Compiler) compileImportExpr(node *parser.ImportExpr) error {
 	case []byte:
 		module, exists := c.getModule(node.ModuleName)
 		if !exists {
-			module, err = c.compileModule(
-				node, node.ModuleName, v)
+			module, err = c.compileModule(node, node.ModuleName, v)
 			if err != nil {
 				return err
 			}
@@ -1032,8 +1031,7 @@ func (c *Compiler) compileImportExpr(node *parser.ImportExpr) error {
 		// load module
 		// if module is already stored, load from VM.modulesCache otherwise call compiled function
 		// and store copy of result to VM.modulesCache.
-		c.emit(node, OpLoadModule,
-			module.ConstantIndex, module.ModuleIndex)
+		c.emit(node, OpLoadModule, module.ConstantIndex, module.ModuleIndex)
 		jumpPos := c.emit(node, OpJumpFalsy, 0)
 		// modules should not accept parameters, to suppress the wrong number of arguments error
 		// set all params to undefined
@@ -1051,8 +1049,7 @@ func (c *Compiler) compileImportExpr(node *parser.ImportExpr) error {
 		// load module
 		// if module is already stored, load from VM.modulesCache otherwise copy object
 		// and store it to VM.modulesCache.
-		c.emit(node, OpLoadModule,
-			module.ConstantIndex, module.ModuleIndex)
+		c.emit(node, OpLoadModule, module.ConstantIndex, module.ModuleIndex)
 		jumpPos := c.emit(node, OpJumpFalsy, 0)
 		c.emit(node, OpStoreModule, module.ModuleIndex)
 		c.changeOperand(jumpPos, len(c.instructions))
