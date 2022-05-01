@@ -177,9 +177,10 @@ func resetGlobals() {
 }
 
 func TestExecuteScript(t *testing.T) {
-	scr, err := ioutil.ReadFile("testdata/fibtc.ugo")
+	const workdir = "./testdata"
+	scr, err := ioutil.ReadFile("./testdata/fibtc.ugo")
 	require.NoError(t, err)
-	require.NoError(t, executeScript(context.Background(), scr, nil))
+	require.NoError(t, executeScript(context.Background(), workdir, scr, nil))
 
 	// FIXME: Following is a flaky test which compromise CI
 	// Although runtime.Gosched() is called in script, scheduler may not switch
@@ -188,7 +189,7 @@ func TestExecuteScript(t *testing.T) {
 	// fix this issue but it will extend the test duration.
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
-	err = executeScript(ctx, scr, nil)
+	err = executeScript(ctx, workdir, scr, nil)
 	if err != nil {
 		if err != context.Canceled && err != ugo.ErrVMAborted {
 			t.Fatalf("unexpected error: %+v", err)

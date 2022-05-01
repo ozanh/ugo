@@ -67,7 +67,7 @@ type SimpleOptimizer struct {
 	disabledBuiltins []string
 	constants        []Object
 	instructions     []byte
-	moduleIndexes    *ModuleIndexes
+	moduleStore      *moduleStore
 	returnStmt       parser.ReturnStmt
 	file             *parser.File
 	errors           multipleErr
@@ -100,7 +100,7 @@ func NewOptimizer(
 		optimConsts:      opts.OptimizeConst,
 		optimExpr:        opts.OptimizeExpr,
 		disabledBuiltins: disabled,
-		moduleIndexes:    NewModuleIndexes(),
+		moduleStore:      newModuleStore(),
 		trace:            trace,
 	}
 }
@@ -222,10 +222,10 @@ func (so *SimpleOptimizer) slowEvalExpr(expr parser.Expr) (parser.Expr, bool) {
 	compiler := NewCompiler(
 		so.file.InputFile,
 		CompilerOptions{
-			SymbolTable:   st,
-			ModuleIndexes: so.moduleIndexes.Reset(),
-			Constants:     so.constants[:0],
-			Trace:         so.trace,
+			SymbolTable: st,
+			moduleStore: so.moduleStore.reset(),
+			Constants:   so.constants[:0],
+			Trace:       so.trace,
 		},
 	)
 	compiler.instructions = so.instructions[:0]

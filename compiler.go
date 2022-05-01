@@ -50,7 +50,7 @@ type (
 		instructions  []byte
 		sourceMap     map[int]int
 		moduleMap     *ModuleMap
-		moduleIndexes *ModuleIndexes
+		moduleStore   *moduleStore
 		modulePath    string
 		variadic      bool
 		loops         []*loopStmts
@@ -65,7 +65,6 @@ type (
 	CompilerOptions struct {
 		ModuleMap         *ModuleMap
 		ModulePath        string
-		ModuleIndexes     *ModuleIndexes
 		Constants         []Object
 		SymbolTable       *SymbolTable
 		Trace             io.Writer
@@ -75,6 +74,7 @@ type (
 		OptimizerMaxCycle int
 		OptimizeConst     bool
 		OptimizeExpr      bool
+		moduleStore       *moduleStore
 		constsCache       map[Object]int
 	}
 
@@ -85,24 +85,25 @@ type (
 		Err     error
 	}
 
-	// ModuleIndex represents indexes of a single module.
-	ModuleIndex struct {
-		ConstantIndex int
-		ModuleIndex   int
+	// moduleStoreItem represents indexes of a single module.
+	moduleStoreItem struct {
+		typ           int
+		constantIndex int
+		moduleIndex   int
 	}
 
-	// ModuleIndexes represents modules indexes and total count that are defined
+	// moduleStore represents modules indexes and total count that are defined
 	// while compiling.
-	ModuleIndexes struct {
-		Count   int
-		Indexes map[string]ModuleIndex
+	moduleStore struct {
+		count int
+		store map[string]moduleStoreItem
 	}
 
 	// loopStmts represents a loopStmts construct that the compiler uses to
 	// track the current loopStmts.
 	loopStmts struct {
-		Continues         []int
-		Breaks            []int
+		continues         []int
+		breaks            []int
 		lastTryCatchIndex int
 	}
 )
@@ -116,18 +117,16 @@ func (e *CompilerError) Unwrap() error {
 	return e.Err
 }
 
-// NewModuleIndexes returns a new ModuleIndexes object.
-func NewModuleIndexes() *ModuleIndexes {
-	return &ModuleIndexes{
-		Indexes: make(map[string]ModuleIndex),
+func newModuleStore() *moduleStore {
+	return &moduleStore{
+		store: make(map[string]moduleStoreItem),
 	}
 }
 
-// Reset resets ModuleIndexes to initial state to re-use.
-func (mi *ModuleIndexes) Reset() *ModuleIndexes {
-	mi.Count = 0
-	for k := range mi.Indexes {
-		delete(mi.Indexes, k)
+func (mi *moduleStore) reset() *moduleStore {
+	mi.count = 0
+	for k := range mi.store {
+		delete(mi.store, k)
 	}
 	return mi
 }
@@ -148,8 +147,8 @@ func NewCompiler(file *parser.SourceFile, opts CompilerOptions) *Compiler {
 		}
 	}
 
-	if opts.ModuleIndexes == nil {
-		opts.ModuleIndexes = NewModuleIndexes()
+	if opts.moduleStore == nil {
+		opts.moduleStore = newModuleStore()
 	}
 
 	var trace io.Writer
@@ -164,7 +163,7 @@ func NewCompiler(file *parser.SourceFile, opts CompilerOptions) *Compiler {
 		symbolTable:   opts.SymbolTable,
 		sourceMap:     make(map[int]int),
 		moduleMap:     opts.ModuleMap,
-		moduleIndexes: opts.ModuleIndexes,
+		moduleStore:   opts.moduleStore,
 		modulePath:    opts.ModulePath,
 		loopIndex:     -1,
 		tryCatchIndex: -1,
@@ -271,7 +270,7 @@ func (c *Compiler) Bytecode() *Bytecode {
 			Instructions: c.instructions,
 			SourceMap:    c.sourceMap,
 		},
-		NumModules: c.moduleIndexes.Count,
+		NumModules: c.moduleStore.count,
 	}
 }
 
@@ -474,18 +473,19 @@ func (c *Compiler) checkCyclicImports(node parser.Node, modulePath string) error
 	return nil
 }
 
-func (c *Compiler) addModule(name string, constantIndex int) ModuleIndex {
-	index := c.moduleIndexes.Count
-	c.moduleIndexes.Count++
-	c.moduleIndexes.Indexes[name] = ModuleIndex{
-		ConstantIndex: constantIndex,
-		ModuleIndex:   index,
+func (c *Compiler) addModule(name string, typ, constantIndex int) moduleStoreItem {
+	moduleIndex := c.moduleStore.count
+	c.moduleStore.count++
+	c.moduleStore.store[name] = moduleStoreItem{
+		typ:           typ,
+		constantIndex: constantIndex,
+		moduleIndex:   moduleIndex,
 	}
-	return c.moduleIndexes.Indexes[name]
+	return c.moduleStore.store[name]
 }
 
-func (c *Compiler) getModule(name string) (ModuleIndex, bool) {
-	indexes, ok := c.moduleIndexes.Indexes[name]
+func (c *Compiler) getModule(name string) (moduleStoreItem, bool) {
+	indexes, ok := c.moduleStore.store[name]
 	return indexes, ok
 }
 
@@ -493,18 +493,10 @@ func (c *Compiler) compileModule(
 	node parser.Node,
 	modulePath string,
 	src []byte,
-) (ModuleIndex, error) {
-	var (
-		modIndex ModuleIndex
-		err      error
-	)
+) (int, error) {
+	var err error
 	if err = c.checkCyclicImports(node, modulePath); err != nil {
-		return modIndex, err
-	}
-
-	modIndex, exists := c.getModule(modulePath)
-	if exists {
-		return modIndex, nil
+		return 0, err
 	}
 
 	modFile := c.file.Set().AddFile(modulePath, -1, len(src))
@@ -517,32 +509,32 @@ func (c *Compiler) compileModule(
 	var file *parser.File
 	file, err = p.ParseFile()
 	if err != nil {
-		return modIndex, err
+		return 0, err
 	}
 
 	symbolTable := NewSymbolTable().
 		DisableBuiltin(c.symbolTable.DisabledBuiltins()...)
 
-	fork := c.fork(modFile, modulePath, symbolTable)
+	moduleMap := c.moduleMap.Fork(modulePath)
+
+	fork := c.fork(modFile, modulePath, moduleMap, symbolTable)
 	err = fork.optimize(file)
 	if err != nil && err != errSkip {
-		err = c.error(node, err)
-		return modIndex, err
+		return 0, c.error(node, err)
 	}
 
 	if err = fork.Compile(file); err != nil {
-		return modIndex, err
+		return 0, err
 	}
 
 	bc := fork.Bytecode()
 	if bc.Main.NumLocals > 256 {
-		err = c.error(node, ErrSymbolLimit)
-		return modIndex, err
+		return 0, c.error(node, ErrSymbolLimit)
 	}
 
 	c.constants = bc.Constants
 	index := c.addConstant(bc.Main)
-	return c.addModule(modulePath, index), nil
+	return index, nil
 }
 
 func (c *Compiler) enterLoop() *loopStmts {
@@ -574,11 +566,11 @@ func (c *Compiler) currentLoop() *loopStmts {
 func (c *Compiler) fork(
 	file *parser.SourceFile,
 	modulePath string,
+	moduleMap *ModuleMap,
 	symbolTable *SymbolTable,
 ) *Compiler {
 	child := NewCompiler(file, CompilerOptions{
-		ModuleMap:         c.moduleMap,
-		ModuleIndexes:     c.moduleIndexes,
+		ModuleMap:         moduleMap,
 		ModulePath:        modulePath,
 		Constants:         c.constants,
 		SymbolTable:       symbolTable,
@@ -589,6 +581,7 @@ func (c *Compiler) fork(
 		OptimizerMaxCycle: c.opts.OptimizerMaxCycle,
 		OptimizeConst:     c.opts.OptimizeConst,
 		OptimizeExpr:      c.opts.OptimizeExpr,
+		moduleStore:       c.moduleStore,
 		constsCache:       c.constsCache,
 	})
 

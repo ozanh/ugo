@@ -25,13 +25,11 @@ func NewEval(opts CompilerOptions, globals Object, args ...Object) *Eval {
 	if globals == nil {
 		globals = Map{}
 	}
-
 	if opts.SymbolTable == nil {
 		opts.SymbolTable = NewSymbolTable()
 	}
-
-	if opts.ModuleIndexes == nil {
-		opts.ModuleIndexes = NewModuleIndexes()
+	if opts.moduleStore == nil {
+		opts.moduleStore = newModuleStore()
 	}
 
 	return &Eval{

@@ -571,7 +571,7 @@ func (c *Compiler) compileBranchStmt(node *parser.BranchStmt) error {
 			c.emit(node, OpFinalizer, curLoop.lastTryCatchIndex+1)
 			pos = c.emit(node, OpJump, 0)
 		}
-		curLoop.Breaks = append(curLoop.Breaks, pos)
+		curLoop.breaks = append(curLoop.breaks, pos)
 	case token.Continue:
 		curLoop := c.currentLoop()
 		if curLoop == nil {
@@ -585,7 +585,7 @@ func (c *Compiler) compileBranchStmt(node *parser.BranchStmt) error {
 			c.emit(node, OpFinalizer, curLoop.lastTryCatchIndex+1)
 			pos = c.emit(node, OpJump, 0)
 		}
-		curLoop.Continues = append(curLoop.Continues, pos)
+		curLoop.continues = append(curLoop.continues, pos)
 	default:
 		return c.errorf(node, "invalid branch statement: %s", node.Token.String())
 	}
@@ -687,11 +687,11 @@ func (c *Compiler) compileForStmt(stmt *parser.ForStmt) error {
 	}
 
 	// update all break/continue jump positions
-	for _, pos := range loop.Breaks {
+	for _, pos := range loop.breaks {
 		c.changeOperand(pos, postStmtPos)
 	}
 
-	for _, pos := range loop.Continues {
+	for _, pos := range loop.continues {
 		c.changeOperand(pos, postBodyPos)
 	}
 	return nil
@@ -785,11 +785,11 @@ func (c *Compiler) compileForInStmt(stmt *parser.ForInStmt) error {
 	c.changeOperand(postCondPos, postStmtPos)
 
 	// update all break/continue jump positions
-	for _, pos := range loop.Breaks {
+	for _, pos := range loop.breaks {
 		c.changeOperand(pos, postStmtPos)
 	}
 
-	for _, pos := range loop.Continues {
+	for _, pos := range loop.continues {
 		c.changeOperand(pos, postBodyPos)
 	}
 	return nil
@@ -806,7 +806,7 @@ func (c *Compiler) compileFuncLit(node *parser.FuncLit) error {
 		return c.error(node, err)
 	}
 
-	fork := c.fork(c.file, c.modulePath, symbolTable)
+	fork := c.fork(c.file, c.modulePath, c.moduleMap, symbolTable)
 	fork.variadic = node.Type.Params.VarArgs
 	if err := fork.Compile(node.Body); err != nil {
 		return err
@@ -997,31 +997,46 @@ func (c *Compiler) compileCallExpr(node *parser.CallExpr) error {
 }
 
 func (c *Compiler) compileImportExpr(node *parser.ImportExpr) error {
-	if node.ModuleName == "" {
+	moduleName := node.ModuleName
+	if moduleName == "" {
 		return c.errorf(node, "empty module name")
 	}
 
-	mod := c.moduleMap.Get(node.ModuleName)
-	if mod == nil {
-		return c.errorf(node, "module '%s' not found", node.ModuleName)
+	importer := c.moduleMap.Get(moduleName)
+	if importer == nil {
+		return c.errorf(node, "module '%s' not found", moduleName)
 	}
 
-	v, err := mod.Import(node.ModuleName)
-	if err != nil {
-		return err
+	if m, ok := importer.(ExtImporter); ok {
+		if name := m.Name(); name != "" {
+			moduleName = name
+		}
 	}
 
-	switch v := v.(type) {
-	case []byte:
-		module, exists := c.getModule(node.ModuleName)
-		if !exists {
-			module, err = c.compileModule(node, node.ModuleName, v)
+	module, exists := c.getModule(moduleName)
+	if !exists {
+		mod, err := importer.Import(moduleName)
+		if err != nil {
+			return c.error(node, err)
+		}
+		switch v := mod.(type) {
+		case []byte:
+			cidx, err := c.compileModule(node, moduleName, v)
 			if err != nil {
 				return err
 			}
+			module = c.addModule(moduleName, 1, cidx)
+		case Object:
+			module = c.addModule(moduleName, 2, c.addConstant(v))
+		default:
+			return c.errorf(node, "invalid import value type: %T", v)
 		}
+	}
+
+	switch module.typ {
+	case 1:
 		var numParams int
-		mod := c.constants[module.ConstantIndex]
+		mod := c.constants[module.constantIndex]
 		if cf, ok := mod.(*CompiledFunction); ok {
 			numParams = cf.NumParams
 			if cf.Variadic {
@@ -1031,7 +1046,7 @@ func (c *Compiler) compileImportExpr(node *parser.ImportExpr) error {
 		// load module
 		// if module is already stored, load from VM.modulesCache otherwise call compiled function
 		// and store copy of result to VM.modulesCache.
-		c.emit(node, OpLoadModule, module.ConstantIndex, module.ModuleIndex)
+		c.emit(node, OpLoadModule, module.constantIndex, module.moduleIndex)
 		jumpPos := c.emit(node, OpJumpFalsy, 0)
 		// modules should not accept parameters, to suppress the wrong number of arguments error
 		// set all params to undefined
@@ -1039,22 +1054,18 @@ func (c *Compiler) compileImportExpr(node *parser.ImportExpr) error {
 			c.emit(node, OpNull)
 		}
 		c.emit(node, OpCall, numParams, 0)
-		c.emit(node, OpStoreModule, module.ModuleIndex)
+		c.emit(node, OpStoreModule, module.moduleIndex)
 		c.changeOperand(jumpPos, len(c.instructions))
-	case Object:
-		module, exists := c.getModule(node.ModuleName)
-		if !exists {
-			module = c.addModule(node.ModuleName, c.addConstant(v))
-		}
+	case 2:
 		// load module
 		// if module is already stored, load from VM.modulesCache otherwise copy object
 		// and store it to VM.modulesCache.
-		c.emit(node, OpLoadModule, module.ConstantIndex, module.ModuleIndex)
+		c.emit(node, OpLoadModule, module.constantIndex, module.moduleIndex)
 		jumpPos := c.emit(node, OpJumpFalsy, 0)
-		c.emit(node, OpStoreModule, module.ModuleIndex)
+		c.emit(node, OpStoreModule, module.moduleIndex)
 		c.changeOperand(jumpPos, len(c.instructions))
 	default:
-		return c.errorf(node, "invalid import value type: %T", v)
+		return c.errorf(node, "invalid module type: %v", module.typ)
 	}
 	return nil
 }
