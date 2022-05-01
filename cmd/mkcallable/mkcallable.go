@@ -27,8 +27,7 @@ import (
 	"text/template"
 )
 
-// TODO (ozan): Throw error or convert unsupported result types.
-// We support (ugo.Object) or (ugo.Object, error) or (error) results now.
+// We support (ugo.Object) or (ugo.Object, error) or (error) results.
 
 const ugoCallablePrefix = "//ugo:callable"
 const ugoDot = "ugo."

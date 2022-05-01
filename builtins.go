@@ -486,7 +486,6 @@ func builtinLenFunc(arg Object) Object {
 }
 
 func builtinSortFunc(arg Object) (ret Object, err error) {
-	// TODO (ozan): Add Sorter interface.
 	switch obj := arg.(type) {
 	case Array:
 		sort.Slice(obj, func(i, j int) bool {
