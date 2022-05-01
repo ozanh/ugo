@@ -96,9 +96,11 @@ func (dg *docgroup) processBlocks(lines []string) {
 	)
 	block := unknown
 	for i := 0; i < len(lines); i++ {
+		line := lines[i]
+		line = strings.ReplaceAll(line, "\r", "")
+		line = strings.ReplaceAll(line, "\t", "    ")
 		switch block {
 		case unknown:
-			line := lines[i]
 			if reTypeHeader.MatchString(line) {
 				block = typeBlock
 			} else if reConstHeader.MatchString(line) {
@@ -111,7 +113,6 @@ func (dg *docgroup) processBlocks(lines []string) {
 		case typeBlock,
 			constBlock,
 			funcBlock:
-			line := lines[i]
 			if reLevel2header.MatchString(line) {
 				if i > 0 {
 					i--

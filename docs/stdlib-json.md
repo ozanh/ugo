@@ -13,10 +13,10 @@ Go Type
 // EncoderOptions represents the encoding options (quote, html escape) to
 // Marshal any Object.
 type EncoderOptions struct {
-	ugo.ObjectImpl
-	Value      ugo.Object
-	Quote      bool
-	EscapeHTML bool
+    ugo.ObjectImpl
+    Value      ugo.Object
+    Quote      bool
+    EscapeHTML bool
 }
 ```
 
@@ -44,8 +44,8 @@ Go Type
 // RawMessage represents raw encoded json message to directly use value of
 // MarshalJSON without encoding.
 type RawMessage struct {
-	ugo.ObjectImpl
-	Value []byte
+    ugo.ObjectImpl
+    Value []byte
 }
 ```
 
