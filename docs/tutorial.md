@@ -1042,7 +1042,7 @@ interface.
 ```go
 // IndexDeleter wraps the IndexDelete method to delete an index of an object.
 type IndexDeleter interface {
-	IndexDelete(Object) error
+    IndexDelete(Object) error
 }
 ```
 
@@ -1055,6 +1055,6 @@ implement this interface.
 ```go
 // LengthGetter wraps the Len method to get the number of elements of an object.
 type LengthGetter interface {
-	Len() int
+    Len() int
 }
 ```
