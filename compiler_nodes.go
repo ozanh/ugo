@@ -1007,8 +1007,9 @@ func (c *Compiler) compileImportExpr(node *parser.ImportExpr) error {
 		return c.errorf(node, "module '%s' not found", moduleName)
 	}
 
-	if m, ok := importer.(ExtImporter); ok {
-		if name := m.Name(); name != "" {
+	extImp, isExt := importer.(ExtImporter)
+	if isExt {
+		if name := extImp.Name(); name != "" {
 			moduleName = name
 		}
 	}
@@ -1021,7 +1022,13 @@ func (c *Compiler) compileImportExpr(node *parser.ImportExpr) error {
 		}
 		switch v := mod.(type) {
 		case []byte:
-			cidx, err := c.compileModule(node, moduleName, v)
+			var moduleMap *ModuleMap
+			if isExt {
+				moduleMap = c.moduleMap.Fork(moduleName)
+			} else {
+				moduleMap = c.baseModuleMap()
+			}
+			cidx, err := c.compileModule(node, moduleName, moduleMap, v)
 			if err != nil {
 				return err
 			}

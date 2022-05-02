@@ -45,7 +45,11 @@ import("../test6.ugo")
 println("test5")
 `,
 		"./foo/test6.ugo": `
+import("sourcemod")
 println("test6")
+`,
+		"./test7.ugo": `
+println("test7")
 `,
 	}
 	createModules(t, tempDir, files)
@@ -74,6 +78,10 @@ func() {
 `)
 	opts := ugo.DefaultCompilerOptions
 	opts.ModuleMap = ugo.NewModuleMap().
+		AddSourceModule("sourcemod", []byte(`
+import("./test7.ugo")
+println("sourcemod")
+`)).
 		SetExtImporter(&importers.FileImporter{WorkDir: tempDir})
 	bc, err := ugo.Compile(script, opts)
 	require.NoError(t, err)
@@ -81,7 +89,7 @@ func() {
 	require.NoError(t, err)
 	require.Equal(t, ugo.Undefined, ret)
 	require.Equal(t,
-		"test6\ntest5\ntest4\ntest3\ntest2\ntest1\nmain\n",
+		"test7\nsourcemod\ntest6\ntest5\ntest4\ntest3\ntest2\ntest1\nmain\n",
 		strings.ReplaceAll(buf.String(), "\r", ""),
 	)
 }

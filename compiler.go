@@ -489,9 +489,17 @@ func (c *Compiler) getModule(name string) (moduleStoreItem, bool) {
 	return indexes, ok
 }
 
+func (c *Compiler) baseModuleMap() *ModuleMap {
+	if c.parent == nil {
+		return c.moduleMap
+	}
+	return c.parent.baseModuleMap()
+}
+
 func (c *Compiler) compileModule(
 	node parser.Node,
 	modulePath string,
+	moduleMap *ModuleMap,
 	src []byte,
 ) (int, error) {
 	var err error
@@ -514,8 +522,6 @@ func (c *Compiler) compileModule(
 
 	symbolTable := NewSymbolTable().
 		DisableBuiltin(c.symbolTable.DisabledBuiltins()...)
-
-	moduleMap := c.moduleMap.Fork(modulePath)
 
 	fork := c.fork(modFile, modulePath, moduleMap, symbolTable)
 	err = fork.optimize(file)
