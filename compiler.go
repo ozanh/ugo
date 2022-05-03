@@ -117,20 +117,6 @@ func (e *CompilerError) Unwrap() error {
 	return e.Err
 }
 
-func newModuleStore() *moduleStore {
-	return &moduleStore{
-		store: make(map[string]moduleStoreItem),
-	}
-}
-
-func (mi *moduleStore) reset() *moduleStore {
-	mi.count = 0
-	for k := range mi.store {
-		delete(mi.store, k)
-	}
-	return mi
-}
-
 // NewCompiler creates a new Compiler object.
 func NewCompiler(file *parser.SourceFile, opts CompilerOptions) *Compiler {
 	if opts.SymbolTable == nil {
@@ -194,6 +180,8 @@ func Compile(script []byte, opts CompilerOptions) (*Bytecode, error) {
 	}
 
 	compiler := NewCompiler(srcFile, opts)
+	compiler.SetGlobalSymbolsIndex()
+
 	if opts.OptimizeConst || opts.OptimizeExpr {
 		err := compiler.optimize(pf)
 		if err != nil && err != errSkip {
@@ -210,6 +198,20 @@ func Compile(script []byte, opts CompilerOptions) (*Bytecode, error) {
 		return nil, ErrSymbolLimit
 	}
 	return bc, nil
+}
+
+// SetGlobalSymbolsIndex sets index of a global symbol. This is only required
+// when a global symbol is defined in SymbolTable and provided to compiler.
+// Otherwise, caller needs to append the constant to Constants, set the symbol
+// index and provide it to the Compiler. This should be called before
+// Compiler.Compile call.
+func (c *Compiler) SetGlobalSymbolsIndex() {
+	symbols := c.symbolTable.Symbols()
+	for _, s := range symbols {
+		if s.Scope == ScopeGlobal && s.Index == -1 {
+			s.Index = c.addConstant(String(s.Name))
+		}
+	}
 }
 
 // optimize runs the Optimizer and returns Optimizer object and error from Optimizer.
@@ -747,4 +749,18 @@ func IterateInstructions(insts []byte,
 		}
 		i += offset
 	}
+}
+
+func newModuleStore() *moduleStore {
+	return &moduleStore{
+		store: make(map[string]moduleStoreItem),
+	}
+}
+
+func (mi *moduleStore) reset() *moduleStore {
+	mi.count = 0
+	for k := range mi.store {
+		delete(mi.store, k)
+	}
+	return mi
 }
