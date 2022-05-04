@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Ozan Hacıbekiroğlu.
+// Copyright (c) 2020-2022 Ozan Hacıbekiroğlu.
 // Use of this source code is governed by a MIT License
 // that can be found in the LICENSE file.
 
@@ -27,7 +27,7 @@ const (
 
 var (
 	// Undefined represents undefined value.
-	Undefined Object = undefined{}
+	Undefined Object = &UndefinedType{}
 )
 
 // Object represents an object in the VM.
@@ -87,6 +87,16 @@ type Copier interface {
 	Copy() Object
 }
 
+// IndexDeleter wraps the IndexDelete method to delete an index of an object.
+type IndexDeleter interface {
+	IndexDelete(Object) error
+}
+
+// LengthGetter wraps the Len method to get the number of elements of an object.
+type LengthGetter interface {
+	Len() int
+}
+
 // ObjectImpl is the basic Object implementation and it does not nothing, and
 // helps to implement Object interface by embedding and overriding methods in
 // custom implementations. String and TypeName must be implemented otherwise
@@ -140,33 +150,36 @@ func (ObjectImpl) BinaryOp(_ token.Token, _ Object) (Object, error) {
 	return nil, ErrInvalidOperator
 }
 
-type undefined struct {
+// UndefinedType represents the type of global Undefined Object. One should use
+// the UndefinedType in type switches only.
+type UndefinedType struct {
 	ObjectImpl
 }
 
 // TypeName implements Object interface.
-func (o undefined) TypeName() string {
+func (o *UndefinedType) TypeName() string {
 	return "undefined"
 }
 
 // String implements Object interface.
-func (o undefined) String() string {
+func (o *UndefinedType) String() string {
 	return "undefined"
 }
 
 // Call implements Object interface.
-func (undefined) Call(_ ...Object) (Object, error) {
+func (*UndefinedType) Call(_ ...Object) (Object, error) {
 	return nil, ErrNotCallable
 }
 
 // Equal implements Object interface.
-func (o undefined) Equal(right Object) bool {
+func (o *UndefinedType) Equal(right Object) bool {
 	return right == Undefined
 }
 
-func (o undefined) BinaryOp(tok token.Token, right Object) (Object, error) {
+// BinaryOp implements Object interface.
+func (o *UndefinedType) BinaryOp(tok token.Token, right Object) (Object, error) {
 	switch right.(type) {
-	case undefined:
+	case *UndefinedType:
 		switch tok {
 		case token.Less, token.Greater:
 			return False, nil
@@ -187,11 +200,13 @@ func (o undefined) BinaryOp(tok token.Token, right Object) (Object, error) {
 		right.TypeName())
 }
 
-func (undefined) IndexGet(key Object) (Object, error) {
+// IndexGet implements Object interface.
+func (*UndefinedType) IndexGet(key Object) (Object, error) {
 	return Undefined, nil
 }
 
-func (undefined) IndexSet(key, value Object) error {
+// IndexSet implements Object interface.
+func (*UndefinedType) IndexSet(key, value Object) error {
 	return ErrNotIndexAssignable
 }
 
@@ -342,7 +357,7 @@ switchpos:
 			right = Int(0)
 		}
 		goto switchpos
-	case undefined:
+	case *UndefinedType:
 		switch tok {
 		case token.Less, token.LessEq:
 			return False, nil
@@ -358,6 +373,8 @@ switchpos:
 
 // String represents string values and implements Object interface.
 type String string
+
+var _ LengthGetter = String("")
 
 // TypeName implements Object interface.
 func (String) TypeName() string {
@@ -454,7 +471,7 @@ func (o String) BinaryOp(tok token.Token, right Object) (Object, error) {
 		case token.GreaterEq:
 			return Bool(string(o) >= string(v)), nil
 		}
-	case undefined:
+	case *UndefinedType:
 		switch tok {
 		case token.Less, token.LessEq:
 			return False, nil
@@ -473,10 +490,19 @@ func (o String) BinaryOp(tok token.Token, right Object) (Object, error) {
 		right.TypeName())
 }
 
+// Len implements LengthGetter interface.
+func (o String) Len() int {
+	return len(o)
+}
+
 // Bytes represents byte slice and implements Object interface.
 type Bytes []byte
 
-var _ Object = Bytes{}
+var (
+	_ Object       = Bytes{}
+	_ Copier       = Bytes{}
+	_ LengthGetter = Bytes{}
+)
 
 // TypeName implements Object interface.
 func (Bytes) TypeName() string {
@@ -600,7 +626,7 @@ func (o Bytes) BinaryOp(tok token.Token, right Object) (Object, error) {
 		case token.GreaterEq:
 			return Bool(string(o) >= string(v)), nil
 		}
-	case undefined:
+	case *UndefinedType:
 		switch tok {
 		case token.Less, token.LessEq:
 			return False, nil
@@ -612,6 +638,11 @@ func (o Bytes) BinaryOp(tok token.Token, right Object) (Object, error) {
 		tok.String(),
 		o.TypeName(),
 		right.TypeName())
+}
+
+// Len implements LengthGetter interface.
+func (o Bytes) Len() int {
+	return len(o)
 }
 
 // Function represents a function object and implements Object interface.
@@ -672,12 +703,12 @@ var _ Object = (*BuiltinFunction)(nil)
 
 // TypeName implements Object interface.
 func (*BuiltinFunction) TypeName() string {
-	return "builtin-function"
+	return "builtinFunction"
 }
 
 // String implements Object interface.
 func (o *BuiltinFunction) String() string {
-	return fmt.Sprintf("<builtin-function:%s>", o.Name)
+	return fmt.Sprintf("<builtinFunction:%s>", o.Name)
 }
 
 // Copy implements Copier interface.
@@ -711,7 +742,10 @@ func (o *BuiltinFunction) Call(args ...Object) (Object, error) {
 // Array represents array of objects and implements Object interface.
 type Array []Object
 
-var _ Object = Array{}
+var (
+	_ Object       = Array{}
+	_ LengthGetter = Array{}
+)
 
 // TypeName implements Object interface.
 func (Array) TypeName() string {
@@ -842,12 +876,12 @@ func (o Array) BinaryOp(tok token.Token, right Object) (Object, error) {
 		arr = append(arr, o...)
 		arr = append(arr, right)
 		return arr, nil
-	}
-	if right == Undefined {
-		switch tok {
-		case token.Less, token.LessEq:
+	case token.Less, token.LessEq:
+		if right == Undefined {
 			return False, nil
-		case token.Greater, token.GreaterEq:
+		}
+	case token.Greater, token.GreaterEq:
+		if right == Undefined {
 			return True, nil
 		}
 	}
@@ -865,17 +899,25 @@ func (o Array) Iterate() Iterator {
 	return &ArrayIterator{V: o}
 }
 
+// Len implements LengthGetter interface.
+func (o Array) Len() int {
+	return len(o)
+}
+
 // ObjectPtr represents a pointer variable.
 type ObjectPtr struct {
 	ObjectImpl
 	Value *Object
 }
 
-var _ Object = (*ObjectPtr)(nil)
+var (
+	_ Object = (*ObjectPtr)(nil)
+	_ Copier = (*ObjectPtr)(nil)
+)
 
 // TypeName implements Object interface.
 func (o *ObjectPtr) TypeName() string {
-	return "object-ptr"
+	return "objectPtr"
 }
 
 // String implements Object interface.
@@ -884,7 +926,7 @@ func (o *ObjectPtr) String() string {
 	if o.Value != nil {
 		v = *o.Value
 	}
-	return fmt.Sprintf("<object-ptr:%v>", v)
+	return fmt.Sprintf("<objectPtr:%v>", v)
 }
 
 // Copy implements Copier interface.
@@ -929,7 +971,12 @@ func (o *ObjectPtr) Call(args ...Object) (Object, error) {
 // Map represents map of objects and implements Object interface.
 type Map map[string]Object
 
-var _ Object = Map{}
+var (
+	_ Object       = Map{}
+	_ Copier       = Map{}
+	_ IndexDeleter = Map{}
+	_ LengthGetter = Map{}
+)
 
 // TypeName implements Object interface.
 func (Map) TypeName() string {
@@ -1057,39 +1104,71 @@ func (o Map) Iterate() Iterator {
 	return &MapIterator{V: o, keys: keys}
 }
 
-// SyncMap represents map of objects and implements Object interface.
-type SyncMap struct {
-	mu sync.RWMutex
-	Map
+// IndexDelete tries to delete the string value of key from the map.
+// IndexDelete implements IndexDeleter interface.
+func (o Map) IndexDelete(key Object) error {
+	delete(o, key.String())
+	return nil
 }
 
-var _ Object = (*SyncMap)(nil)
+// Len implements LengthGetter interface.
+func (o Map) Len() int {
+	return len(o)
+}
+
+// SyncMap represents map of objects and implements Object interface.
+type SyncMap struct {
+	mu    sync.RWMutex
+	Value Map
+}
+
+var (
+	_ Object       = (*SyncMap)(nil)
+	_ Copier       = (*SyncMap)(nil)
+	_ IndexDeleter = (*SyncMap)(nil)
+	_ LengthGetter = (*SyncMap)(nil)
+)
+
+// RLock locks the underlying mutex for reading.
+func (o *SyncMap) RLock() {
+	o.mu.RLock()
+}
+
+// RUnlock unlocks the underlying mutex for reading.
+func (o *SyncMap) RUnlock() {
+	o.mu.RUnlock()
+}
+
+// Lock locks the underlying mutex for writing.
+func (o *SyncMap) Lock() {
+	o.mu.Lock()
+}
+
+// Unlock unlocks the underlying mutex for writing.
+func (o *SyncMap) Unlock() {
+	o.mu.Unlock()
+}
 
 // TypeName implements Object interface.
 func (*SyncMap) TypeName() string {
-	return "sync-map"
+	return "syncMap"
 }
 
 // String implements Object interface.
 func (o *SyncMap) String() string {
 	o.mu.RLock()
 	defer o.mu.RUnlock()
-	if o.Map != nil {
-		return o.Map.String()
-	}
-	return ""
+
+	return o.Value.String()
 }
 
 // Copy implements Copier interface.
 func (o *SyncMap) Copy() Object {
-	if o.Map == nil {
-		return &SyncMap{
-			Map: Map{},
-		}
-	}
+	o.mu.RLock()
+	defer o.mu.RUnlock()
 
 	return &SyncMap{
-		Map: o.Map.Copy().(Map),
+		Value: o.Value.Copy().(Map),
 	}
 }
 
@@ -1098,10 +1177,10 @@ func (o *SyncMap) IndexSet(index, value Object) error {
 	o.mu.Lock()
 	defer o.mu.Unlock()
 
-	if o.Map != nil {
-		return o.Map.IndexSet(index, value)
+	if o.Value == nil {
+		o.Value = Map{}
 	}
-	return nil
+	return o.Value.IndexSet(index, value)
 }
 
 // IndexGet implements Object interface.
@@ -1109,10 +1188,7 @@ func (o *SyncMap) IndexGet(index Object) (Object, error) {
 	o.mu.RLock()
 	defer o.mu.RUnlock()
 
-	if o.Map != nil {
-		return o.Map.IndexGet(index)
-	}
-	return Undefined, nil
+	return o.Value.IndexGet(index)
 }
 
 // Equal implements Object interface.
@@ -1120,10 +1196,7 @@ func (o *SyncMap) Equal(right Object) bool {
 	o.mu.RLock()
 	defer o.mu.RUnlock()
 
-	if o.Map != nil {
-		return o.Map.Equal(right)
-	}
-	return false
+	return o.Value.Equal(right)
 }
 
 // IsFalsy implements Object interface.
@@ -1131,10 +1204,7 @@ func (o *SyncMap) IsFalsy() bool {
 	o.mu.RLock()
 	defer o.mu.RUnlock()
 
-	if o.Map != nil {
-		return o.Map.IsFalsy()
-	}
-	return true
+	return o.Value.IsFalsy()
 }
 
 // CanIterate implements Object interface.
@@ -1145,19 +1215,48 @@ func (o *SyncMap) Iterate() Iterator {
 	o.mu.RLock()
 	defer o.mu.RUnlock()
 
-	if o.Map == nil {
-		return &MapIterator{V: Map{}, keys: []string{}}
-	}
-	return &SyncIterator{Iterator: o.Map.Iterate()}
+	return &SyncIterator{Iterator: o.Value.Iterate()}
 }
 
 // Get returns Object in map if exists.
 func (o *SyncMap) Get(index string) (value Object, exists bool) {
 	o.mu.RLock()
+	value, exists = o.Value[index]
+	o.mu.RUnlock()
+	return
+}
+
+// Len returns the number of items in the map.
+// Len implements LengthGetter interface.
+func (o *SyncMap) Len() int {
+	o.mu.RLock()
+	n := len(o.Value)
+	o.mu.RUnlock()
+	return n
+}
+
+// IndexDelete tries to delete the string value of key from the map.
+func (o *SyncMap) IndexDelete(key Object) error {
+	o.mu.Lock()
+	defer o.mu.Unlock()
+
+	return o.Value.IndexDelete(key)
+}
+
+// BinaryOp implements Object interface.
+func (o *SyncMap) BinaryOp(tok token.Token, right Object) (Object, error) {
+	o.mu.RLock()
 	defer o.mu.RUnlock()
 
-	value, exists = o.Map[index]
-	return
+	return o.Value.BinaryOp(tok, right)
+}
+
+// CanCall implements Object interface.
+func (*SyncMap) CanCall() bool { return false }
+
+// Call implements Object interface.
+func (*SyncMap) Call(...Object) (Object, error) {
+	return nil, ErrNotCallable
 }
 
 // Error represents Error Object and implements error and Object interfaces.
@@ -1167,7 +1266,10 @@ type Error struct {
 	Cause   error
 }
 
-var _ Object = (*Error)(nil)
+var (
+	_ Object = (*Error)(nil)
+	_ Copier = (*Error)(nil)
+)
 
 func (o *Error) Unwrap() error {
 	return o.Cause
@@ -1283,6 +1385,11 @@ type RuntimeError struct {
 	fileSet *parser.SourceFileSet
 	Trace   []parser.Pos
 }
+
+var (
+	_ Object = (*RuntimeError)(nil)
+	_ Copier = (*RuntimeError)(nil)
+)
 
 func (o *RuntimeError) Unwrap() error {
 	if o.Err != nil {
@@ -1482,7 +1589,7 @@ func (st StackTrace) Format(s fmt.State, verb rune) {
 				} else {
 					_, _ = io.WriteString(s, "\n\tat ")
 				}
-				_, _ = fmt.Fprintf(s, "%+v", parser.SourceFilePos(f))
+				_, _ = fmt.Fprintf(s, "%+v", f)
 			}
 		default:
 			_, _ = fmt.Fprintf(s, "%v", []parser.SourceFilePos(st))

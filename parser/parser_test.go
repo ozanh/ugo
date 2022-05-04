@@ -93,7 +93,10 @@ c := counter ? v3 : undefined
 	require.NoError(t, err)
 	var out bytes.Buffer
 	parse(sample, &out)
-	require.Equal(t, string(golden), out.String())
+	require.Equal(t,
+		strings.ReplaceAll(string(golden), "\r\n", "\n"),
+		strings.ReplaceAll(out.String(), "\r\n", "\n"),
+	)
 }
 
 func TestParserError(t *testing.T) {

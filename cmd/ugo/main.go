@@ -1,7 +1,8 @@
-// Copyright (c) 2020 Ozan Hacıbekiroğlu.
+// Copyright (c) 2020-2022 Ozan Hacıbekiroğlu.
 // Use of this source code is governed by a MIT License
 // that can be found in the LICENSE file.
 
+//go:build !js
 // +build !js
 
 package main
@@ -14,6 +15,7 @@ import (
 	"io/ioutil"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"strconv"
 	"strings"
@@ -22,9 +24,11 @@ import (
 	"github.com/c-bata/go-prompt"
 
 	"github.com/ozanh/ugo"
+	"github.com/ozanh/ugo/importers"
 	"github.com/ozanh/ugo/token"
 
 	ugofmt "github.com/ozanh/ugo/stdlib/fmt"
+	ugojson "github.com/ozanh/ugo/stdlib/json"
 	ugostrings "github.com/ozanh/ugo/stdlib/strings"
 	ugotime "github.com/ozanh/ugo/stdlib/time"
 )
@@ -61,7 +65,7 @@ var (
 )
 
 var scriptGlobals = &ugo.SyncMap{
-	Map: ugo.Map{
+	Value: ugo.Map{
 		"Gosched": &ugo.Function{
 			Name: "Gosched",
 			Value: func(args ...ugo.Object) (ugo.Object, error) {
@@ -87,14 +91,9 @@ type repl struct {
 }
 
 func newREPL(ctx context.Context, stdout io.Writer, cw prompt.ConsoleWriter) *repl {
-	moduleMap := ugo.NewModuleMap()
-	moduleMap.AddBuiltinModule("time", ugotime.Module).
-		AddBuiltinModule("strings", ugostrings.Module).
-		AddBuiltinModule("fmt", ugofmt.Module)
-
 	opts := ugo.CompilerOptions{
 		ModulePath:        "(repl)",
-		ModuleMap:         moduleMap,
+		ModuleMap:         defaultModuleMap("."),
 		SymbolTable:       ugo.NewSymbolTable(),
 		OptimizerMaxCycle: ugo.TraceCompilerOptions.OptimizerMaxCycle,
 		TraceParser:       traceParser,
@@ -285,6 +284,15 @@ func (r *repl) executeScript(line string) {
 	}
 }
 
+func defaultModuleMap(workdir string) *ugo.ModuleMap {
+	return ugo.NewModuleMap().
+		AddBuiltinModule("time", ugotime.Module).
+		AddBuiltinModule("strings", ugostrings.Module).
+		AddBuiltinModule("fmt", ugofmt.Module).
+		AddBuiltinModule("json", ugojson.Module).
+		SetExtImporter(&importers.FileImporter{WorkDir: workdir})
+}
+
 func humanFriendlySize(b uint64) string {
 	if b < 1024 {
 		return fmt.Sprint(strconv.FormatUint(b, 10), " bytes")
@@ -352,7 +360,7 @@ func newPrompt(
 	_, _ = fmt.Fprintln(w, "Copyright (c) 2020 Ozan Hacıbekiroğlu")
 	_, _ = fmt.Fprintln(w, "License: MIT")
 	_, _ = fmt.Fprintln(w, "Press Ctrl+D to exit or use .exit command")
-	_, _ = fmt.Fprintln(w, logo)
+	_, _ = fmt.Fprint(w, logo)
 
 	options := []prompt.Option{
 		prompt.OptionPrefix(promptPrefix),
@@ -433,14 +441,16 @@ func parseFlags(
 	if filePath == "-" {
 		return
 	}
-
-	if _, err = os.Stat(filePath); err != nil {
-		return
-	}
+	_, err = os.Stat(filePath)
 	return
 }
 
-func executeScript(ctx context.Context, scr []byte, traceOut io.Writer) error {
+func executeScript(
+	ctx context.Context,
+	workdir string,
+	script []byte,
+	traceOut io.Writer,
+) error {
 	opts := ugo.DefaultCompilerOptions
 	if traceEnabled {
 		opts.Trace = traceOut
@@ -449,12 +459,9 @@ func executeScript(ctx context.Context, scr []byte, traceOut io.Writer) error {
 		opts.TraceOptimizer = traceOptimizer
 	}
 
-	opts.ModuleMap = ugo.NewModuleMap().
-		AddBuiltinModule("time", ugotime.Module).
-		AddBuiltinModule("strings", ugostrings.Module).
-		AddBuiltinModule("fmt", ugofmt.Module)
+	opts.ModuleMap = defaultModuleMap(workdir)
 
-	bc, err := ugo.Compile(scr, opts)
+	bc, err := ugo.Compile(script, opts)
 	if err != nil {
 		return err
 	}
@@ -504,15 +511,19 @@ func main() {
 			defer c()
 		}
 
-		var script []byte
+		var (
+			workdir = "."
+			script  []byte
+		)
 		if filePath == "-" {
 			script, err = ioutil.ReadAll(os.Stdin)
 		} else {
+			workdir = filepath.Dir(filePath)
 			script, err = ioutil.ReadFile(filePath)
 		}
 
 		checkErr(err, cancel)
-		err = executeScript(ctx, script, os.Stdout)
+		err = executeScript(ctx, workdir, script, os.Stdout)
 		checkErr(err, cancel)
 		return
 	}

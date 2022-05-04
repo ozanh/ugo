@@ -6,12 +6,13 @@ import (
 	"fmt"
 	"os"
 	"reflect"
-	"strconv"
 	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/ozanh/ugo/tests"
 
 	. "github.com/ozanh/ugo"
 )
@@ -659,11 +660,11 @@ func TestVMBuiltinFunction(t *testing.T) {
 	expectErrIs(t, `delete({})`, nil, ErrWrongNumArguments)
 	expectErrIs(t, `delete({}, "", "")`, nil, ErrWrongNumArguments)
 	expectErrIs(t, `delete([], "")`, nil, ErrType)
-	expectErrIs(t, `delete({}, 1)`, nil, ErrType)
+	expectRun(t, `delete({}, 1)`, nil, Undefined)
 
-	g := &SyncMap{Map: Map{"out": &SyncMap{Map: Map{"a": Int(1)}}}}
+	g := &SyncMap{Value: Map{"out": &SyncMap{Value: Map{"a": Int(1)}}}}
 	expectRun(t, `global out; delete(out, "a"); return out`,
-		newOpts().Globals(g).Skip2Pass(), &SyncMap{Map: Map{}})
+		newOpts().Globals(g).Skip2Pass(), &SyncMap{Value: Map{}})
 
 	expectRun(t, `return copy(undefined)`, nil, Undefined)
 	expectRun(t, `return copy(1)`, nil, Int(1))
@@ -746,7 +747,7 @@ func TestVMBuiltinFunction(t *testing.T) {
 	expectRun(t, `return contains(bytes(1, 2, 3, 4), bytes(1, 3))`, nil, False)
 	expectRun(t, `return contains(undefined, "")`, nil, False)
 	expectRun(t, `return contains(undefined, 1)`, nil, False)
-	g = &SyncMap{Map: Map{"a": Int(1)}}
+	g = &SyncMap{Value: Map{"a": Int(1)}}
 	expectRun(t, `return contains(globals(), "a")`,
 		newOpts().Globals(g).Skip2Pass(), True)
 	expectErrIs(t, `contains()`, nil, ErrWrongNumArguments)
@@ -768,7 +769,7 @@ func TestVMBuiltinFunction(t *testing.T) {
 	expectRun(t, `return len(["a"])`, nil, Int(1))
 	expectRun(t, `return len({a: 2})`, nil, Int(1))
 	expectRun(t, `return len(bytes(0, 1, 2))`, nil, Int(3))
-	g = &SyncMap{Map: Map{"a": Int(5)}}
+	g = &SyncMap{Value: Map{"a": Int(5)}}
 	expectRun(t, `return len(globals())`,
 		newOpts().Globals(g).Skip2Pass(), Int(1))
 	expectErrIs(t, `len()`, nil, ErrWrongNumArguments)
@@ -824,8 +825,8 @@ func TestVMBuiltinFunction(t *testing.T) {
 	expectRun(t, `return typeName({})`, nil, String("map"))
 	expectRun(t, `return typeName(error(""))`, nil, String("error"))
 	expectRun(t, `return typeName(bytes())`, nil, String("bytes"))
-	expectRun(t, `return typeName(func(){})`, nil, String("compiled-function"))
-	expectRun(t, `return typeName(append)`, nil, String("builtin-function"))
+	expectRun(t, `return typeName(func(){})`, nil, String("compiledFunction"))
+	expectRun(t, `return typeName(append)`, nil, String("builtinFunction"))
 	expectErrIs(t, `typeName()`, nil, ErrWrongNumArguments)
 	expectErrIs(t, `typeName("", "")`, nil, ErrWrongNumArguments)
 
@@ -1152,7 +1153,7 @@ func TestVMBuiltinFunction(t *testing.T) {
 	}
 
 	expectRun(t, `global sm; return isSyncMap(sm)`,
-		newOpts().Globals(Map{"sm": &SyncMap{Map: Map{}}}), True)
+		newOpts().Globals(Map{"sm": &SyncMap{Value: Map{}}}), True)
 
 	expectRun(t, `return isError(WrongNumArgumentsError.New(""), WrongNumArgumentsError)`,
 		nil, True)
@@ -1398,14 +1399,14 @@ func TestVMForIn(t *testing.T) {
 	expectRun(t, `out := ""; func() { for k, v in {a:2,b:3,c:4} { out = k; if v==3 { break } } }(); return out`,
 		nil, String("b")) // key, value
 
-	// sync-map
-	g := Map{"syncMap": &SyncMap{Map: Map{"a": Int(2), "b": Int(3), "c": Int(4)}}}
+	// syncMap
+	g := Map{"syncMap": &SyncMap{Value: Map{"a": Int(2), "b": Int(3), "c": Int(4)}}}
 	expectRun(t, `out := 0; for v in globals().syncMap { out += v }; return out`,
 		newOpts().Globals(g).Skip2Pass(), Int(9)) // value
 	expectRun(t, `out := ""; for k, v in globals().syncMap { out = k; if v==3 { break } }; return out`,
 		newOpts().Globals(g).Skip2Pass(), String("b")) // key, value
 	expectRun(t, `out := ""; for k, _ in globals().syncMap { out += k }; return out`,
-		newOpts().Globals(Map{"syncMap": &SyncMap{Map: Map{"a": Int(2)}}}).Skip2Pass(), String("a")) // key, _
+		newOpts().Globals(Map{"syncMap": &SyncMap{Value: Map{"a": Int(2)}}}).Skip2Pass(), String("a")) // key, _
 	expectRun(t, `out := 0; for _, v in globals().syncMap { out += v }; return out`,
 		newOpts().Globals(g).Skip2Pass(), Int(9)) // _, value
 	expectRun(t, `out := ""; func() { for k, v in globals().syncMap { out = k; if v==3 { break } } }(); return out`,
@@ -3421,7 +3422,7 @@ func expectErrorGen(
 	for _, tC := range testCases {
 		t.Run(tC.name, func(t *testing.T) {
 			t.Helper()
-			tC.opts.Trace = &tC.tracer
+			tC.opts.Trace = &tC.tracer // nolint exportloopref
 			compiled, err := Compile([]byte(script), tC.opts)
 			if opts.isCompilerErr {
 				require.Error(t, err)
@@ -3473,7 +3474,7 @@ func expectRun(t *testing.T, script string, opts *testopts, expect Object) {
 	for _, tC := range testCases {
 		t.Run(tC.name, func(t *testing.T) {
 			t.Helper()
-			tC.opts.Trace = &tC.tracer
+			tC.opts.Trace = &tC.tracer // nolint exportloopref
 			gotBc, err := Compile([]byte(script), tC.opts)
 			require.NoError(t, err)
 			// create a copy of the bytecode before execution to test bytecode
@@ -3501,74 +3502,9 @@ func expectRun(t *testing.T, script string, opts *testopts, expect Object) {
 				var buf bytes.Buffer
 				gotBc.Fprint(&buf)
 				t.Fatalf("Objects not equal:\nExpected:\n%s\nGot:\n%s\nScript:\n%s\n%s\n",
-					sdump(expect), sdump(got), script, buf.String())
+					tests.Sdump(expect), tests.Sdump(got), script, buf.String())
 			}
 			testBytecodesEqual(t, &expectBc, gotBc, true)
 		})
-	}
-}
-
-func sdump(value interface{}) string {
-	if value == nil {
-		return fmt.Sprintf("(%[1]T) %[1]v\n", value)
-	}
-	typ := reflect.TypeOf(value)
-	switch typ.Kind() {
-	case reflect.Slice:
-		val := reflect.ValueOf(value)
-		var sb strings.Builder
-		sb.WriteString(fmt.Sprintf("(%+v len=%d cap=%d) {",
-			typ, val.Len(), val.Cap()))
-		sz := val.Len()
-		if sz > 0 {
-			sb.WriteString("\n")
-		} else {
-			sb.WriteString("}\n")
-			return sb.String()
-		}
-		for i := 0; i < sz; i++ {
-			sb.WriteString("#")
-			sb.WriteString(strconv.Itoa(i))
-			sb.WriteString("  | ")
-			elem := val.Index(i).Elem()
-			var iface interface{}
-			if elem.IsValid() && elem.CanInterface() {
-				iface = elem.Interface()
-			}
-			sb.WriteString(sdump(iface))
-		}
-		sb.WriteString(fmt.Sprintf("= %#v\n", value))
-		sb.WriteString("}\n")
-		return sb.String()
-	case reflect.Map:
-		val := reflect.ValueOf(value)
-		keys := val.MapKeys()
-		var sb strings.Builder
-		sb.WriteString(fmt.Sprintf("(%+v len=%d) {", typ, len(keys)))
-		if len(keys) == 0 {
-			sb.WriteString("}\n")
-			return sb.String()
-		}
-		sb.WriteString("\n")
-		for _, k := range keys {
-			sb.WriteString(fmt.Sprintf("%#v:", k))
-			var iface interface{}
-			vkind := val.MapIndex(k).Kind()
-			if vkind == reflect.Ptr || vkind == reflect.Interface {
-				elem := val.MapIndex(k).Elem()
-				if elem.IsValid() && elem.CanInterface() {
-					iface = elem.Interface()
-				}
-				sb.WriteString(sdump(iface))
-			} else {
-				v := val.MapIndex(k).Interface()
-				sb.WriteString(sdump(v))
-			}
-		}
-		sb.WriteString(fmt.Sprintf("= %#v\n", value))
-		sb.WriteString("}\n")
-		return sb.String()
-	default:
-		return fmt.Sprintf("(%+v) %+v\n", typ, value)
 	}
 }

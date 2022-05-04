@@ -837,7 +837,7 @@ func TestVMExamples(t *testing.T) {
 
 	expectRun(t, scr, newOpts().Args(Int(2)), Int(5))
 
-	g = &SyncMap{Map: Map{"stats": Map{"fn1": Int(0), "fn2": Int(0)}}}
+	g = &SyncMap{Value: Map{"stats": Map{"fn1": Int(0), "fn2": Int(0)}}}
 	expectRun(t, `
 	global stats
 
@@ -858,6 +858,6 @@ func TestVMExamples(t *testing.T) {
 		/* ... */
 	}
 	`).Globals(g).Skip2Pass(), Undefined)
-	require.Equal(t, Int(1), g.(*SyncMap).Map["stats"].(Map)["fn1"])
-	require.Equal(t, Int(1), g.(*SyncMap).Map["stats"].(Map)["fn2"])
+	require.Equal(t, Int(1), g.(*SyncMap).Value["stats"].(Map)["fn1"])
+	require.Equal(t, Int(1), g.(*SyncMap).Value["stats"].(Map)["fn2"])
 }

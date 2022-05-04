@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Ozan Hacıbekiroğlu.
+// Copyright (c) 2020-2022 Ozan Hacıbekiroğlu.
 // Use of this source code is governed by a MIT License
 // that can be found in the LICENSE file.
 
@@ -7,7 +7,8 @@ package ugo
 import (
 	"errors"
 	"fmt"
-	"runtime/debug"
+	"runtime"
+	"strconv"
 	"sync"
 	"sync/atomic"
 
@@ -507,7 +508,7 @@ VMLoop:
 			numSel := int(vm.curInsts[vm.ip+1])
 			tp := vm.sp - 1 - numSel
 			target := vm.stack[tp]
-			var value Object = Undefined
+			value := Undefined
 
 			for ; numSel > 0; numSel-- {
 				ptr := vm.sp - numSel
@@ -647,8 +648,8 @@ VMLoop:
 				vm.stack[vm.sp] = vm.constants[cidx]
 				vm.sp++
 				// load module by putting true for subsequent OpJumpFalsy
-				// if module is a compiled-function it will be called and result will be stored in module cache
-				// if module is not a compiled-function, copy of object will be stored in module cache
+				// if module is a compiledFunction it will be called and result will be stored in module cache
+				// if module is not a compiledFunction, copy of object will be stored in module cache
 				vm.stack[vm.sp] = True
 				vm.sp++
 			} else {
@@ -784,7 +785,7 @@ func (vm *VM) handlePanic(r interface{}, globals Object) {
 
 		if err := vm.throwGenErr(fmt.Errorf("%v", r)); err != nil {
 			vm.err = err
-			gostack := debug.Stack()
+			gostack := debugStack()
 			if vm.err != nil {
 				vm.err = fmt.Errorf("panic: %v %w\nGo Stack:\n%s",
 					r, vm.err, gostack)
@@ -796,7 +797,7 @@ func (vm *VM) handlePanic(r interface{}, globals Object) {
 		return
 	}
 
-	gostack := debug.Stack()
+	gostack := debugStack()
 
 	if vm.err != nil {
 		vm.err = fmt.Errorf("panic: %v error: %w\nGo Stack:\n%s",
@@ -829,7 +830,7 @@ func (vm *VM) execOpSetupTry() {
 }
 
 func (vm *VM) execOpSetupCatch() {
-	var value Object = Undefined
+	value := Undefined
 	errHandlers := vm.curFrame.errHandlers
 
 	if errHandlers.hasHandler() {
@@ -1240,7 +1241,7 @@ func (vm *VM) execOpSliceIndex() error {
 	}
 	var lowIdx int
 	switch v := left.(type) {
-	case undefined:
+	case *UndefinedType:
 		lowIdx = 0
 	case Int:
 		lowIdx = int(v)
@@ -1253,7 +1254,7 @@ func (vm *VM) execOpSliceIndex() error {
 	}
 	var highIdx int
 	switch v := right.(type) {
-	case undefined:
+	case *UndefinedType:
 		highIdx = objLen
 	case Int:
 		highIdx = int(v)
@@ -1395,4 +1396,34 @@ func getFrameSourcePos(frame *frame) parser.Pos {
 		return parser.NoPos
 	}
 	return frame.fn.SourcePos(frame.ip + 1)
+}
+
+func wantEqXGotY(x, y int) string {
+	buf := make([]byte, 0, 20)
+	buf = append(buf, "want="...)
+	buf = strconv.AppendInt(buf, int64(x), 10)
+	buf = append(buf, " got="...)
+	buf = strconv.AppendInt(buf, int64(y), 10)
+	return string(buf)
+}
+
+func wantGEqXGotY(x, y int) string {
+	buf := make([]byte, 0, 20)
+	buf = append(buf, "want>="...)
+	buf = strconv.AppendInt(buf, int64(x), 10)
+	buf = append(buf, " got="...)
+	buf = strconv.AppendInt(buf, int64(y), 10)
+	return string(buf)
+}
+
+// Ported from runtime/debug.Stack
+func debugStack() []byte {
+	buf := make([]byte, 1024)
+	for {
+		n := runtime.Stack(buf, false)
+		if n < len(buf) {
+			return buf[:n]
+		}
+		buf = make([]byte, 2*len(buf))
+	}
 }

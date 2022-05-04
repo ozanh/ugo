@@ -45,19 +45,21 @@ c := append(undefined, "a", "b", 'c')    // c == ["a", "b", 'c']
 
 ### delete
 
-Deletes the element with the specified key from the map type. First argument
-must be a map type and second argument must be a string type. (Like Go's
-`delete` builtin except keys are always string). `delete` returns `undefined`
-value if successful and it mutates given map.
+Deletes the element with the specified key from an object type. First argument
+should implement `IndexDeleter` interface and second argument is converted to
+string to delete specified string index. `map` and `syncMap` types implement
+`IndexDeleter` interface. `delete` returns `undefined` value if successful and
+it mutates given object.
 
 **Syntax**
 
-> `delete(mapLike, key)`
+> `delete(object, key)`
 
 **Parameters**
 
-- > `mapLike`: map or sync-map object to delete given key from.
-- > `key`: map key as string type.
+- > `object`: map, syncMap or object implementing `IndexDeleter` to delete given
+  > key from.
+- > `key`: String value of the key will be used as index.
 
 **Return Value**
 
@@ -88,7 +90,7 @@ Creates a copy of the given variable. `copy` function calls `Copy() Object`
 method if implemented, which is expected to return a deep-copy of the value it
 holds. int, uint, char, float, string, bool types do not implement a
 [`Copier`](tutorial.md#interfaces) interface which wraps `Copy() Object` method.
-Assignment is sufficient to copy these types. array, bytes, map, sync-map can be
+Assignment is sufficient to copy these types. array, bytes, map, syncMap can be
 deeply copied with `copy` builtin function.
 
 **Syntax**
@@ -174,7 +176,7 @@ Reports whether given element is in object.
   - string
   - bytes
   - map
-  - sync-map
+  - syncMap
   - undefined: contains returns false if object value is undefined
 - > `element`:
   - if object's type is array, element can be of any type and sequential search
@@ -183,7 +185,7 @@ Reports whether given element is in object.
     representation is searched as substring.
   - if object's type is bytes, element can be of int, uint, char, string or
     bytes type.
-  - if object's type is map or sync-map, element's string representation is
+  - if object's type is map or syncMap, element's string representation is
     looked up in the map's keys.
   - if object value is undefined, element is ignored.
 
@@ -215,9 +217,10 @@ v = contains({foo: "bar"}, "foo")          // v == true
 
 ### len
 
-Returns the number of elements if the given variable is array, string, bytes,
-map, sync-map, otherwise it returns 0. Note that, `len` returns byte count of
-string values.
+Returns the number of elements if the given variable implements `LengthGetter`
+interface. `array`, `string`, `bytes`, `map`, `syncMap` implements
+`LengthGetter`. If object doesn't implement `LengthGetter`, it returns 0.
+Note that, `len` returns byte count of string values.
 
 **Syntax**
 
@@ -230,11 +233,12 @@ string values.
   - string
   - bytes
   - map
-  - sync-map
+  - syncMap
+  - other types implementing `LengthGetter`
 
 **Return Value**
 
-> non-negative int value
+> int value
 
 **Runtime Errors**
 
@@ -624,7 +628,7 @@ v4 := float(false)        // v4 == 0.0
 ### string
 
 Converts the given object to a string value and returns it. It calls `String`
-method of the object under the hood. Note that, map or sync-map types are
+method of the object under the hood. Note that, map or syncMap types are
 derived from Go's map type which has randomized iteration. This may cause
 different results.
 
@@ -1042,7 +1046,7 @@ Reports whether given object is of map type.
 
 ### isSyncMap
 
-Reports whether given object is of sync-map type.
+Reports whether given object is of syncMap type.
 
 **Syntax**
 
@@ -1108,8 +1112,8 @@ Reports whether given object value is undefined.
 
 ### isFunction
 
-Reports whether given object is of function, compiled-function or
-builtin-function type.
+Reports whether given object is of function, compiledFunction or
+builtinFunction type.
 
 **Syntax**
 

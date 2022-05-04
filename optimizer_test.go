@@ -626,10 +626,8 @@ func TestOptimizerShadowing(t *testing.T) {
 	)
 
 	st = NewSymbolTable()
-	sym, err := st.DefineGlobal("int")
+	_, err := st.DefineGlobal("int")
 	require.NoError(t, err)
-	sym.Index = 0
-	opts.Constants = Array{String(sym.Name)}
 	opts.SymbolTable = st
 	expectCompileWithOpts(t, `return int("1")`, opts,
 		bytecode(
@@ -645,10 +643,8 @@ func TestOptimizerShadowing(t *testing.T) {
 	)
 
 	st = NewSymbolTable()
-	sym, err = st.DefineGlobal("int")
+	_, err = st.DefineGlobal("int")
 	require.NoError(t, err)
-	sym.Index = 0
-	opts.Constants = Array{String(sym.Name)}
 	opts.SymbolTable = st
 	expectCompileWithOpts(t, `return func() {return  int("1")}()`, opts,
 		bytecode(

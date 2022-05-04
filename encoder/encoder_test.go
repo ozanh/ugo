@@ -1,122 +1,150 @@
-package ugo_test
+package encoder_test
 
 import (
 	"bytes"
-	"encoding"
 	"encoding/gob"
 	"fmt"
 	"math"
 	"math/rand"
 	"reflect"
 	"testing"
-	"time"
+	gotime "time"
 
 	"github.com/stretchr/testify/require"
 
-	. "github.com/ozanh/ugo"
+	"github.com/ozanh/ugo"
+	"github.com/ozanh/ugo/stdlib/json"
+	"github.com/ozanh/ugo/stdlib/time"
 	"github.com/ozanh/ugo/token"
+
+	. "github.com/ozanh/ugo/encoder"
 )
 
+func TestGobEncoder(t *testing.T) {
+	objects := []ugo.Object{
+		ugo.Undefined,
+		ugo.Bool(true),
+		ugo.Int(0),
+		ugo.Uint(0),
+		ugo.Char(0),
+		ugo.Float(0),
+		ugo.String("abc"),
+		ugo.Bytes{},
+		ugo.Array{ugo.Bool(true), ugo.String("")},
+		ugo.Map{"b": ugo.Bool(true), "s": ugo.String("")},
+		&ugo.SyncMap{Value: ugo.Map{"i": ugo.Int(0), "u": ugo.Uint(0)}},
+		&ugo.ObjectPtr{},
+		&time.Time{Value: gotime.Now()},
+		&json.EncoderOptions{Value: ugo.Float(0)},
+		&json.RawMessage{},
+	}
+	for _, obj := range objects {
+		var buf bytes.Buffer
+		err := gob.NewEncoder(&buf).Encode(obj)
+		require.NoError(t, err)
+	}
+}
+
 func TestEncDecObjects(t *testing.T) {
-	data, err := Undefined.(encoding.BinaryMarshaler).MarshalBinary()
+	data, err := (*UndefinedType)(ugo.Undefined.(*ugo.UndefinedType)).MarshalBinary()
 	require.NoError(t, err)
 	if obj, err := DecodeObject(bytes.NewReader(data)); err != nil {
 		t.Fatal(err)
 	} else {
-		require.Equal(t, Undefined, obj)
+		require.Equal(t, ugo.Undefined, obj)
 	}
 
-	boolObjects := []Bool{True, False, Bool(true), Bool(false)}
+	boolObjects := []ugo.Bool{ugo.True, ugo.False, ugo.Bool(true), ugo.Bool(false)}
 	for _, tC := range boolObjects {
 		msg := fmt.Sprintf("Bool(%v)", tC)
-		data, err := tC.MarshalBinary()
+		data, err := Bool(tC).MarshalBinary()
 		require.NoError(t, err, msg)
 		require.Greater(t, len(data), 0, msg)
 		var v Bool
 		err = v.UnmarshalBinary(data)
 		require.NoError(t, err, msg)
-		require.Equal(t, tC, v, msg)
+		require.Equal(t, Bool(tC), v, msg)
 
 		obj, err := DecodeObject(bytes.NewReader(data))
 		require.NoError(t, err, msg)
 		require.Equal(t, tC, obj, msg)
 	}
 
-	intObjects := []Int{
-		Int(-1), Int(0), Int(1), Int(1<<63 - 1),
+	intObjects := []ugo.Int{
+		ugo.Int(-1), ugo.Int(0), ugo.Int(1), ugo.Int(1<<63 - 1),
 	}
 	for i := 0; i < 1000; i++ {
 		v := seededRand.Int63()
 		if i%2 == 0 {
-			intObjects = append(intObjects, Int(-v))
+			intObjects = append(intObjects, ugo.Int(-v))
 		} else {
-			intObjects = append(intObjects, Int(v))
+			intObjects = append(intObjects, ugo.Int(v))
 		}
 	}
 	for _, tC := range intObjects {
 		msg := fmt.Sprintf("Int(%v)", tC)
-		data, err := tC.MarshalBinary()
+		data, err := Int(tC).MarshalBinary()
 		require.NoError(t, err, msg)
 		require.Greater(t, len(data), 0, msg)
 		var v Int
 		err = v.UnmarshalBinary(data)
 		require.NoError(t, err, msg)
-		require.Equal(t, tC, v, msg)
+		require.Equal(t, Int(tC), v, msg)
 
 		obj, err := DecodeObject(bytes.NewReader(data))
 		require.NoError(t, err, msg)
 		require.Equal(t, tC, obj, msg)
 	}
 
-	uintObjects := []Uint{Uint(0), Uint(1), ^Uint(0)}
+	uintObjects := []ugo.Uint{ugo.Uint(0), ugo.Uint(1), ^ugo.Uint(0)}
 	for i := 0; i < 1000; i++ {
 		v := seededRand.Uint64()
-		uintObjects = append(uintObjects, Uint(v))
+		uintObjects = append(uintObjects, ugo.Uint(v))
 	}
 	for _, tC := range uintObjects {
 		msg := fmt.Sprintf("Uint(%v)", tC)
-		data, err := tC.MarshalBinary()
+		data, err := Uint(tC).MarshalBinary()
 		require.NoError(t, err, msg)
 		require.Greater(t, len(data), 0, msg)
 		var v Uint
 		err = v.UnmarshalBinary(data)
 		require.NoError(t, err, msg)
-		require.Equal(t, tC, v, msg)
+		require.Equal(t, Uint(tC), v, msg)
 
 		obj, err := DecodeObject(bytes.NewReader(data))
 		require.NoError(t, err, msg)
 		require.Equal(t, tC, obj, msg)
 	}
 
-	charObjects := []Char{Char(0)}
+	charObjects := []ugo.Char{ugo.Char(0)}
 	for i := 0; i < 1000; i++ {
 		v := seededRand.Int31()
-		charObjects = append(charObjects, Char(v))
+		charObjects = append(charObjects, ugo.Char(v))
 	}
 	for _, tC := range charObjects {
 		msg := fmt.Sprintf("Char(%v)", tC)
-		data, err := tC.MarshalBinary()
+		data, err := Char(tC).MarshalBinary()
 		require.NoError(t, err, msg)
 		require.Greater(t, len(data), 0, msg)
 		var v Char
 		err = v.UnmarshalBinary(data)
 		require.NoError(t, err, msg)
-		require.Equal(t, tC, v, msg)
+		require.Equal(t, Char(tC), v, msg)
 
 		obj, err := DecodeObject(bytes.NewReader(data))
 		require.NoError(t, err, msg)
 		require.Equal(t, tC, obj, msg)
 	}
 
-	floatObjects := []Float{Float(0), Float(-1)}
+	floatObjects := []ugo.Float{ugo.Float(0), ugo.Float(-1)}
 	for i := 0; i < 1000; i++ {
 		v := seededRand.Float64()
-		floatObjects = append(floatObjects, Float(v))
+		floatObjects = append(floatObjects, ugo.Float(v))
 	}
-	floatObjects = append(floatObjects, Float(math.NaN()))
+	floatObjects = append(floatObjects, ugo.Float(math.NaN()))
 	for _, tC := range floatObjects {
 		msg := fmt.Sprintf("Float(%v)", tC)
-		data, err := tC.MarshalBinary()
+		data, err := Float(tC).MarshalBinary()
 		require.NoError(t, err, msg)
 		require.Greater(t, len(data), 0, msg)
 		var v Float
@@ -125,13 +153,13 @@ func TestEncDecObjects(t *testing.T) {
 		if math.IsNaN(float64(tC)) {
 			require.True(t, math.IsNaN(float64(v)))
 		} else {
-			require.Equal(t, tC, v, msg)
+			require.Equal(t, Float(tC), v, msg)
 		}
 
 		obj, err := DecodeObject(bytes.NewReader(data))
 		require.NoError(t, err, msg)
 		if math.IsNaN(float64(tC)) {
-			require.True(t, math.IsNaN(float64(obj.(Float))))
+			require.True(t, math.IsNaN(float64(obj.(ugo.Float))))
 		} else {
 			require.Equal(t, tC, obj, msg)
 		}
@@ -139,89 +167,89 @@ func TestEncDecObjects(t *testing.T) {
 	// remove NaN from Floats slice, array tests below requires NaN check otherwise fails.
 	floatObjects = floatObjects[:len(floatObjects)-1]
 
-	stringObjects := []String{String(""), String("çığöşü")}
+	stringObjects := []ugo.String{ugo.String(""), ugo.String("çığöşü")}
 	for i := 0; i < 1000; i++ {
-		stringObjects = append(stringObjects, String(randString(i)))
+		stringObjects = append(stringObjects, ugo.String(randString(i)))
 	}
 	for _, tC := range stringObjects {
 		msg := fmt.Sprintf("String(%v)", tC)
-		data, err := tC.MarshalBinary()
+		data, err := String(tC).MarshalBinary()
 		require.NoError(t, err, msg)
 		require.Greater(t, len(data), 0, msg)
 		var v String
 		err = v.UnmarshalBinary(data)
 		require.NoError(t, err, msg)
-		require.Equal(t, tC, v, msg)
+		require.Equal(t, String(tC), v, msg)
 
 		obj, err := DecodeObject(bytes.NewReader(data))
 		require.NoError(t, err, msg)
 		require.Equal(t, tC, obj, msg)
 	}
 
-	bytesObjects := []Bytes{{}, Bytes("çığöşü")}
+	bytesObjects := []ugo.Bytes{{}, ugo.Bytes("çığöşü")}
 	for i := 0; i < 1000; i++ {
-		bytesObjects = append(bytesObjects, Bytes(randString(i)))
+		bytesObjects = append(bytesObjects, ugo.Bytes(randString(i)))
 	}
 	for _, tC := range bytesObjects {
 		msg := fmt.Sprintf("Bytes(%v)", tC)
-		data, err := tC.MarshalBinary()
+		data, err := Bytes(tC).MarshalBinary()
 		require.NoError(t, err, msg)
 		require.Greater(t, len(data), 0, msg)
 		var v = Bytes{}
 		err = v.UnmarshalBinary(data)
 		require.NoError(t, err, msg)
-		require.Equal(t, tC, v, msg)
+		require.Equal(t, Bytes(tC), v, msg)
 
 		obj, err := DecodeObject(bytes.NewReader(data))
 		require.NoError(t, err, msg)
 		require.Equal(t, tC, obj, msg)
 	}
 
-	arrays := []Array{}
-	temp1 := Array{}
+	arrays := []ugo.Array{}
+	temp1 := ugo.Array{}
 	for i := range bytesObjects[:100] {
 		temp1 = append(temp1, bytesObjects[i])
 	}
 	arrays = append(arrays, temp1)
-	temp2 := Array{}
+	temp2 := ugo.Array{}
 	for i := range stringObjects[:100] {
 		temp2 = append(temp2, stringObjects[i])
 	}
 	arrays = append(arrays, temp2)
-	temp3 := Array{}
+	temp3 := ugo.Array{}
 	for i := range floatObjects[:100] {
 		temp3 = append(temp3, floatObjects[i])
 	}
 	arrays = append(arrays, temp3)
-	temp4 := Array{}
+	temp4 := ugo.Array{}
 	for i := range charObjects[:100] {
 		temp4 = append(temp4, charObjects[i])
 	}
 	arrays = append(arrays, temp4)
-	temp5 := Array{}
+	temp5 := ugo.Array{}
 	for i := range uintObjects[:100] {
 		temp5 = append(temp5, uintObjects[i])
 	}
 	arrays = append(arrays, temp5)
-	temp6 := Array{}
+	temp6 := ugo.Array{}
 	for i := range intObjects[:100] {
 		temp6 = append(temp6, intObjects[i])
 	}
 	arrays = append(arrays, temp6)
-	temp7 := Array{}
+	temp7 := ugo.Array{}
 	for i := range boolObjects {
 		temp7 = append(temp7, boolObjects[i])
 	}
 	arrays = append(arrays, temp7)
-	arrays = append(arrays, Array{Undefined})
+	arrays = append(arrays, ugo.Array{ugo.Undefined})
 
 	for _, tC := range arrays {
 		msg := fmt.Sprintf("Array(%v)", tC)
-		data, err := tC.MarshalBinary()
+		data, err := Array(tC).MarshalBinary()
 		require.NoError(t, err, msg)
 		require.Greater(t, len(data), 0, msg)
-		var v = Array{}
-		err = v.UnmarshalBinary(data)
+		var v = ugo.Array{}
+		err = (*Array)(&v).UnmarshalBinary(data)
 		require.NoError(t, err, msg)
 		require.Equal(t, tC, v, msg)
 
@@ -230,9 +258,9 @@ func TestEncDecObjects(t *testing.T) {
 		require.Equal(t, tC, obj, msg)
 	}
 
-	maps := []Map{}
+	maps := []ugo.Map{}
 	for _, array := range arrays {
-		m := Map{}
+		m := ugo.Map{}
 		s := randString(10)
 		r := seededRand.Intn(len(array))
 		m[s] = array[r]
@@ -241,11 +269,11 @@ func TestEncDecObjects(t *testing.T) {
 
 	for _, tC := range maps {
 		msg := fmt.Sprintf("Map(%v)", tC)
-		data, err := tC.MarshalBinary()
+		data, err := Map(tC).MarshalBinary()
 		require.NoError(t, err, msg)
 		require.Greater(t, len(data), 0, msg)
-		var v = Map{}
-		err = v.UnmarshalBinary(data)
+		var v = ugo.Map{}
+		err = (*Map)(&v).UnmarshalBinary(data)
 		require.NoError(t, err, msg)
 		require.Equal(t, tC, v, msg)
 
@@ -254,17 +282,17 @@ func TestEncDecObjects(t *testing.T) {
 		require.Equal(t, tC, obj, msg)
 	}
 
-	syncMaps := []*SyncMap{}
+	syncMaps := []*ugo.SyncMap{}
 	for _, m := range maps {
-		syncMaps = append(syncMaps, &SyncMap{Map: m})
+		syncMaps = append(syncMaps, &ugo.SyncMap{Value: m})
 	}
 	for _, tC := range syncMaps {
 		msg := fmt.Sprintf("SyncMap(%v)", tC)
-		data, err := tC.MarshalBinary()
+		data, err := (*SyncMap)(tC).MarshalBinary()
 		require.NoError(t, err, msg)
 		require.Greater(t, len(data), 0, msg)
-		var v = &SyncMap{}
-		err = v.UnmarshalBinary(data)
+		var v = &ugo.SyncMap{}
+		err = (*SyncMap)(v).UnmarshalBinary(data)
 		require.NoError(t, err, msg)
 		require.Equal(t, tC, v, msg)
 
@@ -273,7 +301,7 @@ func TestEncDecObjects(t *testing.T) {
 		require.Equal(t, tC, obj, msg)
 	}
 
-	compFuncs := []*CompiledFunction{
+	compFuncs := []*ugo.CompiledFunction{
 		compFunc(nil),
 		compFunc(nil,
 			withLocals(10),
@@ -288,9 +316,9 @@ func TestEncDecObjects(t *testing.T) {
 			withSourceMap(map[int]int{0: 1, 3: 1, 5: 1}),
 		),
 		compFunc(concatInsts(
-			makeInst(OpConstant, 0),
-			makeInst(OpConstant, 1),
-			makeInst(OpBinaryOp, int(token.Add)),
+			makeInst(ugo.OpConstant, 0),
+			makeInst(ugo.OpConstant, 1),
+			makeInst(ugo.OpBinaryOp, int(token.Add)),
 		),
 			withParams(1),
 			withVariadic(),
@@ -300,11 +328,11 @@ func TestEncDecObjects(t *testing.T) {
 	}
 	for i, tC := range compFuncs {
 		msg := fmt.Sprintf("CompiledFunction #%d", i)
-		data, err := tC.MarshalBinary()
+		data, err := (*CompiledFunction)(tC).MarshalBinary()
 		require.NoError(t, err, msg)
 		require.Greater(t, len(data), 0, msg)
-		var v = &CompiledFunction{}
-		err = v.UnmarshalBinary(data)
+		var v = &ugo.CompiledFunction{}
+		err = (*CompiledFunction)(v).UnmarshalBinary(data)
 		require.NoError(t, err, msg)
 		require.Equal(t, tC, v, msg)
 
@@ -314,7 +342,7 @@ func TestEncDecObjects(t *testing.T) {
 	}
 
 	builtinFuncs := []*BuiltinFunction{}
-	for _, o := range BuiltinObjects {
+	for _, o := range ugo.BuiltinObjects {
 		if f, ok := o.(*BuiltinFunction); ok {
 			builtinFuncs = append(builtinFuncs, f)
 		}
@@ -324,8 +352,8 @@ func TestEncDecObjects(t *testing.T) {
 		data, err := tC.MarshalBinary()
 		require.NoError(t, err, msg)
 		require.Greater(t, len(data), 0, msg)
-		var v = &BuiltinFunction{}
-		err = v.UnmarshalBinary(data)
+		var v = &ugo.BuiltinFunction{}
+		err = (*BuiltinFunction)(v).UnmarshalBinary(data)
 		require.NoError(t, err, msg)
 		require.Equal(t, tC.Name, v.Name)
 		require.NotNil(t, v.Value)
@@ -344,82 +372,80 @@ func TestEncDecBytecode(t *testing.T) {
 		return [undefined, true, false, "", -1, 0, 1, 2u, 3.0, 'a', bytes(0, 1, 2)]
 	}
 	f()
-	m := {a: 1, b: ["abc"], c: {x: bytes()}, builtins: [append, len]}
-	`, nil, Undefined)
+	m := {a: 1, b: ["abc"], c: {x: bytes()}, builtins: [append, len]}`, nil, ugo.Undefined)
+}
 
+func TestEncDecBytecode_modules(t *testing.T) {
 	testEncDecBytecode(t, `
 	mod1 := import("mod1")
 	mod2 := import("mod2")
 	return mod1.run() + mod2.run()
-	`, newOpts().Module("mod1", Map{
-		"run": &Function{
+	`, newOpts().Module("mod1", ugo.Map{
+		"run": &ugo.Function{
 			Name: "run",
-			Value: func(args ...Object) (Object, error) {
-				return String("mod1"), nil
+			Value: func(args ...ugo.Object) (ugo.Object, error) {
+				return ugo.String("mod1"), nil
 			},
 		},
-	}).Module("mod2", `return {run: func(){ return "mod2" }}`),
-		String("mod1mod2"))
-
-	// t.Logf("Original:\n%s\nSecond:\n%s\nThird:\n%s", bc, &bc2, &bc2)
-
+	}).Module("mod2", `return {run: func(){ return "mod2" }}`), ugo.String("mod1mod2"))
 }
 
-func testEncDecBytecode(t *testing.T, script string, opts *testopts, expected Object) {
+func testEncDecBytecode(t *testing.T, script string, opts *testopts, expected ugo.Object) {
 	t.Helper()
 	if opts == nil {
 		opts = newOpts()
 	}
-	var initialModuleMap *ModuleMap
+	var initialModuleMap *ugo.ModuleMap
 	if opts.moduleMap != nil {
 		initialModuleMap = opts.moduleMap.Copy()
 	}
-	bc, err := Compile([]byte(script), CompilerOptions{
-		ModuleMap: opts.moduleMap,
-	})
+	bc, err := ugo.Compile([]byte(script),
+		ugo.CompilerOptions{
+			ModuleMap: opts.moduleMap,
+		},
+	)
 	require.NoError(t, err)
-	ret, err := NewVM(bc).Run(opts.globals, opts.args...)
+	ret, err := ugo.NewVM(bc).Run(opts.globals, opts.args...)
 	require.NoError(t, err)
 	require.Equal(t, expected, ret)
 
 	var buf bytes.Buffer
-	err = gob.NewEncoder(&buf).Encode(bc)
+	err = gob.NewEncoder(&buf).Encode((*Bytecode)(bc))
 	require.NoError(t, err)
 	t.Logf("GobSize:%d", len(buf.Bytes()))
-	bcData, err := bc.MarshalBinary()
+	bcData, err := (*Bytecode)(bc).MarshalBinary()
 	require.NoError(t, err)
 	t.Logf("BinSize:%d", len(bcData))
 
 	if opts.moduleMap == nil {
-		var bc2 Bytecode
-		err = gob.NewDecoder(&buf).Decode(&bc2)
+		var bc2 ugo.Bytecode
+		err = gob.NewDecoder(&buf).Decode((*Bytecode)(&bc2))
 		require.NoError(t, err)
 		testDecodedBytecodeEqual(t, bc, &bc2)
-		ret, err := NewVM(&bc2).Run(opts.globals, opts.args...)
+		ret, err := ugo.NewVM(&bc2).Run(opts.globals, opts.args...)
 		require.NoError(t, err)
 		require.Equal(t, expected, ret)
 
-		var bc3 Bytecode
-		err = bc3.UnmarshalBinary(bcData)
+		var bc3 ugo.Bytecode
+		err = (*Bytecode)(&bc3).UnmarshalBinary(bcData)
 		require.NoError(t, err)
 		testDecodedBytecodeEqual(t, bc, &bc3)
-		ret, err = NewVM(&bc3).Run(opts.globals, opts.args...)
+		ret, err = ugo.NewVM(&bc3).Run(opts.globals, opts.args...)
 		require.NoError(t, err)
 		require.Equal(t, expected, ret)
 	}
 
-	var bc4 Bytecode
-	err = bc4.Decode(bytes.NewReader(bcData), opts.moduleMap, nil)
+	bc4, err := DecodeBytecodeFrom(bytes.NewReader(bcData), opts.moduleMap)
 	require.NoError(t, err)
-	testDecodedBytecodeEqual(t, bc, &bc4)
-	ret, err = NewVM(&bc4).Run(opts.globals, opts.args...)
+	testDecodedBytecodeEqual(t, bc, bc4)
+	ret, err = ugo.NewVM(bc4).Run(opts.globals, opts.args...)
 	require.NoError(t, err)
 	require.Equal(t, expected, ret)
 	// ensure moduleMap is not updated during compilation and decoding
 	require.Equal(t, initialModuleMap, opts.moduleMap)
 }
 
-func testDecodedBytecodeEqual(t *testing.T, actual, decoded *Bytecode) {
+func testDecodedBytecodeEqual(t *testing.T, actual, decoded *ugo.Bytecode) {
 	t.Helper()
 	msg := fmt.Sprintf("actual:%s\ndecoded:%s\n", actual, decoded)
 
@@ -443,22 +469,22 @@ func testDecodedBytecodeEqual(t *testing.T, actual, decoded *Bytecode) {
 	}
 }
 
-func getModuleName(obj Object) (string, bool) {
-	if m, ok := obj.(Map); ok {
-		if n, ok := m["__module_name__"]; ok {
-			return string(n.(String)), true
+func getModuleName(obj ugo.Object) (string, bool) {
+	if m, ok := obj.(ugo.Map); ok {
+		if n, ok := m[ugo.AttrModuleName]; ok {
+			return string(n.(ugo.String)), true
 		}
 	}
 	return "", false
 }
 
-func testBytecodeConstants(t *testing.T, expected, decoded []Object) {
+func testBytecodeConstants(t *testing.T, expected, decoded []ugo.Object) {
 	t.Helper()
 	if len(decoded) != len(expected) {
 		t.Fatalf("constants length not equal want %d, got %d", len(decoded), len(expected))
 	}
-	Len := func(v Object) Object {
-		ret, err := BuiltinObjects[BuiltinLen].Call(v)
+	Len := func(v ugo.Object) ugo.Object {
+		ret, err := ugo.BuiltinObjects[ugo.BuiltinLen].Call(v)
 		if err != nil {
 			t.Fatalf("%v: length error for '%v'", err, v)
 		}
@@ -487,9 +513,9 @@ func testBytecodeConstants(t *testing.T, expected, decoded []Object) {
 				if (v1 != nil && v2 == nil) || (v1 == nil && v2 != nil) {
 					t.Fatalf("decoded constant index %d not equal", i)
 				}
-				f1, ok := v1.(*Function)
+				f1, ok := v1.(*ugo.Function)
 				if ok {
-					f2 := v2.(*Function)
+					f2 := v2.(*ugo.Function)
 					require.Equal(t, f1.Name, f2.Name)
 					require.NotNil(t, f2.Value)
 					// Note that this is not a guaranteed way to compare func pointers
@@ -508,200 +534,122 @@ func testBytecodeConstants(t *testing.T, expected, decoded []Object) {
 	}
 }
 
-func BenchmarkBytecodeUnmarshal(b *testing.B) {
-	b.ReportAllocs()
-	script := `
-	f := func() {
-		return [undefined, true, false, "", -1, 0, 1, 2u, 3.0, 'a', bytes(0, 1, 2)]
+type funcOpt func(*ugo.CompiledFunction)
+
+func withParams(numParams int) funcOpt {
+	return func(cf *ugo.CompiledFunction) {
+		cf.NumParams = numParams
 	}
-	f()
-	m := {a: 1, b: ["abc"], c: {x: bytes()}, builtins: [append, len]}
-	`
-	var err error
-	bc, err := Compile([]byte(script), CompilerOptions{})
-	if err != nil {
-		b.Fatal(err)
-	}
-	// bc.FileSet = nil
-	// bc.Main.SourceMap = nil
-	d, err := bc.MarshalBinary()
-	if err != nil {
-		b.Fatal(err)
-	}
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		var bc2 Bytecode
-		err := bc2.UnmarshalBinary(d)
-		if err != nil {
-			b.Fatal(err)
-		}
-	}
-	b.ReportMetric(float64(len(d)), "Bytes")
 }
 
-func BenchmarkBytecodeDecode(b *testing.B) {
-	b.ReportAllocs()
-	script := `
-	f := func() {
-		return [undefined, true, false, "", -1, 0, 1, 2u, 3.0, 'a', bytes(0, 1, 2)]
+func withLocals(numLocals int) funcOpt {
+	return func(cf *ugo.CompiledFunction) {
+		cf.NumLocals = numLocals
 	}
-	f()
-	m := {a: 1, b: ["abc"], c: {x: bytes()}, builtins: [append, len]}
-	`
-	var err error
-	bc, err := Compile([]byte(script), CompilerOptions{})
-	if err != nil {
-		b.Fatal(err)
-	}
-	// bc.FileSet = nil
-	// bc.Main.SourceMap = nil
-	d, err := bc.MarshalBinary()
-	if err != nil {
-		b.Fatal(err)
-	}
-	rd := bytes.NewReader(d)
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		rd.Reset(d)
-		var bc2 Bytecode
-		err := bc2.Decode(rd, nil, nil)
-		if err != nil {
-			b.Fatal(err)
-		}
-	}
-	b.ReportMetric(float64(len(d)), "Bytes")
 }
 
-func BenchmarkBytecodeEncDec(b *testing.B) {
-	b.ReportAllocs()
-	script := `
-	f := func() {
-		return [undefined, true, false, "", -1, 0, 1, 2u, 3.0, 'a', bytes(0, 1, 2)]
+func withVariadic() funcOpt {
+	return func(cf *ugo.CompiledFunction) {
+		cf.Variadic = true
 	}
-	f()
-	m := {a: 1, b: ["abc"], c: {x: bytes()}, builtins: [append, len]}
-	`
-	var err error
-	bc, err := Compile([]byte(script), CompilerOptions{})
-	if err != nil {
-		b.Fatal(err)
-	}
-
-	b.Run("compileUnopt", func(b *testing.B) {
-		for i := 0; i < b.N; i++ {
-			_, err := Compile([]byte(script), CompilerOptions{})
-			if err != nil {
-				b.Fatal(err)
-			}
-		}
-	})
-
-	b.Run("compileOpt", func(b *testing.B) {
-		for i := 0; i < b.N; i++ {
-			_, err := Compile([]byte(script), CompilerOptions{
-				OptimizeConst:     true,
-				OptimizeExpr:      true,
-				OptimizerMaxCycle: 100,
-			})
-			if err != nil {
-				b.Fatal(err)
-			}
-		}
-	})
-
-	b.Run("marshal", func(b *testing.B) {
-		var size int
-		for i := 0; i < b.N; i++ {
-			d, err := bc.MarshalBinary()
-			if err != nil {
-				b.Fatal(err)
-			}
-			if size == 0 {
-				size = len(d)
-			}
-		}
-		b.ReportMetric(float64(size), "Bytes")
-	})
-	b.Run("gobEncode", func(b *testing.B) {
-		var size int
-		for i := 0; i < b.N; i++ {
-			var buf bytes.Buffer
-			err := gob.NewEncoder(&buf).Encode(bc)
-			if err != nil {
-				b.Fatal(err)
-			}
-			if size == 0 {
-				size = buf.Len()
-			}
-		}
-		b.ReportMetric(float64(size), "Bytes")
-	})
-	b.Run("unmarshal", func(b *testing.B) {
-		d, err := bc.MarshalBinary()
-		if err != nil {
-			b.Fatal(err)
-		}
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			var bc2 Bytecode
-			err := bc2.UnmarshalBinary(d)
-			if err != nil {
-				b.Fatal(err)
-			}
-		}
-		b.ReportMetric(float64(len(d)), "Bytes")
-	})
-	b.Run("gobDecode", func(b *testing.B) {
-		var buf bytes.Buffer
-		err := gob.NewEncoder(&buf).Encode(bc)
-		if err != nil {
-			b.Fatal(err)
-		}
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			var bc2 Bytecode
-			err = gob.NewDecoder(bytes.NewReader(buf.Bytes())).Decode(&bc2)
-			if err != nil {
-				b.Fatal(err)
-			}
-		}
-		b.ReportMetric(float64(len(buf.Bytes())), "Bytes")
-	})
 }
 
-func BenchmarkIntEncDec(b *testing.B) {
-	b.Run("marshal unmarshal", func(b *testing.B) {
-		for i := 0; i < b.N; i++ {
-			data, err := Int(i).MarshalBinary()
-			if err != nil {
-				b.Fatal(err)
-			}
-			var v Int
-			err = v.UnmarshalBinary(data)
-			if err != nil {
-				b.Fatal(err)
-			}
-		}
-	})
-	b.Run("decode object", func(b *testing.B) {
-		for i := 0; i < b.N; i++ {
-			data, err := Int(i).MarshalBinary()
-			if err != nil {
-				b.Fatal(err)
-			}
-			_, err = DecodeObject(bytes.NewReader(data))
-			if err != nil {
-				b.Fatal(err)
-			}
-		}
-	})
+func withSourceMap(m map[int]int) funcOpt {
+	return func(cf *ugo.CompiledFunction) {
+		cf.SourceMap = m
+	}
+}
+
+func compFunc(insts []byte, opts ...funcOpt) *ugo.CompiledFunction {
+	cf := &ugo.CompiledFunction{
+		Instructions: insts,
+	}
+	for _, f := range opts {
+		f(cf)
+	}
+	return cf
+}
+
+func makeInst(op ugo.Opcode, args ...int) []byte {
+	b, err := ugo.MakeInstruction(make([]byte, 8), op, args...)
+	if err != nil {
+		panic(err)
+	}
+	return b
+}
+
+func concatInsts(insts ...[]byte) []byte {
+	var out []byte
+	for i := range insts {
+		out = append(out, insts[i]...)
+	}
+	return out
+}
+
+type testopts struct {
+	globals       ugo.Object
+	args          []ugo.Object
+	moduleMap     *ugo.ModuleMap
+	skip2pass     bool
+	isCompilerErr bool
+	noPanic       bool
+}
+
+func newOpts() *testopts {
+	return &testopts{}
+}
+
+func (t *testopts) Globals(globals ugo.Object) *testopts {
+	t.globals = globals
+	return t
+}
+
+func (t *testopts) Args(args ...ugo.Object) *testopts {
+	t.args = args
+	return t
+}
+
+func (t *testopts) Skip2Pass() *testopts {
+	t.skip2pass = true
+	return t
+}
+
+func (t *testopts) CompilerError() *testopts {
+	t.isCompilerErr = true
+	return t
+}
+
+func (t *testopts) NoPanic() *testopts {
+	t.noPanic = true
+	return t
+}
+
+func (t *testopts) Module(name string, module interface{}) *testopts {
+	if t.moduleMap == nil {
+		t.moduleMap = ugo.NewModuleMap()
+	}
+	switch v := module.(type) {
+	case []byte:
+		t.moduleMap.AddSourceModule(name, v)
+	case string:
+		t.moduleMap.AddSourceModule(name, []byte(v))
+	case map[string]ugo.Object:
+		t.moduleMap.AddBuiltinModule(name, v)
+	case ugo.Map:
+		t.moduleMap.AddBuiltinModule(name, v)
+	case ugo.Importable:
+		t.moduleMap.Add(name, v)
+	default:
+		panic(fmt.Errorf("invalid module type: %T", module))
+	}
+	return t
 }
 
 const charset = "abcdefghijklmnopqrstuvwxyz" +
 	"ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 
 var seededRand *rand.Rand = rand.New(
-	rand.NewSource(time.Now().UnixNano()))
+	rand.NewSource(gotime.Now().UnixNano()))
 
 func randStringWithCharset(length int, charset string) string {
 	b := make([]byte, length)

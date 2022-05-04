@@ -13,7 +13,7 @@ Go Type
 // Location represents location values and implements ugo.Object interface.
 type Location struct {
    ugo.ObjectImpl
-   *time.Location
+   Value *time.Location
 }
 ```
 
@@ -184,7 +184,7 @@ Pauses the current goroutine for at least the duration.
 
 `ParseDuration(s string) -> duration int`
 
-Parses duration s and returns duration as int.
+Parses duration s and returns duration as int or error.
 
 ---
 

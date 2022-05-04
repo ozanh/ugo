@@ -74,7 +74,7 @@ Returns the index of the first instance of any char from chars in s, or
 `IndexByte(s string, c char|int) -> int`
 
 Returns the index of the first byte value of c in s, or -1 if byte value
-of c is not present in s.
+of c is not present in s. c's integer value must be between 0 and 255.
 
 ---
 
@@ -110,7 +110,7 @@ Returns the index of the last instance of any char from chars in s, or
 `LastIndexByte(s string, c char|int) -> int`
 
 Returns the index of byte value of the last instance of c in s, or -1
-if c is not present in s.
+if c is not present in s. c's integer value must be between 0 and 255.
 
 ---
 
@@ -175,8 +175,8 @@ n determines the number of substrings to return:
 
 `Title(s string) -> string`
 
-Returns a copy of the string s with all Unicode letters that begin words
-mapped to their Unicode title case.
+Deprecated: Returns a copy of the string s with all Unicode letters that
+begin words mapped to their Unicode title case.
 
 ---
 
@@ -199,42 +199,42 @@ Returns s with all Unicode letters mapped to their upper case.
 
 ---
 
-`Trim(s, cutset string) -> string`
+`Trim(s string, cutset string) -> string`
 
 Returns a slice of the string s with all leading and trailing Unicode
 code points contained in cutset removed.
 
 ---
 
-`TrimLeft(s, cutset string) -> string`
+`TrimLeft(s string, cutset string) -> string`
 
 Returns a slice of the string s with all leading Unicode code points
 contained in cutset removed.
 
 ---
 
-`TrimPrefix(s, prefix string) -> string`
+`TrimPrefix(s string, prefix string) -> string`
 
 Returns s without the provided leading prefix string. If s doesn't start
 with prefix, s is returned unchanged.
 
 ---
 
-`TrimRight(s, cutset string) -> string`
+`TrimRight(s string, cutset string) -> string`
 
 Returns a slice of the string s with all trailing Unicode code points
 contained in cutset removed.
 
 ---
 
-`TrimSpace(s) -> string`
+`TrimSpace(s string) -> string`
 
 Returns a slice of the string s, with all leading and trailing white
 space removed, as defined by Unicode.
 
 ---
 
-`TrimSuffix(s, suffix string) -> string`
+`TrimSuffix(s string, suffix string) -> string`
 
 Returns s without the provided trailing suffix string. If s doesn't end
 with suffix, s is returned unchanged.

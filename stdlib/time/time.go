@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Ozan Hacıbekiroğlu.
+// Copyright (c) 2020-2022 Ozan Hacıbekiroğlu.
 // Use of this source code is governed by a MIT License
 // that can be found in the LICENSE file.
 
@@ -41,7 +41,7 @@ func (o *Time) String() string {
 
 // IsFalsy implements ugo.Object interface.
 func (o *Time) IsFalsy() bool {
-	return bool(o.Value.IsZero())
+	return o.Value.IsZero()
 }
 
 // Equal implements ugo.Object interface.
@@ -98,16 +98,14 @@ func (o *Time) BinaryOp(tok token.Token,
 		case token.Less:
 			return ugo.Bool(o.Value.Before(v.Value)), nil
 		case token.LessEq:
-			return ugo.Bool(o.Value.Before(v.Value) || o.Value.Equal(v.Value)),
-				nil
+			return ugo.Bool(o.Value.Before(v.Value) || o.Value.Equal(v.Value)), nil
 		case token.Greater:
 			return ugo.Bool(o.Value.After(v.Value)), nil
 		case token.GreaterEq:
 			return ugo.Bool(o.Value.After(v.Value) || o.Value.Equal(v.Value)),
 				nil
 		}
-	}
-	if right == ugo.Undefined {
+	case *ugo.UndefinedType:
 		switch tok {
 		case token.Less, token.LessEq:
 			return ugo.False, nil
@@ -191,7 +189,7 @@ func (o *Time) IndexGet(index ugo.Object) (ugo.Object, error) {
 	case "Local":
 		return &Time{Value: o.Value.Local()}, nil
 	case "Location":
-		return &Location{Location: o.Value.Location()}, nil
+		return &Location{Value: o.Value.Location()}, nil
 	case "YearDay":
 		return ugo.Int(o.Value.YearDay()), nil
 	case "Weekday":

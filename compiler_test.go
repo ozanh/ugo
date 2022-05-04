@@ -5,8 +5,10 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/ozanh/ugo/token"
 	"github.com/stretchr/testify/require"
+
+	"github.com/ozanh/ugo/tests"
+	"github.com/ozanh/ugo/token"
 
 	. "github.com/ozanh/ugo"
 )
@@ -27,8 +29,11 @@ func withModules(numOfModules int) bytecodeOption {
 	}
 }
 
-func bytecode(consts []Object,
-	cf *CompiledFunction, opts ...bytecodeOption) *Bytecode {
+func bytecode(
+	consts []Object,
+	cf *CompiledFunction,
+	opts ...bytecodeOption,
+) *Bytecode {
 
 	bc := &Bytecode{
 		Constants: consts,
@@ -57,12 +62,6 @@ func withVariadic() funcOpt {
 func withLocals(numLocals int) funcOpt {
 	return func(cf *CompiledFunction) {
 		cf.NumLocals = numLocals
-	}
-}
-
-func withSourceMap(m map[int]int) funcOpt {
-	return func(cf *CompiledFunction) {
-		cf.SourceMap = m
 	}
 }
 
@@ -1526,7 +1525,7 @@ func TestCompiler_Compile(t *testing.T) {
 		},
 		bytecode(
 			Array{
-				Map{"__module_name__": String("mod")},
+				Map{AttrModuleName: String("mod")},
 			},
 			compFunc(concatInsts(
 				makeInst(OpLoadModule, 0, 0), // 0000 constant, module indexes
@@ -1765,7 +1764,7 @@ func testBytecodesEqual(t *testing.T,
 		got.Fprint(&buf)
 		t.Fatalf("Constants not equal\nDump:\n%s\n"+
 			"Expected Constants:\n%s\nGot Constants:\n%s\n",
-			buf.String(), sdump(expected.Constants), sdump(got.Constants))
+			buf.String(), tests.Sdump(expected.Constants), tests.Sdump(got.Constants))
 	}
 	if !assertCompiledFunctionsEqual(t,
 		expected.Main, got.Main, checkSourceMap) {
@@ -1830,7 +1829,7 @@ func assertCompiledFunctionsEqual(t *testing.T,
 		t.Errorf("sourceMaps not equal\n"+
 			"Expected:\n%s\nGot:\n%s\n"+
 			"Bytecode dump:\n%s\n",
-			sdump(expected.SourceMap), sdump(got.SourceMap), got)
+			tests.Sdump(expected.SourceMap), tests.Sdump(got.SourceMap), got)
 		return false
 	}
 	return true

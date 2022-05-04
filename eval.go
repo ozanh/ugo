@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Ozan Hacıbekiroğlu.
+// Copyright (c) 2020-2022 Ozan Hacıbekiroğlu.
 // Use of this source code is governed by a MIT License
 // that can be found in the LICENSE file.
 
@@ -25,13 +25,11 @@ func NewEval(opts CompilerOptions, globals Object, args ...Object) *Eval {
 	if globals == nil {
 		globals = Map{}
 	}
-
 	if opts.SymbolTable == nil {
 		opts.SymbolTable = NewSymbolTable()
 	}
-
-	if opts.ModuleIndexes == nil {
-		opts.ModuleIndexes = NewModuleIndexes()
+	if opts.moduleStore == nil {
+		opts.moduleStore = newModuleStore()
 	}
 
 	return &Eval{

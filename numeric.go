@@ -1,11 +1,10 @@
-// Copyright (c) 2020 Ozan Hacıbekiroğlu.
+// Copyright (c) 2020-2022 Ozan Hacıbekiroğlu.
 // Use of this source code is governed by a MIT License
 // that can be found in the LICENSE file.
 
 package ugo
 
 import (
-	"math"
 	"strconv"
 	"strings"
 
@@ -137,7 +136,7 @@ func (o Int) BinaryOp(tok token.Token, right Object) (Object, error) {
 			right = Int(0)
 		}
 		return o.BinaryOp(tok, right)
-	case undefined:
+	case *UndefinedType:
 		switch tok {
 		case token.Less, token.LessEq:
 			return False, nil
@@ -277,7 +276,7 @@ func (o Uint) BinaryOp(tok token.Token, right Object) (Object, error) {
 			right = Uint(0)
 		}
 		return o.BinaryOp(tok, right)
-	case undefined:
+	case *UndefinedType:
 		switch tok {
 		case token.Less, token.LessEq:
 			return False, nil
@@ -324,7 +323,12 @@ func (o Float) Equal(right Object) bool {
 }
 
 // IsFalsy implements Object interface.
-func (o Float) IsFalsy() bool { return math.IsNaN(float64(o)) }
+func (o Float) IsFalsy() bool {
+	// IEEE 754 says that only NaNs satisfy f != f.
+	// See math.IsNan
+	f := float64(o)
+	return f != f
+}
 
 // CanCall implements Object interface.
 func (o Float) CanCall() bool { return false }
@@ -386,7 +390,7 @@ func (o Float) BinaryOp(tok token.Token, right Object) (Object, error) {
 			right = Float(0)
 		}
 		return o.BinaryOp(tok, right)
-	case undefined:
+	case *UndefinedType:
 		switch tok {
 		case token.Less, token.LessEq:
 			return False, nil
@@ -545,7 +549,7 @@ func (o Char) BinaryOp(tok token.Token, right Object) (Object, error) {
 			sb.WriteString(string(v))
 			return String(sb.String()), nil
 		}
-	case undefined:
+	case *UndefinedType:
 		switch tok {
 		case token.Less, token.LessEq:
 			return False, nil

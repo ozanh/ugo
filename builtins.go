@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Ozan Hacıbekiroğlu.
+// Copyright (c) 2020-2022 Ozan Hacıbekiroğlu.
 // Use of this source code is governed by a MIT License
 // that can be found in the LICENSE file.
 
@@ -141,7 +141,7 @@ var BuiltinObjects = [...]Object{
 	// :makeArray is a private builtin function to help destructuring array assignments
 	BuiltinMakeArray: &BuiltinFunction{
 		Name:  ":makeArray",
-		Value: builtinWant2(builtinMakeArrayFunc),
+		Value: funcPiOROe(builtinMakeArrayFunc),
 	},
 	BuiltinAppend: &BuiltinFunction{
 		Name:  "append",
@@ -149,63 +149,63 @@ var BuiltinObjects = [...]Object{
 	},
 	BuiltinDelete: &BuiltinFunction{
 		Name:  "delete",
-		Value: builtinWant2(builtinDeleteFunc),
+		Value: funcPOsRe(builtinDeleteFunc),
 	},
 	BuiltinCopy: &BuiltinFunction{
 		Name:  "copy",
-		Value: builtinWant1(builtinCopyFunc),
+		Value: funcPORO(builtinCopyFunc),
 	},
 	BuiltinRepeat: &BuiltinFunction{
 		Name:  "repeat",
-		Value: builtinWant2(builtinRepeatFunc),
+		Value: funcPOiROe(builtinRepeatFunc),
 	},
 	BuiltinContains: &BuiltinFunction{
 		Name:  "contains",
-		Value: builtinWant2(builtinContainsFunc),
+		Value: funcPOOROe(builtinContainsFunc),
 	},
 	BuiltinLen: &BuiltinFunction{
 		Name:  "len",
-		Value: builtinWant1(builtinLenFunc),
+		Value: funcPORO(builtinLenFunc),
 	},
 	BuiltinSort: &BuiltinFunction{
 		Name:  "sort",
-		Value: builtinWant1(builtinSortFunc),
+		Value: funcPOROe(builtinSortFunc),
 	},
 	BuiltinSortReverse: &BuiltinFunction{
 		Name:  "sortReverse",
-		Value: builtinWant1(builtinSortReverseFunc),
+		Value: funcPOROe(builtinSortReverseFunc),
 	},
 	BuiltinError: &BuiltinFunction{
 		Name:  "error",
-		Value: builtinWant1(builtinErrorFunc),
+		Value: funcPORO(builtinErrorFunc),
 	},
 	BuiltinTypeName: &BuiltinFunction{
 		Name:  "typeName",
-		Value: builtinWant1(builtinTypeNameFunc),
+		Value: funcPORO(builtinTypeNameFunc),
 	},
 	BuiltinBool: &BuiltinFunction{
 		Name:  "bool",
-		Value: builtinWant1(builtinBoolFunc),
+		Value: funcPORO(builtinBoolFunc),
 	},
 	BuiltinInt: &BuiltinFunction{
 		Name:  "int",
-		Value: builtinWant1(builtinIntFunc),
+		Value: funcPi64RO(builtinIntFunc),
 	},
 	BuiltinUint: &BuiltinFunction{
 		Name:  "uint",
-		Value: builtinWant1(builtinUintFunc),
+		Value: funcPu64RO(builtinUintFunc),
 	},
 	BuiltinFloat: &BuiltinFunction{
 		Name:  "float",
-		Value: builtinWant1(builtinFloatFunc),
+		Value: funcPf64RO(builtinFloatFunc),
 	},
 	BuiltinChar: &BuiltinFunction{
 		Name:  "char",
-		Value: builtinWant1(builtinCharFunc),
+		Value: funcPOROe(builtinCharFunc),
 	},
 	BuiltinString: &BuiltinFunction{
 		Name:  "string",
-		Value: builtinWant1(builtinStringFunc),
+		Value: funcPORO(builtinStringFunc),
 	},
 	BuiltinBytes: &BuiltinFunction{
 		Name:  "bytes",
@@ -213,7 +213,7 @@ var BuiltinObjects = [...]Object{
 	},
 	BuiltinChars: &BuiltinFunction{
 		Name:  "chars",
-		Value: builtinWant1(builtinCharsFunc),
+		Value: funcPOROe(builtinCharsFunc),
 	},
 	BuiltinPrintf: &BuiltinFunction{
 		Name:  "printf",
@@ -231,66 +231,65 @@ var BuiltinObjects = [...]Object{
 		Name:  "globals",
 		Value: noopFunc, // Value is set at runtime
 	},
-
 	BuiltinIsError: &BuiltinFunction{
 		Name:  "isError",
 		Value: builtinIsErrorFunc,
 	},
 	BuiltinIsInt: &BuiltinFunction{
 		Name:  "isInt",
-		Value: builtinWant1(builtinIsIntFunc),
+		Value: funcPORO(builtinIsIntFunc),
 	},
 	BuiltinIsUint: &BuiltinFunction{
 		Name:  "isUint",
-		Value: builtinWant1(builtinIsUintFunc),
+		Value: funcPORO(builtinIsUintFunc),
 	},
 	BuiltinIsFloat: &BuiltinFunction{
 		Name:  "isFloat",
-		Value: builtinWant1(builtinIsFloatFunc),
+		Value: funcPORO(builtinIsFloatFunc),
 	},
 	BuiltinIsChar: &BuiltinFunction{
 		Name:  "isChar",
-		Value: builtinWant1(builtinIsCharFunc),
+		Value: funcPORO(builtinIsCharFunc),
 	},
 	BuiltinIsBool: &BuiltinFunction{
 		Name:  "isBool",
-		Value: builtinWant1(builtinIsBoolFunc),
+		Value: funcPORO(builtinIsBoolFunc),
 	},
 	BuiltinIsString: &BuiltinFunction{
 		Name:  "isString",
-		Value: builtinWant1(builtinIsStringFunc),
+		Value: funcPORO(builtinIsStringFunc),
 	},
 	BuiltinIsBytes: &BuiltinFunction{
 		Name:  "isBytes",
-		Value: builtinWant1(builtinIsBytesFunc),
+		Value: funcPORO(builtinIsBytesFunc),
 	},
 	BuiltinIsMap: &BuiltinFunction{
 		Name:  "isMap",
-		Value: builtinWant1(builtinIsMapFunc),
+		Value: funcPORO(builtinIsMapFunc),
 	},
 	BuiltinIsSyncMap: &BuiltinFunction{
 		Name:  "isSyncMap",
-		Value: builtinWant1(builtinIsSyncMapFunc),
+		Value: funcPORO(builtinIsSyncMapFunc),
 	},
 	BuiltinIsArray: &BuiltinFunction{
 		Name:  "isArray",
-		Value: builtinWant1(builtinIsArrayFunc),
+		Value: funcPORO(builtinIsArrayFunc),
 	},
 	BuiltinIsUndefined: &BuiltinFunction{
 		Name:  "isUndefined",
-		Value: builtinWant1(builtinIsUndefinedFunc),
+		Value: funcPORO(builtinIsUndefinedFunc),
 	},
 	BuiltinIsFunction: &BuiltinFunction{
 		Name:  "isFunction",
-		Value: builtinWant1(builtinIsFunctionFunc),
+		Value: funcPORO(builtinIsFunctionFunc),
 	},
 	BuiltinIsCallable: &BuiltinFunction{
 		Name:  "isCallable",
-		Value: builtinWant1(builtinIsCallableFunc),
+		Value: funcPORO(builtinIsCallableFunc),
 	},
 	BuiltinIsIterable: &BuiltinFunction{
 		Name:  "isIterable",
-		Value: builtinWant1(builtinIsIterableFunc),
+		Value: funcPORO(builtinIsIterableFunc),
 	},
 
 	BuiltinWrongNumArgumentsError:  ErrWrongNumArguments,
@@ -305,61 +304,31 @@ var BuiltinObjects = [...]Object{
 	BuiltinTypeError:               ErrType,
 }
 
-func noopFunc(args ...Object) (Object, error) {
-	return Undefined, nil
-}
+func noopFunc(_ ...Object) (Object, error) { return Undefined, nil }
 
-func builtinWant1(fn CallableFunc) CallableFunc {
-	return func(args ...Object) (ret Object, err error) {
-		if len(args) != 1 {
-			return nil, ErrWrongNumArguments.NewError(wantEqXGotY(1, len(args)))
-		}
-		return fn(args...)
+func builtinMakeArrayFunc(n int, arg Object) (Object, error) {
+	if n <= 0 {
+		return arg, nil
 	}
-}
 
-func builtinWant2(fn CallableFunc) CallableFunc {
-	return func(args ...Object) (ret Object, err error) {
-		if len(args) != 2 {
-			return nil, ErrWrongNumArguments.NewError(wantEqXGotY(2, len(args)))
-		}
-		return fn(args...)
-	}
-}
-
-func builtinMakeArrayFunc(args ...Object) (Object, error) {
-	n, ok := args[0].(Int)
+	arr, ok := arg.(Array)
 	if !ok {
-		return nil, NewArgumentTypeError(
-			"first",
-			"int",
-			args[0].TypeName(),
-		)
-	}
-
-	nn := int(n)
-	if nn <= 0 {
-		return args[1], nil
-	}
-
-	arr, ok := args[1].(Array)
-	if !ok {
-		ret := make(Array, nn)
-		for i := 1; i < nn; i++ {
+		ret := make(Array, n)
+		for i := 1; i < n; i++ {
 			ret[i] = Undefined
 		}
-		ret[0] = args[1]
+		ret[0] = arg
 		return ret, nil
 	}
 
 	length := len(arr)
-	if nn <= length {
-		return arr[:nn], nil
+	if n <= length {
+		return arr[:n], nil
 	}
 
-	ret := make(Array, nn)
+	ret := make(Array, n)
 	x := copy(ret, arr)
-	for i := x; i < nn; i++ {
+	for i := x; i < n; i++ {
 		ret[i] = Undefined
 	}
 	return ret, nil
@@ -398,172 +367,127 @@ func builtinAppendFunc(args ...Object) (Object, error) {
 			return append(obj, rest...), nil
 		}
 		return obj, nil
-	case undefined:
+	case *UndefinedType:
 		if len(args) > 1 {
 			return append(Array{}, args[1:]...), nil
 		}
 		return Array{}, nil
 	default:
 		return nil, NewArgumentTypeError(
-			"first",
+			"1st",
 			"array",
 			args[0].TypeName(),
 		)
 	}
 }
 
-func builtinDeleteFunc(args ...Object) (Object, error) {
-	switch arg := args[0].(type) {
-	case Map:
-		if key, ok := args[1].(String); ok {
-			delete(arg, string(key))
-			return Undefined, nil
-		}
-		return nil, NewArgumentTypeError(
-			"second",
-			"string",
-			args[1].TypeName(),
-		)
-	case *SyncMap:
-		if key, ok := args[1].(String); ok {
-			if arg.Map == nil {
-				return Undefined, nil
-			}
-			delete(arg.Map, string(key))
-			return Undefined, nil
-		}
-		return nil, NewArgumentTypeError(
-			"second",
-			"string",
-			args[1].TypeName(),
-		)
-	default:
-		return nil, NewArgumentTypeError(
-			"first",
-			"map|sync-map",
-			args[0].TypeName(),
+func builtinDeleteFunc(arg Object, key string) (err error) {
+	if v, ok := arg.(IndexDeleter); ok {
+		err = v.IndexDelete(String(key))
+	} else {
+		err = NewArgumentTypeError(
+			"1st",
+			"map|syncMap|IndexDeleter",
+			arg.TypeName(),
 		)
 	}
+	return
 }
 
-func builtinCopyFunc(args ...Object) (Object, error) {
-	if v, ok := args[0].(Copier); ok {
-		return v.Copy(), nil
+func builtinCopyFunc(arg Object) Object {
+	if v, ok := arg.(Copier); ok {
+		return v.Copy()
 	}
-	return args[0], nil
+	return arg
 }
 
-func builtinRepeatFunc(args ...Object) (Object, error) {
-	var count int
-	switch v := args[1].(type) {
-	case Int:
-		count = int(v)
-	case Uint:
-		count = int(v)
-	default:
-		return nil, NewArgumentTypeError(
-			"second",
-			"int|uint",
-			args[1].TypeName(),
-		)
-	}
-
+func builtinRepeatFunc(arg Object, count int) (ret Object, err error) {
 	if count < 0 {
 		return nil, NewArgumentTypeError(
-			"second",
+			"2nd",
 			"non-negative integer",
-			args[1].TypeName(),
+			"negative integer",
 		)
 	}
 
-	switch v := args[0].(type) {
+	switch v := arg.(type) {
 	case Array:
 		out := make(Array, 0, len(v)*count)
 		for i := 0; i < count; i++ {
 			out = append(out, v...)
 		}
-		return out, nil
+		ret = out
 	case String:
-		return String(strings.Repeat(string(v), count)), nil
+		ret = String(strings.Repeat(string(v), count))
 	case Bytes:
-		return Bytes(bytes.Repeat(v, count)), nil
-	}
-
-	return nil, NewArgumentTypeError(
-		"first",
-		"array|string|bytes",
-		args[0].TypeName(),
-	)
-}
-
-func builtinContainsFunc(args ...Object) (Object, error) {
-	switch obj := args[0].(type) {
-	case Map:
-		_, ok := obj[args[1].String()]
-		return Bool(ok), nil
-	case *SyncMap:
-		_, ok := obj.Get(args[1].String())
-		return Bool(ok), nil
-	case Array:
-		search := args[1]
-		for _, item := range obj {
-			if item.Equal(search) {
-				return True, nil
-			}
-		}
-		return False, nil
-	case String:
-		return Bool(strings.Contains(string(obj), args[1].String())), nil
-	case Bytes:
-		switch v := args[1].(type) {
-		case Int:
-			return Bool(bytes.Contains(obj, []byte{byte(v)})), nil
-		case Uint:
-			return Bool(bytes.Contains(obj, []byte{byte(v)})), nil
-		case Char:
-			return Bool(bytes.Contains(obj, []byte{byte(v)})), nil
-		case String:
-			return Bool(bytes.Contains(obj, []byte(v))), nil
-		case Bytes:
-			return Bool(bytes.Contains(obj, v)), nil
-		default:
-			return nil, NewArgumentTypeError(
-				"second",
-				"int|uint|string|char|bytes",
-				args[1].TypeName(),
-			)
-		}
-	case undefined:
-		return False, nil
+		ret = Bytes(bytes.Repeat(v, count))
 	default:
-		return nil, NewArgumentTypeError(
-			"first",
-			"map|array|string|bytes",
-			args[0].TypeName(),
+		err = NewArgumentTypeError(
+			"1st",
+			"array|string|bytes",
+			arg.TypeName(),
 		)
 	}
+	return
 }
 
-func builtinLenFunc(args ...Object) (Object, error) {
-	switch v := args[0].(type) {
-	case String:
-		return Int(len(v)), nil
-	case Array:
-		return Int(len(v)), nil
+func builtinContainsFunc(arg0, arg1 Object) (Object, error) {
+	var ok bool
+	switch obj := arg0.(type) {
 	case Map:
-		return Int(len(v)), nil
+		_, ok = obj[arg1.String()]
 	case *SyncMap:
-		return Int(len(v.Map)), nil
+		_, ok = obj.Get(arg1.String())
+	case Array:
+		for _, item := range obj {
+			if item.Equal(arg1) {
+				ok = true
+				break
+			}
+		}
+	case String:
+		ok = strings.Contains(string(obj), arg1.String())
 	case Bytes:
-		return Int(len(v)), nil
+		switch v := arg1.(type) {
+		case Int:
+			ok = bytes.Contains(obj, []byte{byte(v)})
+		case Uint:
+			ok = bytes.Contains(obj, []byte{byte(v)})
+		case Char:
+			ok = bytes.Contains(obj, []byte{byte(v)})
+		case String:
+			ok = bytes.Contains(obj, []byte(v))
+		case Bytes:
+			ok = bytes.Contains(obj, v)
+		default:
+			return nil, NewArgumentTypeError(
+				"2nd",
+				"int|uint|string|char|bytes",
+				arg1.TypeName(),
+			)
+		}
+	case *UndefinedType:
+	default:
+		return nil, NewArgumentTypeError(
+			"1st",
+			"map|array|string|bytes",
+			arg0.TypeName(),
+		)
 	}
-	return Int(0), nil
+	return Bool(ok), nil
 }
 
-func builtinSortFunc(args ...Object) (Object, error) {
-	switch obj := args[0].(type) {
+func builtinLenFunc(arg Object) Object {
+	var n int
+	if v, ok := arg.(LengthGetter); ok {
+		n = v.Len()
+	}
+	return Int(n)
+}
+
+func builtinSortFunc(arg Object) (ret Object, err error) {
+	switch obj := arg.(type) {
 	case Array:
-		var err error
 		sort.Slice(obj, func(i, j int) bool {
 			v, e := obj[i].BinaryOp(token.Less, obj[j])
 			if e != nil && err == nil {
@@ -575,35 +499,32 @@ func builtinSortFunc(args ...Object) (Object, error) {
 			}
 			return false
 		})
-
-		if err != nil {
-			return nil, err
-		}
-		return obj, nil
+		ret = arg
 	case String:
 		s := []rune(obj)
 		sort.Slice(s, func(i, j int) bool {
 			return s[i] < s[j]
 		})
-		return String(s), nil
+		ret = String(s)
 	case Bytes:
 		sort.Slice(obj, func(i, j int) bool {
 			return obj[i] < obj[j]
 		})
-		return obj, nil
-	case undefined:
-		return Undefined, nil
+		ret = arg
+	case *UndefinedType:
+		ret = Undefined
+	default:
+		err = NewArgumentTypeError(
+			"1st",
+			"array|string|bytes",
+			arg.TypeName(),
+		)
 	}
-
-	return nil, NewArgumentTypeError(
-		"first",
-		"array|string|bytes",
-		args[0].TypeName(),
-	)
+	return
 }
 
-func builtinSortReverseFunc(args ...Object) (Object, error) {
-	switch obj := args[0].(type) {
+func builtinSortReverseFunc(arg Object) (Object, error) {
+	switch obj := arg.(type) {
 	case Array:
 		var err error
 		sort.Slice(obj, func(i, j int) bool {
@@ -633,190 +554,81 @@ func builtinSortReverseFunc(args ...Object) (Object, error) {
 			return obj[j] < obj[i]
 		})
 		return obj, nil
-	case undefined:
+	case *UndefinedType:
 		return Undefined, nil
 	}
 
 	return nil, NewArgumentTypeError(
-		"first",
+		"1st",
 		"array|string|bytes",
-		args[0].TypeName(),
+		arg.TypeName(),
 	)
 }
 
-func builtinErrorFunc(args ...Object) (Object, error) {
-	return &Error{Name: "error", Message: args[0].String()}, nil
+func builtinErrorFunc(arg Object) Object {
+	return &Error{Name: "error", Message: arg.String()}
 }
 
-func builtinTypeNameFunc(args ...Object) (Object, error) {
-	return String(args[0].TypeName()), nil
-}
+func builtinTypeNameFunc(arg Object) Object { return String(arg.TypeName()) }
 
-func builtinBoolFunc(args ...Object) (Object, error) {
-	return Bool(!args[0].IsFalsy()), nil
-}
+func builtinBoolFunc(arg Object) Object { return Bool(!arg.IsFalsy()) }
 
-func builtinIntFunc(args ...Object) (Object, error) {
-	switch obj := args[0].(type) {
-	case Uint:
-		return Int(obj), nil
-	case Float:
-		return Int(obj), nil
-	case Int:
-		return obj, nil
-	case Char:
-		return Int(obj), nil
-	case String:
-		v, err := strconv.ParseInt(string(obj), 0, 64)
-		if err != nil {
-			return nil, err
-		}
-		return Int(v), nil
-	case Bool:
-		if obj {
-			return Int(1), nil
-		}
-		return Int(0), nil
-	default:
-		return nil, NewArgumentTypeError(
-			"first",
-			"numeric|string|bool",
-			args[0].TypeName(),
-		)
+func builtinIntFunc(v int64) Object { return Int(v) }
+
+func builtinUintFunc(v uint64) Object { return Uint(v) }
+
+func builtinFloatFunc(v float64) Object { return Float(v) }
+
+func builtinCharFunc(arg Object) (Object, error) {
+	v, ok := ToChar(arg)
+	if ok && v != utf8.RuneError {
+		return v, nil
 	}
-}
-
-func builtinUintFunc(args ...Object) (Object, error) {
-	switch obj := args[0].(type) {
-	case Int:
-		return Uint(obj), nil
-	case Float:
-		return Uint(obj), nil
-	case Char:
-		return Uint(obj), nil
-	case Uint:
-		return obj, nil
-	case String:
-		v, err := strconv.ParseUint(string(obj), 0, 64)
-		if err != nil {
-			return nil, err
-		}
-		return Uint(v), nil
-	case Bool:
-		if obj {
-			return Uint(1), nil
-		}
-		return Uint(0), nil
-	default:
-		return nil, NewArgumentTypeError(
-			"first",
-			"numeric|string|bool",
-			args[0].TypeName(),
-		)
+	if v == utf8.RuneError || arg == Undefined {
+		return Undefined, nil
 	}
+	return nil, NewArgumentTypeError(
+		"1st",
+		"numeric|string|bool",
+		arg.TypeName(),
+	)
 }
 
-func builtinCharFunc(args ...Object) (Object, error) {
-	switch obj := args[0].(type) {
-	case Int:
-		return Char(obj), nil
-	case Uint:
-		return Char(obj), nil
-	case Float:
-		return Char(obj), nil
-	case Char:
-		return obj, nil
-	case String:
-		r, _ := utf8.DecodeRuneInString(string(obj))
-		if r == utf8.RuneError {
-			return Undefined, nil
-		}
-		return Char(r), nil
-	case Bool:
-		if obj {
-			return Char(1), nil
-		}
-		return Char(0), nil
-	default:
-		return nil, NewArgumentTypeError(
-			"first",
-			"numeric|string|bool",
-			args[0].TypeName(),
-		)
-	}
-}
-
-func builtinFloatFunc(args ...Object) (Object, error) {
-	switch obj := args[0].(type) {
-	case Int:
-		return Float(obj), nil
-	case Uint:
-		return Float(obj), nil
-	case Char:
-		return Float(obj), nil
-	case Float:
-		return obj, nil
-	case String:
-		v, err := strconv.ParseFloat(string(obj), 64)
-		if err != nil {
-			return nil, err
-		}
-		return Float(v), nil
-	case Bool:
-		if obj {
-			return Float(1), nil
-		}
-		return Float(0), nil
-	default:
-		return nil, NewArgumentTypeError(
-			"first",
-			"numeric|string|bool",
-			args[0].TypeName(),
-		)
-	}
-}
-
-func builtinStringFunc(args ...Object) (Object, error) {
-	return String(args[0].String()), nil
-}
+func builtinStringFunc(arg Object) Object { return String(arg.String()) }
 
 func builtinBytesFunc(args ...Object) (Object, error) {
 	if len(args) == 0 {
 		return Bytes{}, nil
 	}
-
-	switch obj := args[0].(type) {
-	case String:
-		return Bytes([]byte(obj)), nil
-	case Bytes:
-		return obj, nil
-	default:
-		var out Bytes
-		for i, obj := range args {
-			switch v := obj.(type) {
-			case Int:
-				out = append(out, byte(v))
-			case Uint:
-				out = append(out, byte(v))
-			case Char:
-				out = append(out, byte(v))
-			default:
-				return nil, NewArgumentTypeError(
-					strconv.Itoa(i+1),
-					"int|uint|char",
-					args[i].TypeName(),
-				)
-			}
-		}
-		return out, nil
+	if v, ok := ToBytes(args[0]); ok {
+		return v, nil
 	}
+
+	out := Bytes{}
+	for i, obj := range args {
+		switch v := obj.(type) {
+		case Int:
+			out = append(out, byte(v))
+		case Uint:
+			out = append(out, byte(v))
+		case Char:
+			out = append(out, byte(v))
+		default:
+			return nil, NewArgumentTypeError(
+				strconv.Itoa(i+1),
+				"int|uint|char",
+				args[i].TypeName(),
+			)
+		}
+	}
+	return out, nil
 }
 
-func builtinCharsFunc(args ...Object) (Object, error) {
-	switch obj := args[0].(type) {
+func builtinCharsFunc(arg Object) (ret Object, err error) {
+	switch obj := arg.(type) {
 	case String:
 		s := string(obj)
-		var out = make(Array, 0, utf8.RuneCountInString(s))
+		ret = make(Array, 0, utf8.RuneCountInString(s))
 		sz := len(obj)
 		i := 0
 
@@ -825,12 +637,11 @@ func builtinCharsFunc(args ...Object) (Object, error) {
 			if r == utf8.RuneError {
 				return Undefined, nil
 			}
-			out = append(out, Char(r))
+			ret = append(ret.(Array), Char(r))
 			i += w
 		}
-		return out, nil
 	case Bytes:
-		var out = make(Array, 0, utf8.RuneCount(obj))
+		ret = make(Array, 0, utf8.RuneCount(obj))
 		sz := len(obj)
 		i := 0
 
@@ -839,61 +650,51 @@ func builtinCharsFunc(args ...Object) (Object, error) {
 			if r == utf8.RuneError {
 				return Undefined, nil
 			}
-			out = append(out, Char(r))
+			ret = append(ret.(Array), Char(r))
 			i += w
 		}
-		return out, nil
+	default:
+		err = NewArgumentTypeError(
+			"1st",
+			"string|bytes",
+			arg.TypeName(),
+		)
 	}
-	return nil, NewArgumentTypeError(
-		"first",
-		"string|bytes",
-		args[0].TypeName(),
-	)
+	return
 }
 
-func builtinPrintfFunc(args ...Object) (Object, error) {
-	if len(args) < 1 {
-		return nil, ErrWrongNumArguments.NewError("want>=1 got=0")
-	}
-
+func builtinPrintfFunc(args ...Object) (ret Object, err error) {
+	ret = Undefined
 	switch len(args) {
+	case 0:
+		err = ErrWrongNumArguments.NewError("want>=1 got=0")
 	case 1:
-		if _, err := fmt.Fprint(PrintWriter, args[0].String()); err != nil {
-			return nil, err
-		}
+		_, err = fmt.Fprint(PrintWriter, args[0].String())
 	default:
 		vargs := make([]interface{}, len(args)-1)
 		for i := range args[1:] {
 			vargs[i] = args[i+1]
 		}
-		_, err := fmt.Fprintf(PrintWriter, args[0].String(), vargs...)
-		if err != nil {
-			return nil, err
-		}
+		_, err = fmt.Fprintf(PrintWriter, args[0].String(), vargs...)
 	}
-	return Undefined, nil
+	return
 }
 
-func builtinPrintlnFunc(args ...Object) (Object, error) {
+func builtinPrintlnFunc(args ...Object) (ret Object, err error) {
+	ret = Undefined
 	switch len(args) {
 	case 0:
-		if _, err := fmt.Fprintln(PrintWriter); err != nil {
-			return nil, err
-		}
+		_, err = fmt.Fprintln(PrintWriter)
 	case 1:
-		if _, err := fmt.Fprintln(PrintWriter, args[0]); err != nil {
-			return nil, err
-		}
+		_, err = fmt.Fprintln(PrintWriter, args[0])
 	default:
 		vargs := make([]interface{}, len(args))
 		for i := range args {
 			vargs[i] = args[i]
 		}
-		if _, err := fmt.Fprintln(PrintWriter, vargs...); err != nil {
-			return nil, err
-		}
+		_, err = fmt.Fprintln(PrintWriter, vargs...)
 	}
-	return Undefined, nil
+	return
 }
 
 func builtinSprintfFunc(args ...Object) (Object, error) {
@@ -909,117 +710,100 @@ func builtinSprintfFunc(args ...Object) (Object, error) {
 	return String(fmt.Sprintf(args[0].String(), vargs...)), nil
 }
 
-func builtinIsErrorFunc(args ...Object) (Object, error) {
+func builtinIsErrorFunc(args ...Object) (ret Object, err error) {
+	ret = False
 	switch len(args) {
 	case 1:
 		switch args[0].(type) {
 		case *Error, *RuntimeError:
-			return True, nil
+			ret = True
 		}
 	case 2:
 		if err, ok := args[0].(error); ok {
 			if target, ok := args[1].(error); ok {
-				return Bool(errors.Is(err, target)), nil
+				ret = Bool(errors.Is(err, target))
 			}
 		}
 	default:
-		return nil, ErrWrongNumArguments.NewError(
-			fmt.Sprint("want=1..2 got=", len(args)))
+		err = ErrWrongNumArguments.NewError(
+			"want=1..2 got=", strconv.Itoa(len(args)))
 	}
-	return False, nil
+	return
 }
 
-func builtinIsIntFunc(args ...Object) (Object, error) {
-	_, ok := args[0].(Int)
-	return Bool(ok), nil
+func builtinIsIntFunc(arg Object) Object {
+	_, ok := arg.(Int)
+	return Bool(ok)
 }
 
-func builtinIsUintFunc(args ...Object) (Object, error) {
-	_, ok := args[0].(Uint)
-	return Bool(ok), nil
+func builtinIsUintFunc(arg Object) Object {
+	_, ok := arg.(Uint)
+	return Bool(ok)
 }
 
-func builtinIsFloatFunc(args ...Object) (Object, error) {
-	_, ok := args[0].(Float)
-	return Bool(ok), nil
+func builtinIsFloatFunc(arg Object) Object {
+	_, ok := arg.(Float)
+	return Bool(ok)
 }
 
-func builtinIsCharFunc(args ...Object) (Object, error) {
-	_, ok := args[0].(Char)
-	return Bool(ok), nil
+func builtinIsCharFunc(arg Object) Object {
+	_, ok := arg.(Char)
+	return Bool(ok)
 }
 
-func builtinIsBoolFunc(args ...Object) (Object, error) {
-	_, ok := args[0].(Bool)
-	return Bool(ok), nil
+func builtinIsBoolFunc(arg Object) Object {
+	_, ok := arg.(Bool)
+	return Bool(ok)
 }
 
-func builtinIsStringFunc(args ...Object) (Object, error) {
-	_, ok := args[0].(String)
-	return Bool(ok), nil
+func builtinIsStringFunc(arg Object) Object {
+	_, ok := arg.(String)
+	return Bool(ok)
 }
 
-func builtinIsBytesFunc(args ...Object) (Object, error) {
-	_, ok := args[0].(Bytes)
-	return Bool(ok), nil
+func builtinIsBytesFunc(arg Object) Object {
+	_, ok := arg.(Bytes)
+	return Bool(ok)
 }
 
-func builtinIsMapFunc(args ...Object) (Object, error) {
-	_, ok := args[0].(Map)
-	return Bool(ok), nil
+func builtinIsMapFunc(arg Object) Object {
+	_, ok := arg.(Map)
+	return Bool(ok)
 }
 
-func builtinIsSyncMapFunc(args ...Object) (Object, error) {
-	_, ok := args[0].(*SyncMap)
-	return Bool(ok), nil
+func builtinIsSyncMapFunc(arg Object) Object {
+	_, ok := arg.(*SyncMap)
+	return Bool(ok)
 }
 
-func builtinIsArrayFunc(args ...Object) (Object, error) {
-	_, ok := args[0].(Array)
-	return Bool(ok), nil
+func builtinIsArrayFunc(arg Object) Object {
+	_, ok := arg.(Array)
+	return Bool(ok)
 }
 
-func builtinIsUndefinedFunc(args ...Object) (Object, error) {
-	return Bool(args[0] == Undefined), nil
+func builtinIsUndefinedFunc(arg Object) Object {
+	if arg == Undefined {
+		return True
+	}
+	_, ok := arg.(*UndefinedType)
+	return Bool(ok)
 }
 
-func builtinIsFunctionFunc(args ...Object) (Object, error) {
-	_, ok := args[0].(*CompiledFunction)
+func builtinIsFunctionFunc(arg Object) Object {
+	_, ok := arg.(*CompiledFunction)
 	if ok {
-		return True, nil
+		return True
 	}
 
-	_, ok = args[0].(*BuiltinFunction)
+	_, ok = arg.(*BuiltinFunction)
 	if ok {
-		return True, nil
+		return True
 	}
 
-	_, ok = args[0].(*Function)
-	return Bool(ok), nil
+	_, ok = arg.(*Function)
+	return Bool(ok)
 }
 
-func builtinIsCallableFunc(args ...Object) (Object, error) {
-	return Bool(args[0].CanCall()), nil
-}
+func builtinIsCallableFunc(arg Object) Object { return Bool(arg.CanCall()) }
 
-func builtinIsIterableFunc(args ...Object) (Object, error) {
-	return Bool(args[0].CanIterate()), nil
-}
-
-func wantEqXGotY(x, y int) string {
-	buf := make([]byte, 0, 20)
-	buf = append(buf, "want="...)
-	buf = strconv.AppendInt(buf, int64(x), 10)
-	buf = append(buf, " got="...)
-	buf = strconv.AppendInt(buf, int64(y), 10)
-	return string(buf)
-}
-
-func wantGEqXGotY(x, y int) string {
-	buf := make([]byte, 0, 20)
-	buf = append(buf, "want>="...)
-	buf = strconv.AppendInt(buf, int64(x), 10)
-	buf = append(buf, " got="...)
-	buf = strconv.AppendInt(buf, int64(y), 10)
-	return string(buf)
-}
+func builtinIsIterableFunc(arg Object) Object { return Bool(arg.CanIterate()) }
