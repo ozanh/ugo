@@ -8,20 +8,21 @@
 package main
 
 import (
+	"bytes"
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strconv"
 	"strings"
 	"time"
 
-	"github.com/c-bata/go-prompt"
+	"github.com/peterh/liner"
 
 	"github.com/ozanh/ugo"
 	"github.com/ozanh/ugo/importers"
@@ -52,7 +53,6 @@ const (
 )
 
 var (
-	isMultiline    bool
 	noOptimizer    bool
 	traceEnabled   bool
 	traceParser    bool
@@ -60,9 +60,9 @@ var (
 	traceCompiler  bool
 )
 
-var (
-	initialSuggLen int
-)
+var initialSuggLen int
+
+var errExit = errors.New("exit")
 
 var scriptGlobals = &ugo.SyncMap{
 	Value: ugo.Map{
@@ -83,14 +83,13 @@ type repl struct {
 	eval         *ugo.Eval
 	lastBytecode *ugo.Bytecode
 	lastResult   ugo.Object
-	multiline    string
-	werr         prompt.ConsoleWriter
-	wout         prompt.ConsoleWriter
 	stdout       io.Writer
-	commands     map[string]func()
+	commands     map[string]func(string) error
+	script       *bytes.Buffer
+	isMultiline  bool
 }
 
-func newREPL(ctx context.Context, stdout io.Writer, cw prompt.ConsoleWriter) *repl {
+func newREPL(ctx context.Context, stdout io.Writer) *repl {
 	opts := ugo.CompilerOptions{
 		ModulePath:        "(repl)",
 		ModuleMap:         defaultModuleMap("."),
@@ -114,12 +113,11 @@ func newREPL(ctx context.Context, stdout io.Writer, cw prompt.ConsoleWriter) *re
 	r := &repl{
 		ctx:    ctx,
 		eval:   ugo.NewEval(opts, scriptGlobals),
-		werr:   cw,
-		wout:   cw,
 		stdout: stdout,
+		script: bytes.NewBuffer(nil),
 	}
 
-	r.commands = map[string]func(){
+	r.commands = map[string]func(string) error{
 		".bytecode":      r.cmdBytecode,
 		".builtins":      r.cmdBuiltins,
 		".gc":            r.cmdGC,
@@ -133,47 +131,57 @@ func newREPL(ctx context.Context, stdout io.Writer, cw prompt.ConsoleWriter) *re
 		".modules_cache": r.cmdModulesCache,
 		".memory_stats":  r.cmdMemoryStats,
 		".reset":         r.cmdReset,
-		".exit":          func() { os.Exit(0) },
+		".exit":          func(string) error { return errExit },
 	}
 	return r
 }
 
-func (r *repl) cmdBytecode() {
+func (r *repl) cmdBytecode(_ string) error {
 	_, _ = fmt.Fprintf(r.stdout, "%s\n", r.lastBytecode)
+	return nil
 }
 
-func (r *repl) cmdBuiltins() {
+func (r *repl) cmdBuiltins(_ string) error {
 	builtins := make([]string, len(ugo.BuiltinsMap))
 
 	for k, v := range ugo.BuiltinsMap {
 		builtins[v] = fmt.Sprint(ugo.BuiltinObjects[v].TypeName(), ":", k)
 	}
 	_, _ = fmt.Fprintln(r.stdout, strings.Join(builtins, "\n"))
+	return nil
 }
 
-func (*repl) cmdGC() { runtime.GC() }
+func (*repl) cmdGC(_ string) error {
+	runtime.GC()
+	return nil
+}
 
-func (r *repl) cmdGlobals() {
+func (r *repl) cmdGlobals(_ string) error {
 	_, _ = fmt.Fprintf(r.stdout, "%+v\n", r.eval.Globals)
+	return nil
 }
 
-func (r *repl) cmdGlobalsVerbose() {
+func (r *repl) cmdGlobalsVerbose(_ string) error {
 	_, _ = fmt.Fprintf(r.stdout, "%#v\n", r.eval.Globals)
+	return nil
 }
 
-func (r *repl) cmdLocals() {
+func (r *repl) cmdLocals(_ string) error {
 	_, _ = fmt.Fprintf(r.stdout, "%+v\n", r.eval.Locals)
+	return nil
 }
 
-func (r *repl) cmdLocalsVerbose() {
+func (r *repl) cmdLocalsVerbose(_ string) error {
 	fmt.Fprintf(r.stdout, "%#v\n", r.eval.Locals)
+	return nil
 }
 
-func (r *repl) cmdReturn() {
+func (r *repl) cmdReturn(_ string) error {
 	_, _ = fmt.Fprintf(r.stdout, "%#v\n", r.lastResult)
+	return nil
 }
 
-func (r *repl) cmdReturnVerbose() {
+func (r *repl) cmdReturnVerbose(_ string) error {
 	if r.lastResult != nil {
 		_, _ = fmt.Fprintf(r.stdout,
 			"GoType:%[1]T, TypeName:%[2]s, Value:%#[1]v\n",
@@ -181,17 +189,20 @@ func (r *repl) cmdReturnVerbose() {
 	} else {
 		_, _ = fmt.Fprintln(r.stdout, "<nil>")
 	}
+	return nil
 }
 
-func (r *repl) cmdReset() {
-	grepl = newREPL(r.ctx, r.stdout, r.wout)
+func (r *repl) cmdReset(_ string) error {
+	grepl = newREPL(r.ctx, r.stdout)
+	return nil
 }
 
-func (r *repl) cmdSymbols() {
+func (r *repl) cmdSymbols(_ string) error {
 	_, _ = fmt.Fprintf(r.stdout, "%v\n", r.eval.Opts.SymbolTable.Symbols())
+	return nil
 }
 
-func (r *repl) cmdMemoryStats() {
+func (r *repl) cmdMemoryStats(_ string) error {
 	// writeMemStats writes the formatted current, total and OS memory
 	// being used. As well as the number of garbage collection cycles completed.
 	var m runtime.MemStats
@@ -203,51 +214,54 @@ func (r *repl) cmdMemoryStats() {
 	_, _ = fmt.Fprintf(r.stdout, "\tHeapObjects = %v", m.HeapObjects)
 	_, _ = fmt.Fprintf(r.stdout, "\tSys = %s", humanFriendlySize(m.Sys))
 	_, _ = fmt.Fprintf(r.stdout, "\tNumGC = %v\n", m.NumGC)
+	return nil
 }
 
-func (r *repl) cmdModulesCache() {
+func (r *repl) cmdModulesCache(_ string) error {
 	_, _ = fmt.Fprintf(r.stdout, "%v\n", r.eval.ModulesCache)
+	return nil
 }
 
 func (r *repl) writeErrorStr(msg string) {
-	r.werr.SetColor(prompt.Red, prompt.DefaultColor, true)
-	r.werr.WriteStr(msg)
-	_ = r.werr.Flush()
+	_, _ = fmt.Fprint(r.stdout, msg)
+	_, _ = fmt.Fprintln(r.stdout)
 }
 
 func (r *repl) writeStr(msg string) {
-	r.wout.SetColor(prompt.Green, prompt.DefaultColor, false)
-	r.wout.WriteStr(msg)
-	_ = r.wout.Flush()
+	_, _ = fmt.Fprint(r.stdout, msg)
+	_, _ = fmt.Fprintln(r.stdout)
 }
 
-func (r *repl) executor(line string) {
+func (r *repl) execute(line string) error {
 	switch {
-	case line == "":
-		if !isMultiline {
-			return
-		}
-	case line[0] == '.':
-		if fn, ok := r.commands[line]; ok {
-			fn()
-			return
+	case !r.isMultiline && line == "":
+		return nil
+	case !r.isMultiline && len(line) > 0 && line[0] == '.':
+		cmd := strings.Fields(line)[0]
+		if fn, ok := r.commands[cmd]; ok {
+			return fn(line)
 		}
 	case strings.HasSuffix(line, "\\"):
-		isMultiline = true
-		r.multiline += line[:len(line)-1] + "\n"
-		return
+		r.isMultiline = true
+		r.script.WriteString(line[:len(line)-1])
+		r.script.WriteString("\n")
+		return nil
 	}
-	r.executeScript(line)
+
+	r.script.WriteString(line)
+
+	r.executeScript()
+
+	r.isMultiline = false
+	r.script.Reset()
+	return nil
 }
 
-func (r *repl) executeScript(line string) {
-	defer func() {
-		isMultiline = false
-		r.multiline = ""
-	}()
+func (r *repl) executeScript() {
 
 	var err error
-	r.lastResult, r.lastBytecode, err = r.eval.Run(r.ctx, []byte(r.multiline+line))
+
+	r.lastResult, r.lastBytecode, err = r.eval.Run(r.ctx, r.script.Bytes())
 	if err != nil {
 		r.writeErrorStr(fmt.Sprintf("\n%+v\n", err))
 		return
@@ -275,13 +289,20 @@ func (r *repl) executeScript(line string) {
 	for _, s := range symbols {
 		if s.Scope != ugo.ScopeBuiltin {
 			suggestions = append(suggestions,
-				prompt.Suggest{
-					Text:        s.Name,
-					Description: string(s.Scope) + " variable",
+				suggest{
+					text:        s.Name,
+					description: string(s.Scope) + " variable",
 				},
 			)
 		}
 	}
+}
+
+func (r *repl) prefix() string {
+	if r.isMultiline {
+		return promptPrefix2
+	}
+	return promptPrefix
 }
 
 func defaultModuleMap(workdir string) *ugo.ModuleMap {
@@ -307,89 +328,118 @@ func humanFriendlySize(b uint64) string {
 		float64(b)/1024/1024, 'f', 1, 64), " MiB")
 }
 
-func completer(in prompt.Document) []prompt.Suggest {
-	w := in.GetWordBeforeCursorWithSpace()
-	return prompt.FilterHasPrefix(suggestions, w, true)
-}
-
-var suggestions = []prompt.Suggest{
+var suggestions = []suggest{
 	// Commands
-	{Text: ".bytecode", Description: "Print Bytecode"},
-	{Text: ".builtins", Description: "Print Builtins"},
-	{Text: ".reset", Description: "Reset"},
-	{Text: ".locals", Description: "Print Locals"},
-	{Text: ".locals+", Description: "Print Locals (verbose)"},
-	{Text: ".globals", Description: "Print Globals"},
-	{Text: ".globals+", Description: "Print Globals (verbose)"},
-	{Text: ".return", Description: "Print Last Return Result"},
-	{Text: ".return+", Description: "Print Last Return Result (verbose)"},
-	{Text: ".modules_cache", Description: "Print Modules Cache"},
-	{Text: ".memory_stats", Description: "Print Memory Stats"},
-	{Text: ".gc", Description: "Run Go GC"},
-	{Text: ".symbols", Description: "Print Symbols"},
-	{Text: ".exit", Description: "Exit"},
+	{text: ".bytecode", description: "Print Bytecode"},
+	{text: ".builtins", description: "Print Builtins"},
+	{text: ".reset", description: "Reset"},
+	{text: ".locals", description: "Print Locals"},
+	{text: ".locals+", description: "Print Locals (verbose)"},
+	{text: ".globals", description: "Print Globals"},
+	{text: ".globals+", description: "Print Globals (verbose)"},
+	{text: ".return", description: "Print Last Return Result"},
+	{text: ".return+", description: "Print Last Return Result (verbose)"},
+	{text: ".modules_cache", description: "Print Modules Cache"},
+	{text: ".memory_stats", description: "Print Memory Stats"},
+	{text: ".gc", description: "Run Go GC"},
+	{text: ".symbols", description: "Print Symbols"},
+	{text: ".exit", description: "Exit"},
 }
 
 func init() {
 	// add builtins to suggestions
 	for k := range ugo.BuiltinsMap {
 		suggestions = append(suggestions,
-			prompt.Suggest{
-				Text:        k,
-				Description: "Builtin " + k,
+			suggest{
+				text:        k,
+				description: "Builtin " + k,
 			},
 		)
 	}
 
 	for tok := token.Question + 3; tok.IsKeyword(); tok++ {
 		s := tok.String()
-		suggestions = append(suggestions, prompt.Suggest{
-			Text:        s,
-			Description: "keyword " + s,
+		suggestions = append(suggestions, suggest{
+			text:        s,
+			description: "keyword " + s,
 		})
 	}
 	initialSuggLen = len(suggestions)
 }
 
-func newPrompt(
-	executor func(s string),
-	w io.Writer,
-	poptions ...prompt.Option,
-) *prompt.Prompt {
+type suggest struct {
+	text        string
+	description string
+}
 
-	_, _ = fmt.Fprintln(w, "Copyright (c) 2020 Ozan Hacıbekiroğlu")
-	_, _ = fmt.Fprintln(w, "License: MIT")
-	_, _ = fmt.Fprintln(w, "Press Ctrl+D to exit or use .exit command")
-	_, _ = fmt.Fprint(w, logo)
+type prompt struct {
+	out           io.Writer
+	executer      func(s string) error
+	prefixer      func() string
+	completer     liner.Completer
+	wordcompleter liner.WordCompleter
+	exiter        func(error)
+}
 
-	options := []prompt.Option{
-		prompt.OptionPrefix(promptPrefix),
-		prompt.OptionHistory([]string{
-			"a := 1",
-			"sum := func(...a) { total:=0; for v in a { total+=v }; return total }",
-			"func(a, b){ return a*b }(2, 3)",
-			`println("")`,
-			`var (x, y, z); if x { y } else { z }`,
-			`var (x, y, z); x ? y : z`,
-			`for i := 0; i < 3; i++ { }`,
-			`m := {}; for k,v in m { printf("%s:%v\n", k, v) }`,
-			`try { } catch err { } finally { }`,
-		}),
-		prompt.OptionLivePrefix(func() (string, bool) {
-			if isMultiline {
-				return promptPrefix2, true
-			}
-			return "", false
-		}),
-		prompt.OptionTitle(title),
-		prompt.OptionPrefixTextColor(prompt.Yellow),
-		prompt.OptionPreviewSuggestionTextColor(prompt.Blue),
-		prompt.OptionSelectedSuggestionBGColor(prompt.LightGray),
-		prompt.OptionSuggestionBGColor(prompt.DarkGray),
+func (p *prompt) init() {
+	_, _ = fmt.Fprintln(p.out, "Copyright (c) 2020-2022 Ozan Hacıbekiroğlu")
+	_, _ = fmt.Fprintln(p.out, "License: MIT")
+	_, _ = fmt.Fprintln(p.out, "Press Ctrl+D to exit or use .exit command")
+	_, _ = fmt.Fprint(p.out, logo)
+}
+
+func (p *prompt) run(history io.Reader) {
+	p.init()
+
+	line := liner.NewLiner()
+	line.SetMultiLineMode(true)
+	if p.completer != nil {
+		line.SetCompleter(p.completer)
+	}
+	if p.wordcompleter != nil {
+		line.SetWordCompleter(p.wordcompleter)
+	}
+	_, err := line.ReadHistory(history)
+	if err != nil {
+		p.errorf("Failed to read history. Error: %v\n", err)
 	}
 
-	options = append(options, poptions...)
-	return prompt.New(executor, completer, options...)
+	var str string
+	for {
+		str, err = line.Prompt(p.prefixer())
+		if err != nil {
+			if err == io.EOF {
+				err = nil
+				break
+			}
+			err = fmt.Errorf("prompt error: %w", err)
+			break
+		}
+		err = p.executer(str)
+		if err != nil {
+			break
+		}
+	}
+	if err != nil {
+		p.errorf("%v\n", err)
+	}
+	_ = line.Close()
+	p.exiter(err)
+}
+
+func (p *prompt) errorf(format string, err error) {
+	_, _ = fmt.Fprintf(p.out, format, err)
+}
+
+func completer(line string) []string {
+	return nil
+}
+
+func wordCompleter(
+	line string,
+	pos int,
+) (head string, completions []string, tail string) {
+	return
 }
 
 func parseFlags(
@@ -467,6 +517,7 @@ func executeScript(
 	}
 
 	vm := ugo.NewVM(bc)
+
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
@@ -485,15 +536,15 @@ func executeScript(
 	return err
 }
 
-func checkErr(err error, f func()) {
+func checkErr(err error, fn func()) {
 	if err == nil {
 		return
 	}
 
 	defer os.Exit(1)
 	_, _ = fmt.Fprintln(os.Stderr, err.Error())
-	if f != nil {
-		f()
+	if fn != nil {
+		fn()
 	}
 }
 
@@ -528,29 +579,33 @@ func main() {
 		return
 	}
 
-	defer handlePromptExit()
-
-	cw := prompt.NewStdoutWriter()
-	grepl = newREPL(ctx, os.Stdout, cw)
-	newPrompt(
-		func(s string) { grepl.executor(s) },
-		os.Stdout,
-		prompt.OptionWriter(cw),
-	).Run()
-}
-
-// Workaround for following issue.
-// https://github.com/c-bata/go-prompt/issues/228
-func handlePromptExit() {
-	if runtime.GOOS != "linux" {
-		return
+	history := []string{
+		"a := 1",
+		"sum := func(...a) { total := 0; for v in a { total += v }; return total }",
+		"func(a, b){ return a*b }(2, 3)",
+		`println("")`,
+		`var (x, y, z); if x { y } else { z }`,
+		`var (x, y, z); x ? y : z`,
+		`for i := 0; i < 3; i++ { }`,
+		`m := {}; for k,v in m { printf("%s:%v\n", k, v) }`,
+		`try { } catch err { } finally { }`,
 	}
+	histrd := strings.NewReader(strings.Join(history, "\n"))
 
-	if _, err := exec.LookPath("/bin/stty"); err != nil {
-		return
+	grepl = newREPL(ctx, os.Stdout)
+
+	p := &prompt{
+		out:           os.Stdout,
+		executer:      grepl.execute,
+		prefixer:      grepl.prefix,
+		completer:     completer,
+		wordcompleter: wordCompleter,
+		exiter: func(err error) {
+			if err != nil {
+				os.Exit(1)
+			}
+			os.Exit(0)
+		},
 	}
-
-	rawModeOff := exec.Command("/bin/stty", "-raw", "echo")
-	rawModeOff.Stdin = os.Stdin
-	_ = rawModeOff.Run()
+	p.run(histrd)
 }
