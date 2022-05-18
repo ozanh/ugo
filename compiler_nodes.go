@@ -613,7 +613,6 @@ func (c *Compiler) compileReturnStmt(node *parser.ReturnStmt) error {
 		if c.tryCatchIndex > -1 {
 			c.emit(node, OpFinalizer, 0)
 		}
-		c.emit(node, OpNull)
 		c.emit(node, OpReturn, 0)
 		return nil
 	}
