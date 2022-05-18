@@ -11,8 +11,9 @@ import (
 // FileImporter is an implemention of ugo.ExtImporter to import files from file
 // system. It uses absolute paths of module as import names.
 type FileImporter struct {
-	WorkDir string
-	name    string
+	WorkDir    string
+	FileReader func(string) ([]byte, error)
+	name       string
 }
 
 var _ ugo.ExtImporter = (*FileImporter)(nil)
@@ -49,7 +50,10 @@ func (m *FileImporter) Import(moduleName string) (interface{}, error) {
 	if m.name == "" || moduleName == "" {
 		return nil, errors.New("invalid import call")
 	}
-	return ioutil.ReadFile(moduleName)
+	if m.FileReader == nil {
+		return ioutil.ReadFile(moduleName)
+	}
+	return m.FileReader(moduleName)
 }
 
 // Fork returns a new instance of FileImporter as ugo.ExtImporter by capturing
@@ -58,6 +62,15 @@ func (m *FileImporter) Import(moduleName string) (interface{}, error) {
 func (m *FileImporter) Fork(moduleName string) ugo.ExtImporter {
 	// Note that; moduleName == Name()
 	return &FileImporter{
-		WorkDir: filepath.Dir(moduleName),
+		WorkDir:    filepath.Dir(moduleName),
+		FileReader: m.FileReader,
+	}
+}
+
+// Shebang2Slashes replaces first two bytes of given p with two slashes if they
+// are Shebang chars.
+func Shebang2Slashes(p []byte) {
+	if len(p) > 1 && string(p[:2]) == "#!" {
+		copy(p, "//")
 	}
 }

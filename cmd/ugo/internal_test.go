@@ -17,6 +17,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func init() {
+	initSuggestions()
+}
+
 func TestREPL(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -25,79 +29,149 @@ func TestREPL(t *testing.T) {
 
 	r := newREPL(ctx, cw)
 
-	require.NoError(t, r.execute("test"))
-	testHasPrefix(t, string(cw.consume()),
-		"\nCompile Error: unresolved reference \"test\"")
-
-	require.NoError(t, r.execute("test := 1"))
-	testHasPrefix(t, string(cw.consume()), "undefined\n")
-
-	require.NoError(t, r.execute(".bytecode"))
-	testHasPrefix(t, string(cw.consume()), "Bytecode\n")
-
-	require.NoError(t, r.execute(".builtins"))
-	testHasPrefix(t, string(cw.consume()),
-		"builtinFunction:append\n")
-
-	require.NoError(t, r.execute(".gc"))
-	require.Equal(t, "", string(cw.consume()))
-
-	require.NoError(t, r.execute(".globals"))
-	testHasPrefix(t, string(cw.consume()), `{"Gosched": <function:Gosched>}`)
-
-	require.NoError(t, r.execute(".globals+"))
-	testHasPrefix(t, string(cw.consume()), "&ugo.SyncMap{")
-
-	require.NoError(t, r.execute(".locals"))
-	testHasPrefix(t, string(cw.consume()), "[1]\n")
-
-	require.NoError(t, r.execute(".locals+"))
-	testHasPrefix(t, string(cw.consume()), "[]ugo.Object{1}\n")
-
-	require.NoError(t, r.execute("return test"))
-	testHasPrefix(t, string(cw.consume()), "1\n")
-
-	require.NoError(t, r.execute(".return"))
-	testHasPrefix(t, string(cw.consume()), "1\n")
-
-	require.NoError(t, r.execute(".return+"))
-	testHasPrefix(t, string(cw.consume()), "GoType:ugo.Int,")
-
-	require.NoError(t, r.execute(".symbols"))
-	testHasPrefix(t, string(cw.consume()),
-		"[Symbol{Name:test Index:0 Scope:LOCAL Assigned:true Original:<nil> Constant:false}]\n")
-
-	require.NoError(t, r.execute(".modules_cache"))
-	testHasPrefix(t, string(cw.consume()), "[]\n")
-
-	require.NoError(t, r.execute(`import("time")`))
-	testHasPrefix(t, string(cw.consume()), "{")
-
-	require.NoError(t, r.execute(".modules_cache"))
-	testHasPrefix(t, string(cw.consume()), "[{")
-
-	require.NoError(t, r.execute(`import("strings")`))
-	testHasPrefix(t, string(cw.consume()), "{")
-
-	require.NoError(t, r.execute(".modules_cache"))
-	testHasPrefix(t, string(cw.consume()), "[{")
-
-	require.NoError(t, r.execute(`import("fmt")`))
-	testHasPrefix(t, string(cw.consume()), "{")
-
-	require.NoError(t, r.execute(".modules_cache"))
-	testHasPrefix(t, string(cw.consume()), "[{")
-
-	require.NoError(t, r.execute(".memory_stats"))
-	testHasPrefix(t, string(cw.consume()), "Go Memory Stats")
-
-	g := grepl
-	require.NoError(t, r.execute(".reset"))
-	require.Empty(t, cw.consume())
-	require.NotSame(t, g, grepl)
-
-	require.Same(t, errExit, r.execute(".exit"))
-	require.Empty(t, cw.consume())
+	t.Run("commands", func(t *testing.T) {
+		require.NoError(t, r.execute(".commands"))
+		testHasPrefix(t, string(cw.consume()),
+			".commands     \tPrint commands\n")
+	})
+	t.Run("builtins", func(t *testing.T) {
+		require.NoError(t, r.execute(".builtins"))
+		testHasPrefix(t, string(cw.consume()),
+			"IndexOutOfBoundsError  \tBuiltin Error\n")
+	})
+	t.Run("keywords", func(t *testing.T) {
+		require.NoError(t, r.execute(".keywords"))
+		testHasPrefix(t, string(cw.consume()),
+			"break\ncontinue\nelse\nfor\nfunc\nif\nreturn\ntrue\nfalse\nin\n"+
+				"undefined\nimport\nparam\nglobal\nvar\nconst\ntry\ncatch\n"+
+				"finally\nthrow\n",
+		)
+	})
+	t.Run("unresolved reference", func(t *testing.T) {
+		require.NoError(t, r.execute("test"))
+		testHasPrefix(t, string(cw.consume()),
+			"\nCompile Error: unresolved reference \"test\"")
+	})
+	t.Run("assignment", func(t *testing.T) {
+		require.NoError(t, r.execute("test := 1"))
+		testHasPrefix(t, string(cw.consume()), "undefined\n")
+	})
+	t.Run("bytecode", func(t *testing.T) {
+		require.NoError(t, r.execute("func(){}"))
+		testHasPrefix(t, string(cw.consume()), "<compiledFunction>\n")
+		require.NoError(t, r.execute(".bytecode"))
+		testHasPrefix(t, string(cw.consume()), "Bytecode\n")
+	})
+	t.Run("gc", func(t *testing.T) {
+		require.NoError(t, r.execute(".gc"))
+		require.Equal(t, "", string(cw.consume()))
+	})
+	t.Run("globals", func(t *testing.T) {
+		require.NoError(t, r.execute(".globals"))
+		testHasPrefix(t, string(cw.consume()), `{"Gosched": <function:Gosched>}`)
+	})
+	t.Run("globals plus", func(t *testing.T) {
+		require.NoError(t, r.execute(".globals+"))
+		testHasPrefix(t, string(cw.consume()), "&ugo.SyncMap{")
+	})
+	t.Run("locals", func(t *testing.T) {
+		r := newREPL(ctx, cw)
+		require.NoError(t, r.execute("test := 1"))
+		cw.consume()
+		require.NoError(t, r.execute(".locals"))
+		require.Equal(t, string(cw.consume()), "[1]\n")
+	})
+	t.Run("locals plus", func(t *testing.T) {
+		r := newREPL(ctx, cw)
+		require.NoError(t, r.execute("test := 1"))
+		cw.consume()
+		require.NoError(t, r.execute(".locals+"))
+		require.Equal(t, string(cw.consume()), "[]ugo.Object{1}\n")
+	})
+	t.Run("return 1", func(t *testing.T) {
+		r := newREPL(ctx, cw)
+		require.NoError(t, r.execute("test := 1"))
+		cw.consume()
+		require.NoError(t, r.execute("return test"))
+		testHasPrefix(t, string(cw.consume()), "1\n")
+	})
+	t.Run("return", func(t *testing.T) {
+		r := newREPL(ctx, cw)
+		require.NoError(t, r.execute("return 1"))
+		cw.consume()
+		require.NoError(t, r.execute(".return"))
+		require.Equal(t, string(cw.consume()), "1\n")
+	})
+	t.Run("return plus", func(t *testing.T) {
+		r := newREPL(ctx, cw)
+		require.NoError(t, r.execute("return 1"))
+		cw.consume()
+		require.NoError(t, r.execute(".return+"))
+		require.Equal(t, string(cw.consume()),
+			"GoType:ugo.Int, TypeName:int, Value:1\n")
+	})
+	t.Run("symbols", func(t *testing.T) {
+		r := newREPL(ctx, cw)
+		require.NoError(t, r.execute("test := 1"))
+		cw.consume()
+		require.NoError(t, r.execute(".symbols"))
+		symout := string(cw.consume())
+		testHasPrefix(t, symout, "[Symbol{Name:")
+		require.Contains(t, symout,
+			"Symbol{Name:Gosched Index:0 Scope:GLOBAL Assigned:false Original:<nil> Constant:false}")
+		require.Contains(t, symout,
+			"Symbol{Name:test Index:0 Scope:LOCAL Assigned:true Original:<nil> Constant:false}")
+	})
+	t.Run("modules_cache", func(t *testing.T) {
+		r := newREPL(ctx, cw)
+		require.NoError(t, r.execute("test := 1"))
+		cw.consume()
+		require.NoError(t, r.execute(".modules_cache"))
+		require.Equal(t, string(cw.consume()), "[]\n")
+	})
+	t.Run("import time", func(t *testing.T) {
+		r := newREPL(ctx, cw)
+		require.NoError(t, r.execute(`import("time")`))
+		testHasPrefix(t, string(cw.consume()), "{")
+		require.NoError(t, r.execute(".modules_cache"))
+		testHasPrefix(t, string(cw.consume()), "[{")
+	})
+	t.Run("import strings", func(t *testing.T) {
+		r := newREPL(ctx, cw)
+		require.NoError(t, r.execute(`import("strings")`))
+		testHasPrefix(t, string(cw.consume()), "{")
+		require.NoError(t, r.execute(".modules_cache"))
+		testHasPrefix(t, string(cw.consume()), "[{")
+	})
+	t.Run("import fmt", func(t *testing.T) {
+		r := newREPL(ctx, cw)
+		require.NoError(t, r.execute(`import("fmt")`))
+		testHasPrefix(t, string(cw.consume()), "{")
+		require.NoError(t, r.execute(".modules_cache"))
+		testHasPrefix(t, string(cw.consume()), "[{")
+	})
+	t.Run("import json", func(t *testing.T) {
+		r := newREPL(ctx, cw)
+		require.NoError(t, r.execute(`import("json")`))
+		testHasPrefix(t, string(cw.consume()), "{")
+		require.NoError(t, r.execute(".modules_cache"))
+		testHasPrefix(t, string(cw.consume()), "[{")
+	})
+	t.Run("memory_stats", func(t *testing.T) {
+		require.NoError(t, r.execute(".memory_stats"))
+		testHasPrefix(t, string(cw.consume()), "Go Memory Stats")
+	})
+	t.Run("reset", func(t *testing.T) {
+		r := newREPL(ctx, cw)
+		require.NoError(t, r.execute("test := 1"))
+		cw.consume()
+		require.Same(t, errReset, r.execute(".reset"))
+		require.Empty(t, cw.consume())
+	})
+	t.Run("exit", func(t *testing.T) {
+		require.Same(t, errExit, r.execute(".exit"))
+		require.Empty(t, cw.consume())
+	})
 }
 
 func TestFlags(t *testing.T) {
@@ -165,19 +239,26 @@ func resetGlobals() {
 }
 
 func TestExecuteScript(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	const workdir = "./testdata"
 	scr, err := ioutil.ReadFile("./testdata/fibtc.ugo")
 	require.NoError(t, err)
-	require.NoError(t, executeScript(context.Background(), workdir, scr, nil))
+	require.NoError(t, executeScript(ctx, "(test1)", workdir, scr, nil))
+
+	traceEnabled = true
+	require.NoError(t, executeScript(ctx, "(test2)", workdir, scr, ioutil.Discard))
+	resetGlobals()
 
 	// FIXME: Following is a flaky test which compromise CI
 	// Although runtime.Gosched() is called in script, scheduler may not switch
 	// to goroutine started VM goroutine in time. Find a better way to test
 	// canceled/timed out context error. A script with a long execution time can
 	// fix this issue but it will extend the test duration.
-	ctx, cancel := context.WithCancel(context.Background())
+
 	cancel()
-	err = executeScript(ctx, workdir, scr, nil)
+	err = executeScript(ctx, "(test3)", workdir, scr, nil)
 	if err != nil {
 		if err != context.Canceled && err != ugo.ErrVMAborted {
 			t.Fatalf("unexpected error: %+v", err)
