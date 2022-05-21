@@ -22,7 +22,6 @@ func TestFileImporter(t *testing.T) {
 		ugo.PrintWriter = orig
 	}()
 
-	tempDir := t.TempDir()
 	files := map[string]string{
 		"./test1.ugo": `
 import("./test2.ugo")
@@ -52,9 +51,8 @@ println("test6")
 println("test7")
 `,
 	}
-	createModules(t, tempDir, files)
 
-	script := []byte(`
+	script := `
 import("test1.ugo")
 println("main")
 
@@ -75,23 +73,70 @@ func() {
 	import("foo/test6.ugo")
 }()
 
-`)
-	opts := ugo.DefaultCompilerOptions
-	opts.ModuleMap = ugo.NewModuleMap().
+`
+	moduleMap := ugo.NewModuleMap().
 		AddSourceModule("sourcemod", []byte(`
 import("./test7.ugo")
-println("sourcemod")
-`)).
-		SetExtImporter(&importers.FileImporter{WorkDir: tempDir})
-	bc, err := ugo.Compile(script, opts)
-	require.NoError(t, err)
-	ret, err := ugo.NewVM(bc).Run(nil)
-	require.NoError(t, err)
-	require.Equal(t, ugo.Undefined, ret)
-	require.Equal(t,
-		"test7\nsourcemod\ntest6\ntest5\ntest4\ntest3\ntest2\ntest1\nmain\n",
-		strings.ReplaceAll(buf.String(), "\r", ""),
-	)
+println("sourcemod")`))
+
+	t.Run("default", func(t *testing.T) {
+		buf.Reset()
+
+		tempDir := t.TempDir()
+
+		createModules(t, tempDir, files)
+
+		opts := ugo.DefaultCompilerOptions
+		opts.ModuleMap = moduleMap.Copy()
+		opts.ModuleMap.SetExtImporter(&importers.FileImporter{WorkDir: tempDir})
+		bc, err := ugo.Compile([]byte(script), opts)
+		require.NoError(t, err)
+		ret, err := ugo.NewVM(bc).Run(nil)
+		require.NoError(t, err)
+		require.Equal(t, ugo.Undefined, ret)
+		require.Equal(t,
+			"test7\nsourcemod\ntest6\ntest5\ntest4\ntest3\ntest2\ntest1\nmain\n",
+			strings.ReplaceAll(buf.String(), "\r", ""),
+		)
+	})
+
+	t.Run("shebang", func(t *testing.T) {
+		buf.Reset()
+
+		const shebangline = "#!/usr/bin/ugo\n"
+
+		mfiles := make(map[string]string)
+		for k, v := range files {
+			mfiles[k] = shebangline + v
+		}
+
+		tempDir := t.TempDir()
+
+		createModules(t, tempDir, mfiles)
+
+		opts := ugo.DefaultCompilerOptions
+		opts.ModuleMap = moduleMap.Copy()
+		opts.ModuleMap.SetExtImporter(
+			&importers.FileImporter{
+				WorkDir:    tempDir,
+				FileReader: importers.ShebangReadFile,
+			},
+		)
+
+		script := append([]byte(shebangline), script...)
+		importers.Shebang2Slashes(script)
+
+		bc, err := ugo.Compile(script, opts)
+		require.NoError(t, err)
+		ret, err := ugo.NewVM(bc).Run(nil)
+		require.NoError(t, err)
+		require.Equal(t, ugo.Undefined, ret)
+		require.Equal(t,
+			"test7\nsourcemod\ntest6\ntest5\ntest4\ntest3\ntest2\ntest1\nmain\n",
+			strings.ReplaceAll(buf.String(), "\r", ""),
+		)
+	})
+
 }
 
 func createModules(t *testing.T, baseDir string, files map[string]string) {

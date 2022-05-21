@@ -32,7 +32,7 @@ func TestREPL(t *testing.T) {
 	t.Run("commands", func(t *testing.T) {
 		require.NoError(t, r.execute(".commands"))
 		testHasPrefix(t, string(cw.consume()),
-			".commands     \tPrint commands\n")
+			".commands     \tPrint REPL commands\n")
 	})
 	t.Run("builtins", func(t *testing.T) {
 		require.NoError(t, r.execute(".builtins"))
@@ -115,6 +115,14 @@ func TestREPL(t *testing.T) {
 		require.NoError(t, r.execute("test := 1"))
 		cw.consume()
 		require.NoError(t, r.execute(".symbols"))
+		symout := string(cw.consume())
+		require.Regexp(t, `test\s+LOCAL`, symout)
+	})
+	t.Run("symbols+", func(t *testing.T) {
+		r := newREPL(ctx, cw)
+		require.NoError(t, r.execute("test := 1"))
+		cw.consume()
+		require.NoError(t, r.execute(".symbols+"))
 		symout := string(cw.consume())
 		testHasPrefix(t, symout, "[Symbol{Name:")
 		require.Contains(t, symout,

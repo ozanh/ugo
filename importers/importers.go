@@ -67,6 +67,17 @@ func (m *FileImporter) Fork(moduleName string) ugo.ExtImporter {
 	}
 }
 
+// ShebangReadFile reads given path and returns the content of the file. If file
+// starts with Shebang #! , it is replaced with //.
+// This function can be used as ReadFile callback in FileImporter.
+func ShebangReadFile(path string) ([]byte, error) {
+	data, err := ioutil.ReadFile(path)
+	if err == nil {
+		Shebang2Slashes(data)
+	}
+	return data, err
+}
+
 // Shebang2Slashes replaces first two bytes of given p with two slashes if they
 // are Shebang chars.
 func Shebang2Slashes(p []byte) {

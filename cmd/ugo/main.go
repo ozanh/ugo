@@ -126,6 +126,7 @@ func newREPL(ctx context.Context, stdout io.Writer) *repl {
 		out:    stdout,
 		script: bytes.NewBuffer(nil),
 	}
+	r.setSymbolSuggestions()
 
 	r.commands = map[string]func(string) error{
 		".commands":      r.cmdCommands,
@@ -140,9 +141,10 @@ func newREPL(ctx context.Context, stdout io.Writer) *repl {
 		".return":        r.cmdReturn,
 		".return+":       r.cmdReturnVerbose,
 		".symbols":       r.cmdSymbols,
+		".symbols+":      r.cmdSymbolsVerbose,
 		".modules_cache": r.cmdModulesCache,
 		".memory_stats":  r.cmdMemoryStats,
-		".reset":         r.cmdReset,
+		".reset":         func(string) error { return errReset },
 		".exit":          func(string) error { return errExit },
 	}
 	return r
@@ -178,10 +180,18 @@ func (r *repl) cmdKeywords(_ string) error {
 	return nil
 }
 
+func (r *repl) cmdSymbols(_ string) error {
+	suggs, pad := r.rangeSuggestions(
+		func(s suggest) bool { return s.typ == "symbol" },
+	)
+	r.printSuggestions(suggs, pad)
+	return nil
+}
+
 func (*repl) rangeSuggestions(filter func(suggest) bool) ([]suggest, int) {
-	var suggs = make([]suggest, 0, initialSuggLen)
+	var suggs []suggest
 	var maxtext int
-	for _, v := range suggestions[:initialSuggLen] {
+	for _, v := range suggestions {
 		if !filter(v) {
 			continue
 		}
@@ -251,11 +261,7 @@ func (r *repl) cmdReturnVerbose(_ string) error {
 	return nil
 }
 
-func (r *repl) cmdReset(_ string) error {
-	return errReset
-}
-
-func (r *repl) cmdSymbols(_ string) error {
+func (r *repl) cmdSymbolsVerbose(_ string) error {
 	_, _ = fmt.Fprintf(r.out, "%v\n", r.eval.Opts.SymbolTable.Symbols())
 	return nil
 }
@@ -280,12 +286,7 @@ func (r *repl) cmdModulesCache(_ string) error {
 	return nil
 }
 
-func (r *repl) writeErrorStr(msg string) {
-	_, _ = fmt.Fprint(r.out, msg)
-	_, _ = fmt.Fprintln(r.out)
-}
-
-func (r *repl) writeStr(msg string) {
+func (r *repl) writeString(msg string) {
 	_, _ = fmt.Fprint(r.out, msg)
 	_, _ = fmt.Fprintln(r.out)
 }
@@ -311,36 +312,38 @@ func (r *repl) execute(line string) error {
 	r.executeScript()
 
 	r.isMultiline = false
+	r.setSymbolSuggestions()
 	r.script.Reset()
 	return nil
 }
 
 func (r *repl) executeScript() {
-
 	var err error
 
 	r.lastResult, r.lastBytecode, err = r.eval.Run(r.ctx, r.script.Bytes())
 	if err != nil {
-		r.writeErrorStr(fmt.Sprintf("\n%+v\n", err))
+		r.writeString(fmt.Sprintf("\n%+v\n", err))
 		return
 	}
 
 	if err != nil {
-		r.writeErrorStr(fmt.Sprintf("VM:\n     %+v\n", err))
+		r.writeString(fmt.Sprintf("VM:\n     %+v\n", err))
 		return
 	}
 
 	switch v := r.lastResult.(type) {
 	case ugo.String:
-		r.writeStr(fmt.Sprintf("%q\n", string(v)))
+		r.writeString(fmt.Sprintf("%q\n", string(v)))
 	case ugo.Char:
-		r.writeStr(fmt.Sprintf("%q\n", rune(v)))
+		r.writeString(fmt.Sprintf("%q\n", rune(v)))
 	case ugo.Bytes:
-		r.writeStr(fmt.Sprintf("%v\n", []byte(v)))
+		r.writeString(fmt.Sprintf("%v\n", []byte(v)))
 	default:
-		r.writeStr(fmt.Sprintf("%v\n", r.lastResult))
+		r.writeString(fmt.Sprintf("%v\n", r.lastResult))
 	}
+}
 
+func (r *repl) setSymbolSuggestions() {
 	symbols := r.eval.Opts.SymbolTable.Symbols()
 	suggestions = suggestions[:initialSuggLen]
 
@@ -349,7 +352,8 @@ func (r *repl) executeScript() {
 			suggestions = append(suggestions,
 				suggest{
 					text:        s.Name,
-					description: string(s.Scope) + " variable",
+					description: string(s.Scope),
+					typ:         "symbol",
 				},
 			)
 		}
@@ -363,15 +367,15 @@ func (r *repl) prefix() string {
 	return promptPrefix
 }
 
-func (r *repl) printStartupInfo() {
+func (r *repl) printInfo() {
 	_, _ = fmt.Fprintln(r.out, "Copyright (c) 2020-2022 Ozan Hacıbekiroğlu")
 	_, _ = fmt.Fprintln(r.out, "License: MIT")
 	_, _ = fmt.Fprintln(r.out, "Press Ctrl+D to exit or use .exit command")
+	_, _ = fmt.Fprintln(r.out, ".command lists available REPL commands")
 	_, _ = fmt.Fprint(r.out, logo)
 }
 
 func (r *repl) run(history io.Reader) error {
-
 	line := liner.NewLiner()
 	defer line.Close()
 
@@ -382,7 +386,7 @@ func (r *repl) run(history io.Reader) error {
 		err = &ugo.Error{Message: "failed history read", Cause: err}
 		return err
 	}
-	r.printStartupInfo()
+	r.printInfo()
 
 	var str string
 
@@ -438,14 +442,8 @@ func defaultModuleMap(workdir string) *ugo.ModuleMap {
 		AddBuiltinModule("json", ugojson.Module).
 		SetExtImporter(
 			&importers.FileImporter{
-				WorkDir: workdir,
-				FileReader: func(path string) ([]byte, error) {
-					data, err := ioutil.ReadFile(path)
-					if err == nil {
-						importers.Shebang2Slashes(data)
-					}
-					return data, err
-				},
+				WorkDir:    workdir,
+				FileReader: importers.ShebangReadFile,
 			},
 		)
 }
@@ -467,7 +465,7 @@ func humanFriendlySize(b uint64) string {
 func initSuggestions() {
 	suggestions = []suggest{
 		// Commands
-		{text: ".commands", description: "Print commands"},
+		{text: ".commands", description: "Print REPL commands"},
 		{text: ".builtins", description: "Print Builtins"},
 		{text: ".keywords", description: "Print Keywords"},
 		{text: ".bytecode", description: "Print Bytecode"},
@@ -480,16 +478,11 @@ func initSuggestions() {
 		{text: ".return+", description: "Print Last Return Result (verbose)"},
 		{text: ".modules_cache", description: "Print Modules Cache"},
 		{text: ".memory_stats", description: "Print Memory Stats"},
-		{text: ".gc", description: "Run Go GC"},
+		{text: ".gc", description: "Run Garbage Collector"},
 		{text: ".symbols", description: "Print Symbols"},
+		{text: ".symbols+", description: "Print Symbols (verbose)"},
 		{text: ".exit", description: "Exit"},
 	}
-
-	const (
-		descBuiltin      = "Builtin"
-		descBuiltinFunc  = "Builtin Function"
-		descBuiltinError = "Builtin Error"
-	)
 
 	// add builtins to suggestions
 	for k, id := range ugo.BuiltinsMap {
@@ -497,11 +490,11 @@ func initSuggestions() {
 		o := ugo.BuiltinObjects[id]
 		switch o.(type) {
 		case *ugo.BuiltinFunction:
-			desc = descBuiltinFunc
+			desc = "Builtin Function"
 		case *ugo.Error:
-			desc = descBuiltinError
+			desc = "Builtin Error"
 		default:
-			desc = descBuiltin
+			desc = "Builtin"
 		}
 		suggestions = append(suggestions,
 			suggest{
@@ -620,6 +613,36 @@ func executeScript(
 	return err
 }
 
+func hasMode(f *os.File, m os.FileMode) bool {
+	info, err := f.Stat()
+	if err != nil {
+		return false
+	}
+	return info.Mode()&m == m
+}
+
+func hasInputRedirection() bool {
+	info, err := os.Stdin.Stat()
+	if err != nil {
+		return false
+	}
+	return info.Mode()&os.ModeNamedPipe == os.ModeNamedPipe ||
+		info.Size() > 0
+}
+
+func setTerminalTitle(title string) {
+	if runtime.GOOS == "windows" {
+		return
+	}
+
+	titleBytes := bytes.ReplaceAll([]byte(title), []byte{0x13}, []byte{})
+	titleBytes = bytes.ReplaceAll(titleBytes, []byte{0x07}, []byte{})
+
+	_, _ = os.Stdout.Write([]byte{0x1b, ']', '2', ';'})
+	_, _ = os.Stdout.Write(titleBytes)
+	_, _ = os.Stdout.Write([]byte{0x07})
+}
+
 func main() {
 	filePath, timeout, err := parseFlags(flag.CommandLine, os.Args[1:])
 	checkErr(err, nil)
@@ -627,7 +650,11 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	if filePath != "" {
+	if len(filePath) == 0 && hasInputRedirection() {
+		filePath = "-"
+	}
+
+	if len(filePath) > 0 {
 		if timeout > 0 {
 			ctx, cancel = context.WithTimeout(ctx, timeout)
 			defer cancel()
@@ -645,7 +672,6 @@ func main() {
 			workdir = filepath.Dir(filePath)
 			script, err = ioutil.ReadFile(filePath)
 		}
-
 		importers.Shebang2Slashes(script)
 
 		checkErr(err, cancel)
@@ -654,7 +680,13 @@ func main() {
 		return
 	}
 
+	if !hasMode(os.Stdout, os.ModeCharDevice) {
+		_, _ = fmt.Fprintln(os.Stderr, "not a terminal")
+		os.Exit(1)
+	}
+
 	initSuggestions()
+	setTerminalTitle(title)
 
 	const history = "a := 1\n" +
 		"sum := func(...a) { total := 0; for v in a { total += v }; return total }\n" +
