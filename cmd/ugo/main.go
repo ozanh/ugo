@@ -310,24 +310,19 @@ func (r *repl) executeScript() {
 
 	r.lastResult, r.lastBytecode, err = r.eval.Run(r.ctx, r.script.Bytes())
 	if err != nil {
-		r.writeString(fmt.Sprintf("\n%+v\n", err))
-		return
-	}
-
-	if err != nil {
-		r.writeString(fmt.Sprintf("VM:\n     %+v\n", err))
+		r.writeString(fmt.Sprintf("\n! %+v", err))
 		return
 	}
 
 	switch v := r.lastResult.(type) {
 	case ugo.String:
-		r.writeString(fmt.Sprintf("%q\n", string(v)))
+		r.writeString(fmt.Sprintf("\n⇦ %q", string(v)))
 	case ugo.Char:
-		r.writeString(fmt.Sprintf("%q\n", rune(v)))
+		r.writeString(fmt.Sprintf("\n⇦ %q", rune(v)))
 	case ugo.Bytes:
-		r.writeString(fmt.Sprintf("%v\n", []byte(v)))
+		r.writeString(fmt.Sprintf("\n⇦ %v", []byte(v)))
 	default:
-		r.writeString(fmt.Sprintf("%v\n", r.lastResult))
+		r.writeString(fmt.Sprintf("\n⇦ %v", r.lastResult))
 	}
 }
 
@@ -359,7 +354,7 @@ func (r *repl) printInfo() {
 	_, _ = fmt.Fprintln(r.out, "Copyright (c) 2020-2022 Ozan Hacıbekiroğlu")
 	_, _ = fmt.Fprintln(r.out, "https://github.com/ozanh/ugo License: MIT",
 		"Info:", runtime.Version(), runtime.GOOS, runtime.GOARCH)
-	_, _ = fmt.Fprintln(r.out, "Write .command to list available REPL commands")
+	_, _ = fmt.Fprintln(r.out, "Write .commands to list available REPL commands")
 	_, _ = fmt.Fprintln(r.out, "Press Ctrl+D or write .exit command to exit")
 	_, _ = fmt.Fprintln(r.out)
 }
@@ -458,7 +453,6 @@ func initSuggestions() {
 		{text: ".builtins", description: "Print Builtins"},
 		{text: ".keywords", description: "Print Keywords"},
 		{text: ".bytecode", description: "Print Bytecode"},
-		{text: ".reset", description: "Reset"},
 		{text: ".locals", description: "Print Locals"},
 		{text: ".locals+", description: "Print Locals (verbose)"},
 		{text: ".globals", description: "Print Globals"},
@@ -470,6 +464,7 @@ func initSuggestions() {
 		{text: ".gc", description: "Run Garbage Collector"},
 		{text: ".symbols", description: "Print Symbols"},
 		{text: ".symbols+", description: "Print Symbols (verbose)"},
+		{text: ".reset", description: "Reset"},
 		{text: ".exit", description: "Exit"},
 	}
 
