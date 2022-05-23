@@ -35,18 +35,6 @@ import (
 	ugotime "github.com/ozanh/ugo/stdlib/time"
 )
 
-const logo = `
-            /$$$$$$   /$$$$$$ 
-           /$$__  $$ /$$__  $$
- /$$   /$$| $$  \__/| $$  \ $$
-| $$  | $$| $$ /$$$$| $$  | $$
-| $$  | $$| $$|_  $$| $$  | $$
-| $$  | $$| $$  \ $$| $$  | $$
-|  $$$$$$/|  $$$$$$/|  $$$$$$/
- \______/  \______/  \______/ 
-                                       
-`
-
 const (
 	title         = "uGO"
 	promptPrefix  = ">>> "
@@ -369,10 +357,11 @@ func (r *repl) prefix() string {
 
 func (r *repl) printInfo() {
 	_, _ = fmt.Fprintln(r.out, "Copyright (c) 2020-2022 Ozan Hacıbekiroğlu")
-	_, _ = fmt.Fprintln(r.out, "License: MIT")
-	_, _ = fmt.Fprintln(r.out, "Press Ctrl+D to exit or use .exit command")
-	_, _ = fmt.Fprintln(r.out, ".command lists available REPL commands")
-	_, _ = fmt.Fprint(r.out, logo)
+	_, _ = fmt.Fprintln(r.out, "https://github.com/ozanh/ugo License: MIT",
+		"Info:", runtime.Version(), runtime.GOOS, runtime.GOARCH)
+	_, _ = fmt.Fprintln(r.out, "Write .command to list available REPL commands")
+	_, _ = fmt.Fprintln(r.out, "Press Ctrl+D or write .exit command to exit")
+	_, _ = fmt.Fprintln(r.out)
 }
 
 func (r *repl) run(history io.Reader) error {
