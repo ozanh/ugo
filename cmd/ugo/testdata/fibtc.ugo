@@ -2,8 +2,6 @@
 //
 // runtime.Gosched() calls are required to test context
 // cancellation/timeout and to abort VM execution
-global Gosched
-Gosched()
 
 var fib
 fib = func(n, a, b) {

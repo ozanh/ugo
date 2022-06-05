@@ -5,6 +5,7 @@ on:
     branches: 
       - main
       - development
+      - repl-liner
   pull_request:
     branches:
       - main
@@ -17,7 +18,7 @@ jobs:
           os:  [ 'ubuntu-latest', 'macOS-latest' ]
           go: [ '1.15', '1.16' ]
       runs-on: ${{ matrix.os }}
-      name: Test and Build for Go ${{ matrix.go }}  ${{ matrix.os }}
+      name: Test and Build Go ${{ matrix.go }}  ${{ matrix.os }}
 
       steps:
       - name: Checkout
@@ -47,8 +48,11 @@ jobs:
       matrix:
         os:  [ 'ubuntu-latest', 'windows-latest' ]
         go: [ '1.17', '1.18' ]
+        arch: [ 'amd64', 'arm64' ]
     runs-on: ${{ matrix.os }}
-    name: Test and Build for Go ${{ matrix.go }}  ${{ matrix.os }}
+    name: Test and Build Go${{ matrix.go }}${{ matrix.arch }}  ${{ matrix.os }}
+    env:
+      GOARCH: ${{ matrix.arch }}
     defaults:
       run:
         shell: bash
@@ -67,17 +71,21 @@ jobs:
 
     - name: Test
       run: make test
+      # TODO: Add arm64 tests using docker
+      if: ${{ matrix.arch == 'amd64' }}
 
     - name: Build CLI
       run: |
         make build-cli
         out=ugo_go${{ matrix.go }}_$(go env GOOS)_$(go env GOARCH)
+        echo "artifactPath=$out" >> "$GITHUB_ENV"
         mv ugo $out || true
         mv ugo.exe $out.exe || true
     
     - name: 'Upload Artifact'
       uses: actions/upload-artifact@v3
       with:
-        path: ugo_go*
+        name: ${{ env.artifactPath }}
+        path: ${{ env.artifactPath }}*
         if-no-files-found: error
         retention-days: 7

@@ -7,108 +7,179 @@ import (
 	"bytes"
 	"context"
 	"flag"
-	"io"
 	"io/ioutil"
 	"strings"
 	"testing"
 
-	"github.com/c-bata/go-prompt"
 	"github.com/ozanh/ugo"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-// FIXME: prompt package requires /dev/tty so it is not testable with Go tests
-// although Renderer can be given with options, because contructor tries to
-// open /dev/tty before setting custom renderer.
+func init() {
+	initSuggestions()
+}
 
 func TestREPL(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	stdout := bytes.NewBuffer(nil)
-	cw := &mockConsoleWriter{}
-	var exited bool
-	r := newTestREPL(ctx, stdout, cw, func() {
-		exited = true
+	cw := &console{buf: bytes.NewBuffer(nil)}
+
+	r := newREPL(ctx, cw)
+
+	t.Run("commands", func(t *testing.T) {
+		require.NoError(t, r.execute(".commands"))
+		testHasPrefix(t, string(cw.consume()),
+			".commands     \tPrint REPL commands\n")
 	})
-
-	r.executor("test")
-	testHasPrefix(t, string(cw.consume()),
-		"\nCompile Error: unresolved reference \"test\"")
-
-	r.executor("test := 1")
-	testHasPrefix(t, string(cw.consume()), "undefined\n")
-
-	r.executor(".bytecode")
-	testHasPrefix(t, string(testReadAll(t, stdout)), "Bytecode\n")
-
-	r.executor(".builtins")
-	testHasPrefix(t, string(testReadAll(t, stdout)),
-		"builtinFunction:append\n")
-
-	r.executor(".gc")
-	require.Equal(t, "", string(testReadAll(t, stdout)))
-
-	r.executor(".globals")
-	testHasPrefix(t, string(testReadAll(t, stdout)), `{"Gosched": <function:Gosched>}`)
-
-	r.executor(".globals+")
-	testHasPrefix(t, string(testReadAll(t, stdout)), "&ugo.SyncMap{")
-
-	r.executor(".locals")
-	testHasPrefix(t, string(testReadAll(t, stdout)), "[1]\n")
-
-	r.executor(".locals+")
-	testHasPrefix(t, string(testReadAll(t, stdout)), "[]ugo.Object{1}\n")
-
-	r.executor("return test")
-	testHasPrefix(t, string(cw.consume()), "1\n")
-	r.executor(".return")
-	testHasPrefix(t, string(testReadAll(t, stdout)), "1\n")
-
-	r.executor(".return+")
-	testHasPrefix(t, string(testReadAll(t, stdout)), "GoType:ugo.Int,")
-
-	r.executor(".symbols")
-	testHasPrefix(t, string(testReadAll(t, stdout)),
-		"[Symbol{Name:test Index:0 Scope:LOCAL Assigned:true Original:<nil> Constant:false}]\n")
-
-	r.executor(".modules_cache")
-	testHasPrefix(t, string(testReadAll(t, stdout)), "[]\n")
-
-	r.executor(`import("time")`)
-	testHasPrefix(t, string(cw.consume()), "{")
-	r.executor(".modules_cache")
-	testHasPrefix(t, string(testReadAll(t, stdout)), "[{")
-
-	r.executor(`import("strings")`)
-	testHasPrefix(t, string(cw.consume()), "{")
-	r.executor(".modules_cache")
-	testHasPrefix(t, string(testReadAll(t, stdout)), "[{")
-
-	r.executor(`import("fmt")`)
-	testHasPrefix(t, string(cw.consume()), "{")
-	r.executor(".modules_cache")
-	testHasPrefix(t, string(testReadAll(t, stdout)), "[{")
-
-	r.executor(".memory_stats")
-	testHasPrefix(t, string(testReadAll(t, stdout)), "Go Memory Stats")
-
-	g := grepl
-	r.executor(".reset")
-	require.Empty(t, cw.consume())
-	require.Empty(t, testReadAll(t, stdout))
-	require.NotSame(t, g, grepl)
-
-	r.executor(".exit")
-	require.Empty(t, cw.consume())
-	require.Empty(t, testReadAll(t, stdout))
-	require.True(t, exited)
-
-	require.Empty(t, cw.consume())
-	require.Empty(t, testReadAll(t, stdout))
+	t.Run("builtins", func(t *testing.T) {
+		require.NoError(t, r.execute(".builtins"))
+		testHasPrefix(t, string(cw.consume()),
+			"IndexOutOfBoundsError  \tBuiltin Error\n")
+	})
+	t.Run("keywords", func(t *testing.T) {
+		require.NoError(t, r.execute(".keywords"))
+		testHasPrefix(t, string(cw.consume()),
+			"break\ncontinue\nelse\nfor\nfunc\nif\nreturn\ntrue\nfalse\nin\n"+
+				"undefined\nimport\nparam\nglobal\nvar\nconst\ntry\ncatch\n"+
+				"finally\nthrow\n",
+		)
+	})
+	t.Run("unresolved reference", func(t *testing.T) {
+		require.NoError(t, r.execute("test"))
+		testHasPrefix(t, string(cw.consume()),
+			"\n!   Compile Error: unresolved reference \"test\"")
+	})
+	t.Run("assignment", func(t *testing.T) {
+		require.NoError(t, r.execute("test := 1"))
+		testHasPrefix(t, string(cw.consume()), "\n⇦   undefined\n")
+	})
+	t.Run("bytecode", func(t *testing.T) {
+		require.NoError(t, r.execute("func(){}"))
+		testHasPrefix(t, string(cw.consume()), "\n⇦   <compiledFunction>\n")
+		require.NoError(t, r.execute(".bytecode"))
+		testHasPrefix(t, string(cw.consume()), "Bytecode\n")
+	})
+	t.Run("gc", func(t *testing.T) {
+		require.NoError(t, r.execute(".gc"))
+		require.Equal(t, "", string(cw.consume()))
+	})
+	t.Run("globals", func(t *testing.T) {
+		require.NoError(t, r.execute(".globals"))
+		testHasPrefix(t, string(cw.consume()), `{"Gosched": <function:Gosched>}`)
+	})
+	t.Run("globals plus", func(t *testing.T) {
+		require.NoError(t, r.execute(".globals+"))
+		testHasPrefix(t, string(cw.consume()), "&ugo.SyncMap{")
+	})
+	t.Run("locals", func(t *testing.T) {
+		r := newREPL(ctx, cw)
+		require.NoError(t, r.execute("test := 1"))
+		cw.consume()
+		require.NoError(t, r.execute(".locals"))
+		require.Equal(t, string(cw.consume()), "[1]\n")
+	})
+	t.Run("locals plus", func(t *testing.T) {
+		r := newREPL(ctx, cw)
+		require.NoError(t, r.execute("test := 1"))
+		cw.consume()
+		require.NoError(t, r.execute(".locals+"))
+		require.Equal(t, string(cw.consume()), "[]ugo.Object{1}\n")
+	})
+	t.Run("return 1", func(t *testing.T) {
+		r := newREPL(ctx, cw)
+		require.NoError(t, r.execute("test := 1"))
+		cw.consume()
+		require.NoError(t, r.execute("return test"))
+		testHasPrefix(t, string(cw.consume()), "\n⇦   1\n")
+	})
+	t.Run("return", func(t *testing.T) {
+		r := newREPL(ctx, cw)
+		require.NoError(t, r.execute("return 1"))
+		cw.consume()
+		require.NoError(t, r.execute(".return"))
+		require.Equal(t, string(cw.consume()), "1\n")
+	})
+	t.Run("return plus", func(t *testing.T) {
+		r := newREPL(ctx, cw)
+		require.NoError(t, r.execute("return 1"))
+		cw.consume()
+		require.NoError(t, r.execute(".return+"))
+		require.Equal(t, string(cw.consume()),
+			"GoType:ugo.Int, TypeName:int, Value:1\n")
+	})
+	t.Run("symbols", func(t *testing.T) {
+		r := newREPL(ctx, cw)
+		require.NoError(t, r.execute("test := 1"))
+		cw.consume()
+		require.NoError(t, r.execute(".symbols"))
+		symout := string(cw.consume())
+		require.Regexp(t, `test\s+LOCAL`, symout)
+	})
+	t.Run("symbols+", func(t *testing.T) {
+		r := newREPL(ctx, cw)
+		require.NoError(t, r.execute("test := 1"))
+		cw.consume()
+		require.NoError(t, r.execute(".symbols+"))
+		symout := string(cw.consume())
+		testHasPrefix(t, symout, "[Symbol{Name:")
+		require.Contains(t, symout,
+			"Symbol{Name:Gosched Index:0 Scope:GLOBAL Assigned:false Original:<nil> Constant:false}")
+		require.Contains(t, symout,
+			"Symbol{Name:test Index:0 Scope:LOCAL Assigned:true Original:<nil> Constant:false}")
+	})
+	t.Run("modules_cache", func(t *testing.T) {
+		r := newREPL(ctx, cw)
+		require.NoError(t, r.execute("test := 1"))
+		cw.consume()
+		require.NoError(t, r.execute(".modules_cache"))
+		require.Equal(t, string(cw.consume()), "[]\n")
+	})
+	t.Run("import time", func(t *testing.T) {
+		r := newREPL(ctx, cw)
+		require.NoError(t, r.execute(`import("time")`))
+		testHasPrefix(t, string(cw.consume()), "\n⇦   {")
+		require.NoError(t, r.execute(".modules_cache"))
+		testHasPrefix(t, string(cw.consume()), "[{")
+	})
+	t.Run("import strings", func(t *testing.T) {
+		r := newREPL(ctx, cw)
+		require.NoError(t, r.execute(`import("strings")`))
+		testHasPrefix(t, string(cw.consume()), "\n⇦   {")
+		require.NoError(t, r.execute(".modules_cache"))
+		testHasPrefix(t, string(cw.consume()), "[{")
+	})
+	t.Run("import fmt", func(t *testing.T) {
+		r := newREPL(ctx, cw)
+		require.NoError(t, r.execute(`import("fmt")`))
+		testHasPrefix(t, string(cw.consume()), "\n⇦   {")
+		require.NoError(t, r.execute(".modules_cache"))
+		testHasPrefix(t, string(cw.consume()), "[{")
+	})
+	t.Run("import json", func(t *testing.T) {
+		r := newREPL(ctx, cw)
+		require.NoError(t, r.execute(`import("json")`))
+		testHasPrefix(t, string(cw.consume()), "\n⇦   {")
+		require.NoError(t, r.execute(".modules_cache"))
+		testHasPrefix(t, string(cw.consume()), "[{")
+	})
+	t.Run("memory_stats", func(t *testing.T) {
+		require.NoError(t, r.execute(".memory_stats"))
+		testHasPrefix(t, string(cw.consume()), "Go Memory Stats")
+	})
+	t.Run("reset", func(t *testing.T) {
+		r := newREPL(ctx, cw)
+		require.NoError(t, r.execute("test := 1"))
+		cw.consume()
+		require.Same(t, errReset, r.execute(".reset"))
+		require.Empty(t, cw.consume())
+	})
+	t.Run("exit", func(t *testing.T) {
+		require.Same(t, errExit, r.execute(".exit"))
+		require.Empty(t, cw.consume())
+	})
 }
 
 func TestFlags(t *testing.T) {
@@ -168,7 +239,6 @@ func TestFlags(t *testing.T) {
 }
 
 func resetGlobals() {
-	isMultiline = false
 	noOptimizer = false
 	traceEnabled = false
 	traceParser = false
@@ -177,19 +247,26 @@ func resetGlobals() {
 }
 
 func TestExecuteScript(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	const workdir = "./testdata"
 	scr, err := ioutil.ReadFile("./testdata/fibtc.ugo")
 	require.NoError(t, err)
-	require.NoError(t, executeScript(context.Background(), workdir, scr, nil))
+	require.NoError(t, executeScript(ctx, "(test1)", workdir, scr, nil))
+
+	traceEnabled = true
+	require.NoError(t, executeScript(ctx, "(test2)", workdir, scr, ioutil.Discard))
+	resetGlobals()
 
 	// FIXME: Following is a flaky test which compromise CI
 	// Although runtime.Gosched() is called in script, scheduler may not switch
 	// to goroutine started VM goroutine in time. Find a better way to test
 	// canceled/timed out context error. A script with a long execution time can
 	// fix this issue but it will extend the test duration.
-	ctx, cancel := context.WithCancel(context.Background())
+
 	cancel()
-	err = executeScript(ctx, workdir, scr, nil)
+	err = executeScript(ctx, "(test3)", workdir, scr, nil)
 	if err != nil {
 		if err != context.Canceled && err != ugo.ErrVMAborted {
 			t.Fatalf("unexpected error: %+v", err)
@@ -205,77 +282,16 @@ func testHasPrefix(t *testing.T, s, pref string) {
 	}
 }
 
-func testReadAll(t *testing.T, r io.Reader) []byte {
-	t.Helper()
-	b, err := ioutil.ReadAll(r)
-	require.NoError(t, err)
-	return b
+type console struct {
+	buf *bytes.Buffer
 }
 
-func newTestREPL(ctx context.Context,
-	stdout io.Writer,
-	cw prompt.ConsoleWriter,
-	exitFunc func(),
-) *repl {
-	r := newREPL(ctx, stdout, cw)
-	r.commands[".exit"] = exitFunc
-	return r
+func (c *console) consume() []byte {
+	p := c.buf.Bytes()
+	c.buf.Reset()
+	return p
 }
 
-type mockConsoleWriter struct {
-	buffer  []byte
-	flushed []byte
-}
-
-func (w *mockConsoleWriter) consume() []byte {
-	f := w.flushed
-	w.flushed = nil
-	return f
-}
-
-func (w *mockConsoleWriter) Flush() error {
-	w.flushed = append(w.flushed, w.buffer...)
-	w.buffer = nil
-	return nil
-}
-
-func (w *mockConsoleWriter) WriteRaw(data []byte) {
-	w.buffer = append(w.buffer, data...)
-}
-
-func (w *mockConsoleWriter) Write(data []byte) {
-	w.buffer = append(w.buffer, data...)
-}
-
-func (w *mockConsoleWriter) WriteRawStr(data string) {
-	w.WriteRaw([]byte(data))
-}
-
-func (w *mockConsoleWriter) WriteStr(data string) {
-	w.Write([]byte(data))
-}
-
-func (w *mockConsoleWriter) EraseScreen()                            {}
-func (w *mockConsoleWriter) EraseUp()                                {}
-func (w *mockConsoleWriter) EraseDown()                              {}
-func (w *mockConsoleWriter) EraseStartOfLine()                       {}
-func (w *mockConsoleWriter) EraseEndOfLine()                         {}
-func (w *mockConsoleWriter) EraseLine()                              {}
-func (w *mockConsoleWriter) ShowCursor()                             {}
-func (w *mockConsoleWriter) HideCursor()                             {}
-func (w *mockConsoleWriter) CursorGoTo(row, col int)                 {}
-func (w *mockConsoleWriter) CursorUp(n int)                          {}
-func (w *mockConsoleWriter) CursorDown(n int)                        {}
-func (w *mockConsoleWriter) CursorForward(n int)                     {}
-func (w *mockConsoleWriter) CursorBackward(n int)                    {}
-func (w *mockConsoleWriter) AskForCPR()                              {}
-func (w *mockConsoleWriter) SaveCursor()                             {}
-func (w *mockConsoleWriter) UnSaveCursor()                           {}
-func (w *mockConsoleWriter) ScrollDown()                             {}
-func (w *mockConsoleWriter) ScrollUp()                               {}
-func (w *mockConsoleWriter) SetTitle(title string)                   {}
-func (w *mockConsoleWriter) ClearTitle()                             {}
-func (w *mockConsoleWriter) SetColor(fg, bg prompt.Color, bold bool) {}
-func (w *mockConsoleWriter) SetDisplayAttributes(fg, bg prompt.Color,
-	attrs ...prompt.DisplayAttribute) {
+func (c *console) Write(p []byte) (int, error) {
+	return c.buf.Write(p)
 }
