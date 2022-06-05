@@ -18,7 +18,7 @@ jobs:
           os:  [ 'ubuntu-latest', 'macOS-latest' ]
           go: [ '1.15', '1.16' ]
       runs-on: ${{ matrix.os }}
-      name: Test and Build for Go ${{ matrix.go }}  ${{ matrix.os }}
+      name: Test and Build Go ${{ matrix.go }}  ${{ matrix.os }}
 
       steps:
       - name: Checkout
@@ -50,7 +50,7 @@ jobs:
         go: [ '1.17', '1.18' ]
         arch: [ 'amd64', 'arm64' ]
     runs-on: ${{ matrix.os }}
-    name: Test and Build for Go ${{ matrix.go }}  ${{ matrix.os }}
+    name: Test and Build Go${{ matrix.go }}${{ matrix.arch }}  ${{ matrix.os }}
     env:
       GOARCH: ${{ matrix.arch }}
     defaults:
@@ -71,6 +71,8 @@ jobs:
 
     - name: Test
       run: make test
+      # TODO: Add arm64 tests using docker
+      if: ${{ matrix.arch == 'amd64' }}
 
     - name: Build CLI
       run: |
