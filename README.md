@@ -57,12 +57,11 @@ I needed a faster embedded scripting language with runtime error handling.
 
 ## Quick Start
 
-`go get -u github.com/ozanh/ugo`
+`go get github.com/ozanh/ugo@latest`
 
-uGO has a REPL application to learn and test uGO language thanks to
-`github.com/c-bata/go-prompt` library.
+uGO has a REPL application to learn and test uGO scripts.
 
-`go get -u github.com/ozanh/ugo/cmd/ugo`
+`go install github.com/ozanh/ugo/cmd/ugo@latest`
 
 `./ugo`
 

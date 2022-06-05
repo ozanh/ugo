@@ -310,19 +310,19 @@ func (r *repl) executeScript() {
 
 	r.lastResult, r.lastBytecode, err = r.eval.Run(r.ctx, r.script.Bytes())
 	if err != nil {
-		r.writeString(fmt.Sprintf("\n! %+v", err))
+		r.writeString(fmt.Sprintf("\n!   %+v", err))
 		return
 	}
 
 	switch v := r.lastResult.(type) {
 	case ugo.String:
-		r.writeString(fmt.Sprintf("\n⇦ %q", string(v)))
+		r.writeString(fmt.Sprintf("\n⇦   %q", string(v)))
 	case ugo.Char:
-		r.writeString(fmt.Sprintf("\n⇦ %q", rune(v)))
+		r.writeString(fmt.Sprintf("\n⇦   %q", rune(v)))
 	case ugo.Bytes:
-		r.writeString(fmt.Sprintf("\n⇦ %v", []byte(v)))
+		r.writeString(fmt.Sprintf("\n⇦   %v", []byte(v)))
 	default:
-		r.writeString(fmt.Sprintf("\n⇦ %v", r.lastResult))
+		r.writeString(fmt.Sprintf("\n⇦   %v", r.lastResult))
 	}
 }
 
@@ -353,8 +353,8 @@ func (r *repl) prefix() string {
 func (r *repl) printInfo() {
 	_, _ = fmt.Fprintln(r.out, "Copyright (c) 2020-2022 Ozan Hacıbekiroğlu")
 	_, _ = fmt.Fprintln(r.out, "https://github.com/ozanh/ugo License: MIT",
-		"Info:", runtime.Version(), runtime.GOOS, runtime.GOARCH)
-	_, _ = fmt.Fprintln(r.out, "Write .commands to list available REPL commands")
+		"Build:", runtime.Version(), runtime.GOOS, runtime.GOARCH)
+	_, _ = fmt.Fprintln(r.out, "Write .commands to list available commands")
 	_, _ = fmt.Fprintln(r.out, "Press Ctrl+D or write .exit command to exit")
 	_, _ = fmt.Fprintln(r.out)
 }

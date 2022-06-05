@@ -50,15 +50,15 @@ func TestREPL(t *testing.T) {
 	t.Run("unresolved reference", func(t *testing.T) {
 		require.NoError(t, r.execute("test"))
 		testHasPrefix(t, string(cw.consume()),
-			"\n! Compile Error: unresolved reference \"test\"")
+			"\n!   Compile Error: unresolved reference \"test\"")
 	})
 	t.Run("assignment", func(t *testing.T) {
 		require.NoError(t, r.execute("test := 1"))
-		testHasPrefix(t, string(cw.consume()), "\n⇦ undefined\n")
+		testHasPrefix(t, string(cw.consume()), "\n⇦   undefined\n")
 	})
 	t.Run("bytecode", func(t *testing.T) {
 		require.NoError(t, r.execute("func(){}"))
-		testHasPrefix(t, string(cw.consume()), "\n⇦ <compiledFunction>\n")
+		testHasPrefix(t, string(cw.consume()), "\n⇦   <compiledFunction>\n")
 		require.NoError(t, r.execute(".bytecode"))
 		testHasPrefix(t, string(cw.consume()), "Bytecode\n")
 	})
@@ -93,7 +93,7 @@ func TestREPL(t *testing.T) {
 		require.NoError(t, r.execute("test := 1"))
 		cw.consume()
 		require.NoError(t, r.execute("return test"))
-		testHasPrefix(t, string(cw.consume()), "\n⇦ 1\n")
+		testHasPrefix(t, string(cw.consume()), "\n⇦   1\n")
 	})
 	t.Run("return", func(t *testing.T) {
 		r := newREPL(ctx, cw)
@@ -140,28 +140,28 @@ func TestREPL(t *testing.T) {
 	t.Run("import time", func(t *testing.T) {
 		r := newREPL(ctx, cw)
 		require.NoError(t, r.execute(`import("time")`))
-		testHasPrefix(t, string(cw.consume()), "\n⇦ {")
+		testHasPrefix(t, string(cw.consume()), "\n⇦   {")
 		require.NoError(t, r.execute(".modules_cache"))
 		testHasPrefix(t, string(cw.consume()), "[{")
 	})
 	t.Run("import strings", func(t *testing.T) {
 		r := newREPL(ctx, cw)
 		require.NoError(t, r.execute(`import("strings")`))
-		testHasPrefix(t, string(cw.consume()), "\n⇦ {")
+		testHasPrefix(t, string(cw.consume()), "\n⇦   {")
 		require.NoError(t, r.execute(".modules_cache"))
 		testHasPrefix(t, string(cw.consume()), "[{")
 	})
 	t.Run("import fmt", func(t *testing.T) {
 		r := newREPL(ctx, cw)
 		require.NoError(t, r.execute(`import("fmt")`))
-		testHasPrefix(t, string(cw.consume()), "\n⇦ {")
+		testHasPrefix(t, string(cw.consume()), "\n⇦   {")
 		require.NoError(t, r.execute(".modules_cache"))
 		testHasPrefix(t, string(cw.consume()), "[{")
 	})
 	t.Run("import json", func(t *testing.T) {
 		r := newREPL(ctx, cw)
 		require.NoError(t, r.execute(`import("json")`))
-		testHasPrefix(t, string(cw.consume()), "\n⇦ {")
+		testHasPrefix(t, string(cw.consume()), "\n⇦   {")
 		require.NoError(t, r.execute(".modules_cache"))
 		testHasPrefix(t, string(cw.consume()), "[{")
 	})
