@@ -73,12 +73,14 @@ jobs:
       run: |
         make build-cli
         out=ugo_go${{ matrix.go }}_$(go env GOOS)_$(go env GOARCH)
+        echo "artifactPath=$out" >> "$GITHUB_ENV"
         mv ugo $out || true
         mv ugo.exe $out.exe || true
     
     - name: 'Upload Artifact'
       uses: actions/upload-artifact@v3
       with:
-        path: ugo_go*
+        name: ${{ env.artifactPath }}
+        path: ${{ env.artifactPath }}*
         if-no-files-found: error
         retention-days: 7
