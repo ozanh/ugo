@@ -106,6 +106,101 @@ func ToObject(v interface{}) (ret Object, err error) {
 	return
 }
 
+// ToObjectAlt is analogous to ToObject but it will always convert signed integers to
+// Int and unsigned integers to Uint. It is an alternative to ToObject.
+// Note that, this function is subject to change in the future.
+func ToObjectAlt(v interface{}) (ret Object, err error) {
+	switch v := v.(type) {
+	case nil:
+		ret = Undefined
+	case string:
+		ret = String(v)
+	case bool:
+		if v {
+			ret = True
+		} else {
+			ret = False
+		}
+	case int:
+		ret = Int(v)
+	case int64:
+		ret = Int(v)
+	case uint64:
+		ret = Uint(v)
+	case float64:
+		ret = Float(v)
+	case float32:
+		ret = Float(v)
+	case int32:
+		ret = Int(v)
+	case int16:
+		ret = Int(v)
+	case int8:
+		ret = Int(v)
+	case uint:
+		ret = Uint(v)
+	case uint32:
+		ret = Uint(v)
+	case uint16:
+		ret = Uint(v)
+	case uint8:
+		ret = Uint(v)
+	case uintptr:
+		ret = Uint(v)
+	case []byte:
+		if v != nil {
+			ret = Bytes(v)
+		} else {
+			ret = Bytes{}
+		}
+	case map[string]interface{}:
+		m := make(Map, len(v))
+		for vk, vv := range v {
+			vo, err := ToObjectAlt(vv)
+			if err != nil {
+				return nil, err
+			}
+			m[vk] = vo
+		}
+		ret = m
+	case map[string]Object:
+		if v != nil {
+			ret = Map(v)
+		} else {
+			ret = Map{}
+		}
+	case []interface{}:
+		arr := make(Array, len(v))
+		for i, vv := range v {
+			obj, err := ToObjectAlt(vv)
+			if err != nil {
+				return nil, err
+			}
+			arr[i] = obj
+		}
+		ret = arr
+	case []Object:
+		if v != nil {
+			ret = Array(v)
+		} else {
+			ret = Array{}
+		}
+	case Object:
+		ret = v
+	case CallableFunc:
+		if v != nil {
+			ret = &Function{Value: v}
+		} else {
+			ret = Undefined
+		}
+	case error:
+		ret = &Error{Message: v.Error(), Cause: v}
+	default:
+		err = fmt.Errorf("cannot convert to object: %T", v)
+	}
+	return
+}
+
 // ToInterface tries to convert an Object o to an interface{} value.
 func ToInterface(o Object) (ret interface{}) {
 	switch o := o.(type) {
