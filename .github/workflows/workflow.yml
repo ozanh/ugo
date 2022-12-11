@@ -11,7 +11,26 @@ on:
       - development
 
 jobs:
+  govulncheck:
+    runs-on: ubuntu-latest
+    name: Security - govulncheck
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v3
+
+    - name: Setup Go
+      uses: actions/setup-go@v3
+      with:
+        go-version: '1.19'
+
+    - name: Install govulncheck
+      run: go install golang.org/x/vuln/cmd/govulncheck@latest
+    
+    - name: Run govulncheck
+      run: govulncheck -v ./...
+
   build-old:
+      needs: govulncheck
       strategy:
         matrix:
           os:  [ 'ubuntu-latest', 'macOS-latest' ]
@@ -46,6 +65,7 @@ jobs:
         run: make generate-all
 
   build-new:
+    needs: govulncheck
     strategy:
       matrix:
         os:  [ 'ubuntu-latest', 'windows-latest' ]
