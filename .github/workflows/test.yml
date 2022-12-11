@@ -52,7 +52,7 @@ jobs:
         go: [ '1.19', '1.18', '1.17' ]
         arch: [ 'amd64', 'arm64', '386' ]
     runs-on: ${{ matrix.os }}
-    name: Test and Build Go${{ matrix.go }}${{ matrix.arch }}  ${{ matrix.os }}
+    name: Test and Build go${{ matrix.go }}_${{ matrix.os }}_${{ matrix.arch }}
     env:
       GOARCH: ${{ matrix.arch }}
     defaults:
