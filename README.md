@@ -2,7 +2,7 @@
 
 [![Go Reference](https://pkg.go.dev/badge/github.com/ozanh/ugo.svg)](https://pkg.go.dev/github.com/ozanh/ugo)
 [![Go Report Card](https://goreportcard.com/badge/github.com/ozanh/ugo)](https://goreportcard.com/report/github.com/ozanh/ugo)
-[![uGO Test](https://github.com/ozanh/ugo/workflows/test/badge.svg)](https://github.com/ozanh/ugo/actions)
+[![uGO Test](https://github.com/ozanh/ugo/actions/workflows/workflow.yml/badge.svg)](https://github.com/ozanh/ugo/actions/workflows/workflow.yml)
 [![uGO Dev Test](https://github.com/ozanh/ugodev/workflows/ugodev-test/badge.svg)](https://github.com/ozanh/ugodev/actions)
 [![Maintainability](https://api.codeclimate.com/v1/badges/a358e050217385db8002/maintainability)](https://codeclimate.com/github/ozanh/ugo/maintainability)
 

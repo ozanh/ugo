@@ -5,14 +5,32 @@ on:
     branches: 
       - main
       - development
-      - repl-liner
   pull_request:
     branches:
       - main
       - development
 
 jobs:
+  govulncheck:
+    runs-on: ubuntu-latest
+    name: Security - govulncheck
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v3
+
+    - name: Setup Go
+      uses: actions/setup-go@v3
+      with:
+        go-version: '1.19'
+
+    - name: Install govulncheck
+      run: go install golang.org/x/vuln/cmd/govulncheck@latest
+    
+    - name: Run govulncheck
+      run: govulncheck -v ./...
+
   build-old:
+      needs: govulncheck
       strategy:
         matrix:
           os:  [ 'ubuntu-latest', 'macOS-latest' ]
@@ -42,15 +60,19 @@ jobs:
 
       - name: Build CLI
         run: make build-cli
+      
+      - name: Generate
+        run: make generate-all
 
   build-new:
+    needs: govulncheck
     strategy:
       matrix:
         os:  [ 'ubuntu-latest', 'windows-latest' ]
-        go: [ '1.17', '1.18' ]
-        arch: [ 'amd64', 'arm64' ]
+        go: [ '1.19', '1.18', '1.17' ]
+        arch: [ 'amd64', 'arm64', '386' ]
     runs-on: ${{ matrix.os }}
-    name: Test and Build Go${{ matrix.go }}${{ matrix.arch }}  ${{ matrix.os }}
+    name: Test and Build go${{ matrix.go }}_${{ matrix.os }}_${{ matrix.arch }}
     env:
       GOARCH: ${{ matrix.arch }}
     defaults:
@@ -89,3 +111,7 @@ jobs:
         path: ${{ env.artifactPath }}*
         if-no-files-found: error
         retention-days: 7
+    
+    - name: Generate
+      run: make generate-all
+      if: ${{ matrix.arch == 'amd64' }}
