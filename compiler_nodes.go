@@ -262,9 +262,24 @@ func (c *Compiler) compileDeclGlobal(node *parser.GenDecl) error {
 }
 
 func (c *Compiler) compileDeclValue(node *parser.GenDecl) error {
+	var (
+		isConst  bool
+		lastExpr parser.Expr
+	)
+	if node.Tok == token.Const {
+		isConst = true
+		defer func() { c.iotaVal = -1 }()
+	}
+
 	for _, sp := range node.Specs {
 		spec := sp.(*parser.ValueSpec)
-
+		if isConst {
+			if v, ok := spec.Data.(int); ok {
+				c.iotaVal = v
+			} else {
+				return c.errorf(node, "invalid iota value")
+			}
+		}
 		for i, ident := range spec.Idents {
 			leftExpr := []parser.Expr{ident}
 			var v parser.Expr
@@ -273,7 +288,13 @@ func (c *Compiler) compileDeclValue(node *parser.GenDecl) error {
 			}
 
 			if v == nil {
-				v = &parser.UndefinedLit{TokenPos: ident.Pos()}
+				if isConst && lastExpr != nil {
+					v = lastExpr
+				} else {
+					v = &parser.UndefinedLit{TokenPos: ident.Pos()}
+				}
+			} else {
+				lastExpr = v
 			}
 
 			rightExpr := []parser.Expr{v}
@@ -444,17 +465,20 @@ func (c *Compiler) compileDefine(
 	keyword token.Token,
 ) error {
 	symbol, exists := c.symbolTable.DefineLocal(ident)
-	if !allowRedefine && exists {
+	if !allowRedefine && exists && ident != "_" {
 		return c.errorf(node, "%q redeclared in this block", ident)
 	}
 
 	if symbol.Constant {
 		return c.errorf(node, "assignment to constant variable %q", ident)
 	}
+	if c.iotaVal > -1 && ident == "iota" {
+		return c.errorf(node, "assignment to iota")
+	}
 
 	c.emit(node, OpDefineLocal, symbol.Index)
 	symbol.Assigned = true
-	symbol.Constant = keyword == token.Const
+	symbol.Constant = keyword == token.Const && ident != "_"
 	return nil
 }
 
@@ -1112,7 +1136,11 @@ func (c *Compiler) compileCondExpr(node *parser.CondExpr) error {
 func (c *Compiler) compileIdent(node *parser.Ident) error {
 	symbol, ok := c.symbolTable.Resolve(node.Name)
 	if !ok {
-		return c.errorf(node, "unresolved reference %q", node.Name)
+		if c.iotaVal < 0 || node.Name != "iota" {
+			return c.errorf(node, "unresolved reference %q", node.Name)
+		}
+		c.emit(node, OpConstant, c.addConstant(Int(c.iotaVal)))
+		return nil
 	}
 
 	switch symbol.Scope {

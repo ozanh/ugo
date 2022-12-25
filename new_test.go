@@ -391,8 +391,11 @@ func TestVMConst(t *testing.T) {
 		`Parse Error: missing initializer in const declaration`)
 	expectErrHas(t, `const (x, y = 2)`, newOpts().CompilerError(),
 		`Parse Error: missing initializer in const declaration`)
-	expectErrHas(t, `const (x = 1, y)`, newOpts().CompilerError(),
-		`Parse Error: missing initializer in const declaration`)
+
+	// After iota support, `const (x=1,y)` does not throw error, like Go. It
+	// uses last expression as initializer.
+	expectRun(t, `const (x = 1, y)`, nil, Undefined)
+
 	expectErrHas(t, `const (x, y)`, newOpts().CompilerError(),
 		`Parse Error: missing initializer in const declaration`)
 	expectErrHas(t, `
@@ -625,4 +628,269 @@ func TestVMConst(t *testing.T) {
 		return x
 	}()
 	`, nil, Int(1))
+}
+
+func TestConstIota(t *testing.T) {
+	expectRun(t, `const x = iota; return x`, nil, Int(0))
+	expectRun(t, `const x = iota; const y = iota; return x, y`, nil, Array{Int(0), Int(0)})
+	expectRun(t, `const(x = iota, y = iota); return x, y`, nil, Array{Int(0), Int(1)})
+	expectRun(t, `const(x = iota, y); return x, y`, nil, Array{Int(0), Int(1)})
+
+	expectRun(t, `const(x = 1+iota, y); return x, y`, nil, Array{Int(1), Int(2)})
+	expectRun(t, `const(x = 1+iota, y=iota); return x, y`, nil, Array{Int(1), Int(1)})
+	expectRun(t, `const(x = 1+iota, y, z); return x, y, z`, nil, Array{Int(1), Int(2), Int(3)})
+	expectRun(t, `const(x = iota+1, y, z); return x, y, z`, nil, Array{Int(1), Int(2), Int(3)})
+
+	expectRun(t, `const(_ = iota+1, y, z); return y, z`, nil, Array{Int(2), Int(3)})
+
+	expectRun(t, `
+	const (
+		x = [iota]
+	)
+	return x`, nil, Array{Int(0)})
+
+	expectRun(t, `
+	const (
+		x = []
+	)
+	return x`, nil, Array{})
+
+	expectRun(t, `
+	const (
+		x = [iota, iota]
+	)
+	return x`, nil, Array{Int(0), Int(0)})
+
+	expectRun(t, `
+	const (
+		x = [iota, iota]
+		y
+	)
+	return x, y`, nil, Array{Array{Int(0), Int(0)}, Array{Int(1), Int(1)}})
+
+	expectRun(t, `
+	const (
+		x = [iota, iota]
+		y
+		z
+	)
+	return x, y, z`, nil,
+		Array{Array{Int(0), Int(0)}, Array{Int(1), Int(1)}, Array{Int(2), Int(2)}})
+
+	expectRun(t, `
+	const (
+		x = [iota, iota]
+		y
+	)
+	x[0] = 2
+	return x, y`, nil, Array{Array{Int(2), Int(0)}, Array{Int(1), Int(1)}})
+
+	expectRun(t, `
+	const (
+		x = {}
+	)
+	return x`, nil, Map{})
+
+	expectRun(t, `
+	const (
+		x = {iota: 1}
+	)
+	return x`, nil, Map{"iota": Int(1)})
+
+	expectRun(t, `
+	const (
+		x = {k: iota}
+	)
+	return x`, nil, Map{"k": Int(0)})
+
+	expectRun(t, `
+	const (
+		x = {k: iota}
+		y
+	)
+	return x, y`, nil, Array{Map{"k": Int(0)}, Map{"k": Int(1)}})
+
+	expectRun(t, `
+	const (
+		x = {k: iota}
+		y
+	)
+	x["k"] = 2
+	return x, y`, nil, Array{Map{"k": Int(2)}, Map{"k": Int(1)}})
+
+	expectRun(t, `
+	const (
+		x = {k: iota}
+		y
+		z
+	)
+	return x, y, z`, nil,
+		Array{Map{"k": Int(0)}, Map{"k": Int(1)}, Map{"k": Int(2)}})
+
+	expectRun(t, `
+	const (
+		_ = 1 << iota
+		x
+		y
+	)
+	return x, y`, nil, Array{Int(2), Int(4)})
+
+	expectRun(t, `
+	const (
+		x = 1 << iota
+		_
+		y
+	)
+	return x, y`, nil, Array{Int(1), Int(4)})
+
+	expectRun(t, `
+	const (
+		x = 1 << iota
+		a
+		y = a
+		z
+	)
+	return x, y, z`, nil, Array{Int(1), Int(2), Int(2)})
+
+	expectRun(t, `
+	const (
+		x = 1 << iota
+		_
+		_
+		z
+	)
+	return x, z`, nil, Array{Int(1), Int(8)})
+
+	expectRun(t, `
+	iota := 1
+	const (
+		x = 1 << iota
+	)
+	return x, iota`, nil, Array{Int(2), Int(1)})
+
+	expectRun(t, `
+	iota := 1
+	const (
+		x = 1 << iota
+		y
+	)
+	return x, y`, nil, Array{Int(2), Int(2)})
+
+	expectErrHas(t, `const iota = 1`,
+		newOpts().CompilerError(), "Compile Error: assignment to iota")
+
+	expectErrHas(t, `const iota = iota + 1`,
+		newOpts().CompilerError(), "Compile Error: assignment to iota")
+
+	expectErrHas(t, `
+	const (
+		x = 1 << iota
+		iota
+		y
+	)
+	return x, iota, y`,
+		newOpts().CompilerError(), "Compile Error: assignment to iota")
+
+	expectErrHas(t, `const x = iota; return iota`,
+		newOpts().CompilerError(), `Compile Error: unresolved reference "iota"`)
+
+	expectRun(t, `
+	const (
+		x = iota
+		y
+	)
+	iota := 3
+	return x, y, iota`, nil, Array{Int(0), Int(1), Int(3)})
+
+	expectRun(t, `
+	const (
+		x = iota
+		y
+	)
+	iota := 3
+	const (
+		a = 10+iota
+		b
+	)
+	return x, y, iota, a, b`, nil, Array{Int(0), Int(1), Int(3), Int(13), Int(13)})
+
+	expectRun(t, `
+	const (
+		x = iota
+		y
+	)
+	const (
+		a = 10+iota
+		b
+	)
+	return x, y, a, b`, nil, Array{Int(0), Int(1), Int(10), Int(11)})
+
+	expectRun(t, `
+	const (
+		x = func() { return 1 }()
+		y
+		z
+	)
+	return x, y, z`, nil, Array{Int(1), Int(1), Int(1)})
+
+	expectRun(t, `
+	const (
+		x = func(x) { return x }(iota)
+		y
+		z
+	)
+	return x, y, z`, nil, Array{Int(0), Int(1), Int(2)})
+
+	expectRun(t, `
+	a:=0
+	const (
+		x = func() { a++; return a }()
+		y
+		z
+	)
+	return x, y, z`, nil, Array{Int(1), Int(2), Int(3)})
+
+	expectRun(t, `
+	const (
+		x = 1+iota
+		y = func() { return 1+x }()
+		z
+	)
+	return x, y, z`, nil, Array{Int(1), Int(2), Int(2)})
+
+	expectRun(t, `
+	const (
+		x = func() { return 1 }
+		y
+		z
+	)
+	return x(), y(), z()`, nil, Array{Int(1), Int(1), Int(1)})
+
+	expectRun(t, `
+	const (
+		x = func() { return 1 }
+		y
+	)
+	return x==y`, nil, True)
+
+	expectRun(t, `
+	return func() {
+		const (
+			x = 1 << iota
+			_
+			y
+		)
+		return x, y
+	}()`, nil, Array{Int(1), Int(4)})
+
+	expectRun(t, `
+	iota := 2
+	return func() {
+		const (
+			x = 1 << iota
+			_
+			y
+		)
+		return x, y
+	}()`, nil, Array{Int(4), Int(4)})
 }

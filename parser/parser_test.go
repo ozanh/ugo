@@ -494,7 +494,10 @@ const (
 	expectParseError(t, `var a,`)
 	expectParseError(t, `var ,a`)
 	expectParseError(t, `const a=1,b=2`)
-	expectParseError(t, `const (a=1,b)`)
+
+	// After iota support, this should be valid.
+	//	expectParseError(t, `const (a=1,b)`)
+
 	expectParseError(t, `const a`)
 	expectParseError(t, `const (a)`)
 	expectParseError(t, `const (a,b)`)

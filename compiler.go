@@ -46,6 +46,7 @@ type (
 		file          *parser.SourceFile
 		constants     []Object
 		constsCache   map[Object]int
+		cfuncCache    map[uint32][]int
 		symbolTable   *SymbolTable
 		instructions  []byte
 		sourceMap     map[int]int
@@ -56,6 +57,7 @@ type (
 		loops         []*loopStmts
 		loopIndex     int
 		tryCatchIndex int
+		iotaVal       int
 		opts          CompilerOptions
 		trace         io.Writer
 		indent        int
@@ -76,6 +78,7 @@ type (
 		OptimizeExpr      bool
 		moduleStore       *moduleStore
 		constsCache       map[Object]int
+		cfuncCache        map[uint32][]int
 	}
 
 	// CompilerError represents a compiler error.
@@ -132,6 +135,9 @@ func NewCompiler(file *parser.SourceFile, opts CompilerOptions) *Compiler {
 			}
 		}
 	}
+	if opts.cfuncCache == nil {
+		opts.cfuncCache = make(map[uint32][]int)
+	}
 
 	if opts.moduleStore == nil {
 		opts.moduleStore = newModuleStore()
@@ -146,6 +152,7 @@ func NewCompiler(file *parser.SourceFile, opts CompilerOptions) *Compiler {
 		file:          file,
 		constants:     opts.Constants,
 		constsCache:   opts.constsCache,
+		cfuncCache:    opts.cfuncCache,
 		symbolTable:   opts.SymbolTable,
 		sourceMap:     make(map[int]int),
 		moduleMap:     opts.ModuleMap,
@@ -153,6 +160,7 @@ func NewCompiler(file *parser.SourceFile, opts CompilerOptions) *Compiler {
 		modulePath:    opts.ModulePath,
 		loopIndex:     -1,
 		tryCatchIndex: -1,
+		iotaVal:       -1,
 		opts:          opts,
 		trace:         trace,
 	}
@@ -424,17 +432,45 @@ func (c *Compiler) addConstant(obj Object) (index int) {
 			index = i
 			return
 		}
+	case *CompiledFunction:
+		return c.addCompiledFunction(obj)
 	default:
 		// unhashable types cannot be stored in constsCache, append them to constants slice
 		// and return index
+		index = len(c.constants)
 		c.constants = append(c.constants, obj)
-		index = len(c.constants) - 1
 		return
 	}
 
+	index = len(c.constants)
 	c.constants = append(c.constants, obj)
-	index = len(c.constants) - 1
 	c.constsCache[obj] = index
+	return
+}
+
+func (c *Compiler) addCompiledFunction(obj Object) (index int) {
+	// Currently, caching compiled functions is only effective for functions
+	// used in const declarations.
+	// e.g.
+	// const (
+	// 	f = func() { return 1 }
+	// 	g
+	// )
+	//
+	cf := obj.(*CompiledFunction)
+	key := cf.hash32()
+	arr, ok := c.cfuncCache[key]
+	if ok {
+		for _, idx := range arr {
+			f := c.constants[idx].(*CompiledFunction)
+			if f.identical(cf) && f.equalSourceMap(cf) {
+				return idx
+			}
+		}
+	}
+	index = len(c.constants)
+	c.constants = append(c.constants, obj)
+	c.cfuncCache[key] = append(c.cfuncCache[key], index)
 	return
 }
 
@@ -591,6 +627,7 @@ func (c *Compiler) fork(
 		OptimizeExpr:      c.opts.OptimizeExpr,
 		moduleStore:       c.moduleStore,
 		constsCache:       c.constsCache,
+		cfuncCache:        c.cfuncCache,
 	})
 
 	child.parent = c
