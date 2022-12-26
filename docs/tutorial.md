@@ -462,9 +462,9 @@ println(y) // [1]
 
 ```go
 const (
-	_ = iota
-	x = "string" + iota
-	y
+  _ = iota
+  x = "string" + iota
+  y
 )
 println(x) // string1
 println(y) // string2
@@ -477,8 +477,8 @@ println(y) // string2
 iota := "foo"
 
 const (
-	x = iota
-	y
+  x = iota
+  y
 )
 println(x) // foo
 println(y) // foo
