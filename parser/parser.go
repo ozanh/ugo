@@ -741,7 +741,10 @@ func (p *Parser) parseDecl() Decl {
 	}
 }
 
-func (p *Parser) parseGenDecl(keyword token.Token, fn func(token.Token, bool) Spec) *GenDecl {
+func (p *Parser) parseGenDecl(
+	keyword token.Token,
+	fn func(token.Token, bool, interface{}) Spec,
+) *GenDecl {
 	if p.trace {
 		defer untracep(tracep(p, "GenDecl("+keyword.String()+")"))
 	}
@@ -751,13 +754,13 @@ func (p *Parser) parseGenDecl(keyword token.Token, fn func(token.Token, bool) Sp
 	if p.token == token.LParen {
 		lparen = p.pos
 		p.next()
-		for p.token != token.RParen && p.token != token.EOF {
-			list = append(list, fn(keyword, true))
+		for iota := 0; p.token != token.RParen && p.token != token.EOF; iota++ {
+			list = append(list, fn(keyword, true, iota))
 		}
 		rparen = p.expect(token.RParen)
 		p.expectSemi()
 	} else {
-		list = append(list, fn(keyword, false))
+		list = append(list, fn(keyword, false, 0))
 		p.expectSemi()
 	}
 	return &GenDecl{
@@ -769,7 +772,7 @@ func (p *Parser) parseGenDecl(keyword token.Token, fn func(token.Token, bool) Sp
 	}
 }
 
-func (p *Parser) parseParamSpec(keyword token.Token, multi bool) Spec {
+func (p *Parser) parseParamSpec(keyword token.Token, multi bool, _ interface{}) Spec {
 	if p.trace {
 		defer untracep(tracep(p, keyword.String()+"Spec"))
 	}
@@ -799,7 +802,7 @@ func (p *Parser) parseParamSpec(keyword token.Token, multi bool) Spec {
 	return spec
 }
 
-func (p *Parser) parseValueSpec(keyword token.Token, multi bool) Spec {
+func (p *Parser) parseValueSpec(keyword token.Token, multi bool, data interface{}) Spec {
 	if p.trace {
 		defer untracep(tracep(p, keyword.String()+"Spec"))
 	}
@@ -814,7 +817,9 @@ func (p *Parser) parseValueSpec(keyword token.Token, multi bool) Spec {
 			expr = p.parseExpr()
 		}
 		if keyword == token.Const && expr == nil {
-			p.error(p.pos, "missing initializer in const declaration")
+			if v, ok := data.(int); ok && v == 0 {
+				p.error(p.pos, "missing initializer in const declaration")
+			}
 		}
 		idents = append(idents, ident)
 		values = append(values, expr)
@@ -831,6 +836,7 @@ func (p *Parser) parseValueSpec(keyword token.Token, multi bool) Spec {
 	spec := &ValueSpec{
 		Idents: idents,
 		Values: values,
+		Data:   data,
 	}
 	return spec
 }

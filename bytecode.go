@@ -196,3 +196,53 @@ func (o *CompiledFunction) Fprint(w io.Writer) {
 	}
 	_, _ = fmt.Fprintf(w, "SourceMap:%v\n", o.SourceMap)
 }
+
+func (o *CompiledFunction) identical(other *CompiledFunction) bool {
+	if o.NumParams != other.NumParams ||
+		o.NumLocals != other.NumLocals ||
+		o.Variadic != other.Variadic ||
+		len(o.Instructions) != len(other.Instructions) ||
+		len(o.Free) != len(other.Free) ||
+		string(o.Instructions) != string(other.Instructions) {
+		return false
+	}
+	for i := range o.Free {
+		if o.Free[i].Equal(other.Free[i]) {
+			return false
+		}
+	}
+	return true
+}
+
+func (o *CompiledFunction) equalSourceMap(other *CompiledFunction) bool {
+	if len(o.SourceMap) != len(other.SourceMap) {
+		return false
+	}
+	for k, v := range o.SourceMap {
+		vv, ok := other.SourceMap[k]
+		if !ok || vv != v {
+			return false
+		}
+	}
+	return true
+}
+
+func (o *CompiledFunction) hash32() uint32 {
+	hash := hashData32(2166136261, []byte{byte(o.NumParams)})
+	hash = hashData32(hash, []byte{byte(o.NumLocals)})
+	if o.Variadic {
+		hash = hashData32(hash, []byte{1})
+	} else {
+		hash = hashData32(hash, []byte{0})
+	}
+	hash = hashData32(hash, []byte(o.Instructions))
+	return hash
+}
+
+func hashData32(hash uint32, data []byte) uint32 {
+	for _, c := range data {
+		hash *= 16777619 // prime32
+		hash ^= uint32(c)
+	}
+	return hash
+}
