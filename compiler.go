@@ -78,7 +78,6 @@ type (
 		OptimizeExpr      bool
 		moduleStore       *moduleStore
 		constsCache       map[Object]int
-		cfuncCache        map[uint32][]int
 	}
 
 	// CompilerError represents a compiler error.
@@ -135,9 +134,6 @@ func NewCompiler(file *parser.SourceFile, opts CompilerOptions) *Compiler {
 			}
 		}
 	}
-	if opts.cfuncCache == nil {
-		opts.cfuncCache = make(map[uint32][]int)
-	}
 
 	if opts.moduleStore == nil {
 		opts.moduleStore = newModuleStore()
@@ -152,7 +148,7 @@ func NewCompiler(file *parser.SourceFile, opts CompilerOptions) *Compiler {
 		file:          file,
 		constants:     opts.Constants,
 		constsCache:   opts.constsCache,
-		cfuncCache:    opts.cfuncCache,
+		cfuncCache:    make(map[uint32][]int),
 		symbolTable:   opts.SymbolTable,
 		sourceMap:     make(map[int]int),
 		moduleMap:     opts.ModuleMap,
@@ -627,10 +623,11 @@ func (c *Compiler) fork(
 		OptimizeExpr:      c.opts.OptimizeExpr,
 		moduleStore:       c.moduleStore,
 		constsCache:       c.constsCache,
-		cfuncCache:        c.cfuncCache,
 	})
 
 	child.parent = c
+	child.cfuncCache = c.cfuncCache
+
 	if modulePath == c.modulePath {
 		child.indent = c.indent
 	}

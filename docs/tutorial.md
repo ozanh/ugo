@@ -385,8 +385,6 @@ Reassignment is checked during compilation and an error is thrown.
 An initializer for a constant is required while declaring. The const declaration
 creates a read-only reference to a value. It does not mean the value it holds is
 immutable.
-Currently, `iota` is not supported but will be added for enumeration.
-Unlike Go, constant variables can be initialized with any value.
 
 ```go
 const (
@@ -398,6 +396,92 @@ const c       // illegal, no initializer
 
 a = 2         // illegal, reassignment
 b.foo = "baz" // legal
+```
+
+`iota` is supported as well.
+
+```go
+const (
+  x = iota
+  y
+  z
+)
+println(x, y, z) // 0 1 2
+```
+
+```go
+const (
+  x = 1<<iota
+  y
+  z
+)
+println(x, y, z) // 1 2 4
+```
+
+```go
+const (
+  _ = 1<<iota
+  x
+  y
+  z
+)
+println(x, y, z) // 2 4 8
+```
+
+```go
+const (
+  x = 1+iota
+  _
+  z
+)
+println(x, z) // 1 3
+```
+
+```go
+const (
+  x = func() { return iota }() // illegal, compile error
+)
+```
+
+```go
+const (
+  iota = 1 // illegal, compile error
+)
+```
+
+RHS of the assignment can be any expression so `iota` can be used with them as well.
+
+```go
+const (
+  x = [iota]
+  y
+)
+println(x) // [0]
+println(y) // [1]
+```
+
+```go
+const (
+	_ = iota
+	x = "string" + iota
+	y
+)
+println(x) // string1
+println(y) // string2
+```
+
+**Warning:** if a variable named `iota` is created before `const` assignments,
+`iota` is not used for enumeration and it is treated as normal variable.
+
+```go
+iota := "foo"
+
+const (
+	x = iota
+	y
+)
+println(x) // foo
+println(y) // foo
 ```
 
 ## Values and Value Types

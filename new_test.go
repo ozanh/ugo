@@ -870,8 +870,18 @@ func TestConstIota(t *testing.T) {
 	const (
 		x = func() { return 1 }
 		y
+		z
 	)
-	return x==y`, nil, True)
+	return x == y && y == z`, nil, True)
+
+	expectRun(t, `
+	var a
+	const (
+		x = func() { return a }
+		y
+		z
+	)
+	return x != y && y != z`, nil, True)
 
 	expectRun(t, `
 	return func() {
@@ -893,4 +903,22 @@ func TestConstIota(t *testing.T) {
 		)
 		return x, y
 	}()`, nil, Array{Int(4), Int(4)})
+
+	expectRun(t, `
+	const (
+		x = 1 + iota + func() { 
+			const (
+				_ = iota
+				r
+			)
+			return r
+		}()
+		y
+		_
+	)
+	return x,y`, nil, Array{Int(2), Int(3)})
+
+	expectRun(t, `
+	const (x = iota%2?"odd":"even", y, z)
+	return x,y,z`, nil, Array{String("even"), String("odd"), String("even")})
 }

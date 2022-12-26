@@ -472,7 +472,7 @@ func (c *Compiler) compileDefine(
 	if symbol.Constant {
 		return c.errorf(node, "assignment to constant variable %q", ident)
 	}
-	if c.iotaVal > -1 && ident == "iota" {
+	if c.iotaVal > -1 && ident == "iota" && keyword == token.Const {
 		return c.errorf(node, "assignment to iota")
 	}
 
