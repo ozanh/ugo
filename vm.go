@@ -1227,62 +1227,67 @@ func (vm *VM) execOpSliceIndex() error {
 	vm.stack[vm.sp-2] = nil
 	vm.stack[vm.sp-1] = nil
 	vm.sp -= 3
-	var objLen int
+
+	var objlen int
+	var isbytes bool
 
 	switch obj := obj.(type) {
 	case Array:
-		objLen = len(obj)
+		objlen = len(obj)
 	case String:
-		objLen = len(obj)
+		objlen = len(obj)
 	case Bytes:
-		objLen = len(obj)
+		isbytes = true
+		objlen = len(obj)
 	default:
 		return ErrType.NewError(obj.TypeName(), "cannot be sliced")
 	}
-	var lowIdx int
+
+	var low int
 	switch v := left.(type) {
 	case *UndefinedType:
-		lowIdx = 0
+		low = 0
 	case Int:
-		lowIdx = int(v)
+		low = int(v)
 	case Uint:
-		lowIdx = int(v)
+		low = int(v)
 	case Char:
-		lowIdx = int(v)
+		low = int(v)
 	default:
 		return ErrType.NewError("invalid first index type", left.TypeName())
 	}
-	var highIdx int
+
+	var high int
 	switch v := right.(type) {
 	case *UndefinedType:
-		highIdx = objLen
+		high = objlen
 	case Int:
-		highIdx = int(v)
+		high = int(v)
 	case Uint:
-		highIdx = int(v)
+		high = int(v)
 	case Char:
-		highIdx = int(v)
+		high = int(v)
 	default:
 		return ErrType.NewError("invalid second index type", right.TypeName())
 	}
 
-	if lowIdx > highIdx {
-		return ErrInvalidIndex.NewError(fmt.Sprintf("[%d:%d]", lowIdx, highIdx))
+	if low > high {
+		return ErrInvalidIndex.NewError(fmt.Sprintf("[%d:%d]", low, high))
 	}
-
-	if lowIdx < 0 || highIdx < 0 ||
-		lowIdx > objLen-1 || highIdx > objLen {
-		return ErrIndexOutOfBounds.NewError(
-			fmt.Sprintf("[%d:%d]", lowIdx, highIdx))
+	if isbytes {
+		objlen = cap(obj.(Bytes))
+	}
+	if low < 0 || high < 0 || high > objlen {
+		return ErrIndexOutOfBounds.NewError(fmt.Sprintf("[%d:%d]", low, high))
 	}
 
 	switch obj := obj.(type) {
 	case Array:
-		vm.stack[vm.sp] = obj[lowIdx:highIdx]
+		vm.stack[vm.sp] = obj[low:high]
 	case String:
-		vm.stack[vm.sp] = obj[lowIdx:highIdx]
+		vm.stack[vm.sp] = obj[low:high]
 	case Bytes:
-		vm.stack[vm.sp] = obj[lowIdx:highIdx]
+		vm.stack[vm.sp] = obj[low:high]
 	}
 
 	vm.sp++

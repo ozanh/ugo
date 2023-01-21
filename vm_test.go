@@ -775,6 +775,22 @@ func TestVMBuiltinFunction(t *testing.T) {
 	expectErrIs(t, `len()`, nil, ErrWrongNumArguments)
 	expectErrIs(t, `len([], [])`, nil, ErrWrongNumArguments)
 
+	expectRun(t, `return cap(undefined)`, nil, Int(0))
+	expectRun(t, `return cap(1)`, nil, Int(0))
+	expectRun(t, `return cap(1u)`, nil, Int(0))
+	expectRun(t, `return cap(true)`, nil, Int(0))
+	expectRun(t, `return cap(1.1)`, nil, Int(0))
+	expectRun(t, `return cap("")`, nil, Int(0))
+	expectRun(t, `return cap([])`, nil, Int(0))
+	expectRun(t, `return cap({})`, nil, Int(0))
+	expectRun(t, `return cap(bytes())`, nil, Int(0))
+	expectRun(t, `return cap(bytes("a"))>=1`, nil, True)
+	expectRun(t, `return cap(bytes("abc"))>=3`, nil, True)
+	expectRun(t, `return cap(bytes("abc")[:3])>=3`, nil, True)
+	expectRun(t, `return cap([1])>0`, nil, True)
+	expectRun(t, `return cap([1,2,3])>=3`, nil, True)
+	expectRun(t, `return cap([1,2,3][:3])>=3`, nil, True)
+
 	expectRun(t, `return sort(undefined)`,
 		nil, Undefined)
 	expectRun(t, `return sort("acb")`,
@@ -1221,11 +1237,32 @@ func TestBytes(t *testing.T) {
 	expectRun(t, `return "Hello " + bytes("World!")`,
 		nil, String("Hello World!"))
 
+	//slice
+	expectRun(t, `return bytes("")[:]`, nil, Bytes{})
+	expectRun(t, `return bytes("abcde")[:]`, nil, Bytes(String("abcde")))
+	expectRun(t, `return bytes("abcde")[0:]`, nil, Bytes(String("abcde")))
+	expectRun(t, `return bytes("abcde")[:0]`, nil, Bytes{})
+	expectRun(t, `return bytes("abcde")[:1]`, nil, Bytes(String("a")))
+	expectRun(t, `return bytes("abcde")[:2]`, nil, Bytes(String("ab")))
+	expectRun(t, `return bytes("abcde")[0:2]`, nil, Bytes(String("ab")))
+	expectRun(t, `return bytes("abcde")[1:]`, nil, Bytes(String("bcde")))
+	expectRun(t, `return bytes("abcde")[1:5]`, nil, Bytes(String("bcde")))
+	expectRun(t, `
+	b1 := bytes("abcde")
+	b2 := b1[:2]
+	return b2[:len(b1)]`, nil, Bytes(String("abcde")))
+	expectRun(t, `
+	b1 := bytes("abcde")
+	b2 := b1[:2]
+	return cap(b1) == cap(b2)`, nil, True)
+
 	// bytes[] -> int
 	expectRun(t, `return bytes("abcde")[0]`, nil, Int('a'))
 	expectRun(t, `return bytes("abcde")[1]`, nil, Int('b'))
 	expectRun(t, `return bytes("abcde")[4]`, nil, Int('e'))
-	expectErrIs(t, `return bytes("abcde")[10]`, nil, ErrIndexOutOfBounds)
+	expectErrIs(t, `return bytes("abcde")[-1]`, nil, ErrIndexOutOfBounds)
+	expectErrIs(t, `return bytes("abcde")[100]`, nil, ErrIndexOutOfBounds)
+	expectErrIs(t, `b1 := bytes("abcde");	b2 := b1[:cap(b1)+1]`, nil, ErrIndexOutOfBounds)
 }
 
 func TestVMChar(t *testing.T) {

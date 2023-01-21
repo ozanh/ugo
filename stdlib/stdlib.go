@@ -70,3 +70,7 @@ package stdlib
 // strings module Join
 //
 //ugo:callable func(arr ugo.Array, s string) (ret ugo.Object)
+
+// misc. functions
+//
+//ugo:callable func(o ugo.Object, i int64) (ret ugo.Object, err error)

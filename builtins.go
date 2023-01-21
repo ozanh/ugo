@@ -79,6 +79,7 @@ const (
 	BuiltinTypeError
 
 	BuiltinMakeArray
+	BuiltinCap
 )
 
 // BuiltinsMap is list of builtin types, exported for REPL.
@@ -134,6 +135,7 @@ var BuiltinsMap = map[string]BuiltinType{
 	"TypeError":               BuiltinTypeError,
 
 	":makeArray": BuiltinMakeArray,
+	"cap":        BuiltinCap,
 }
 
 // BuiltinObjects is list of builtins, exported for REPL.
@@ -166,6 +168,10 @@ var BuiltinObjects = [...]Object{
 	BuiltinLen: &BuiltinFunction{
 		Name:  "len",
 		Value: funcPORO(builtinLenFunc),
+	},
+	BuiltinCap: &BuiltinFunction{
+		Name:  "cap",
+		Value: funcPORO(builtinCapFunc),
 	},
 	BuiltinSort: &BuiltinFunction{
 		Name:  "sort",
@@ -481,6 +487,17 @@ func builtinLenFunc(arg Object) Object {
 	var n int
 	if v, ok := arg.(LengthGetter); ok {
 		n = v.Len()
+	}
+	return Int(n)
+}
+
+func builtinCapFunc(arg Object) Object {
+	var n int
+	switch v := arg.(type) {
+	case Array:
+		n = cap(v)
+	case Bytes:
+		n = cap(v)
 	}
 	return Int(n)
 }
