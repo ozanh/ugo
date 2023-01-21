@@ -325,3 +325,22 @@ func FuncPAsRO(fn func(ugo.Array, string) ugo.Object) ugo.CallableFunc {
 		return
 	}
 }
+
+// FuncPOi64ROe is a generated function to make ugo.CallableFunc.
+// Source: func(o ugo.Object, i int64) (ret ugo.Object, err error)
+func FuncPOi64ROe(fn func(ugo.Object, int64) (ugo.Object, error)) ugo.CallableFunc {
+	return func(args ...ugo.Object) (ret ugo.Object, err error) {
+		if len(args) != 2 {
+			return ugo.Undefined, ugo.ErrWrongNumArguments.NewError("want=2 got=" + strconv.Itoa(len(args)))
+		}
+
+		o := args[0]
+		i, ok := ugo.ToGoInt64(args[1])
+		if !ok {
+			return ugo.Undefined, ugo.NewArgumentTypeError("2nd", "int", args[1].TypeName())
+		}
+
+		ret, err = fn(o, i)
+		return
+	}
+}

@@ -361,10 +361,10 @@ func ToGoString(o Object) (v string, ok bool) {
 // ToGoByteSlice will try to convert an Object to Go byte slice.
 func ToGoByteSlice(o Object) (v []byte, ok bool) {
 	switch o := o.(type) {
-	case String:
-		v, ok = []byte(o), true
 	case Bytes:
 		v, ok = o, true
+	case String:
+		v, ok = []byte(o), true
 	}
 	return
 }
