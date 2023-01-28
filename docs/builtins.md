@@ -282,7 +282,7 @@ types.
 **Examples**
 
 ```go
-v := cap([1, 2])   
+v := cap([1, 2])
 v = cap(bytes("abc"))
 ```
 
