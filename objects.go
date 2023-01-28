@@ -603,14 +603,14 @@ func (o Bytes) BinaryOp(tok token.Token, right Object) (Object, error) {
 		case token.Add:
 			return append(o, v...), nil
 		case token.Less:
-			return Bool(bytes.Compare([]byte(o), []byte(v)) == -1), nil
+			return Bool(bytes.Compare(o, v) == -1), nil
 		case token.LessEq:
-			cmp := bytes.Compare([]byte(o), []byte(v))
+			cmp := bytes.Compare(o, v)
 			return Bool(cmp == 0 || cmp == -1), nil
 		case token.Greater:
-			return Bool(bytes.Compare([]byte(o), []byte(v)) == 1), nil
+			return Bool(bytes.Compare(o, v) == 1), nil
 		case token.GreaterEq:
-			cmp := bytes.Compare([]byte(o), []byte(v))
+			cmp := bytes.Compare(o, v)
 			return Bool(cmp == 0 || cmp == 1), nil
 		}
 	case String:

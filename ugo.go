@@ -364,7 +364,8 @@ func ToGoByteSlice(o Object) (v []byte, ok bool) {
 	case Bytes:
 		v, ok = o, true
 	case String:
-		v, ok = []byte(o), true
+		v, ok = make([]byte, len(o)), true
+		copy(v, o)
 	}
 	return
 }

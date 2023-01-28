@@ -235,7 +235,7 @@ func (o *CompiledFunction) hash32() uint32 {
 	} else {
 		hash = hashData32(hash, []byte{0})
 	}
-	hash = hashData32(hash, []byte(o.Instructions))
+	hash = hashData32(hash, o.Instructions)
 	return hash
 }
 
