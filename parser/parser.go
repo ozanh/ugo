@@ -754,7 +754,7 @@ func (p *Parser) parseGenDecl(
 	if p.token == token.LParen {
 		lparen = p.pos
 		p.next()
-		for iota := 0; p.token != token.RParen && p.token != token.EOF; iota++ {
+		for iota := 0; p.token != token.RParen && p.token != token.EOF; iota++ { //nolint:predeclared
 			list = append(list, fn(keyword, true, iota))
 		}
 		rparen = p.expect(token.RParen)

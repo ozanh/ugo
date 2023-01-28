@@ -256,6 +256,38 @@ v = len(1)                    // v == 0
 
 ---
 
+### cap
+
+Returns the capacity of an array or bytes type. It always returns 0 for other
+types.
+
+**Syntax**
+
+> `cap(object)`
+
+**Parameters**
+
+- > `object`: valid types are following
+  - array
+  - bytes
+
+**Return Value**
+
+> int value
+
+**Runtime Errors**
+
+- > `WrongNumArgumentsError`
+
+**Examples**
+
+```go
+v := cap([1, 2])
+v = cap(bytes("abc"))
+```
+
+---
+
 ### sort
 
 Returns sorted object in ascending order. Given object is modified if it is not

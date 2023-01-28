@@ -621,7 +621,7 @@ func builtinBytesFunc(args ...Object) (Object, error) {
 		return v, nil
 	}
 
-	out := Bytes{}
+	out := make(Bytes, 0, len(args))
 	for i, obj := range args {
 		switch v := obj.(type) {
 		case Int:
@@ -731,8 +731,8 @@ func builtinIsErrorFunc(args ...Object) (ret Object, err error) {
 	ret = False
 	switch len(args) {
 	case 1:
-		switch args[0].(type) {
-		case *Error, *RuntimeError:
+		// We have Error, BuiltinError and also user defined error types.
+		if _, ok := args[0].(error); ok {
 			ret = True
 		}
 	case 2:
