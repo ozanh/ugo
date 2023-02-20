@@ -42,6 +42,9 @@ Note that, `int` values as duration must be the right hand side operand.
 
 #### time Getters
 
+Deprecated: Use method call. These selectors will return a callable object in
+the future. See methods.
+
 Dynamically calculated getters for a time value are as follows:
 
 | Selector  | Return Type                                     |
@@ -65,6 +68,41 @@ Dynamically calculated getters for a time value are as follows:
 |.Weekday   | int                                             |
 |.ISOWeek   | {"year": int, "week": int}                      |
 |.Zone      | {"name": string, "offset": int}                 |
+
+#### time Methods
+
+| Method                               | Return Type                                 |
+|:-------------------------------------|:--------------------------------------------|
+|.Add(duration int)                    | time                                        |
+|.Sub(t2 time)                         | int                                         |
+|.AddDate(year int, month int, day int)| int                                         |
+|.After(t2 time)                       | bool                                        |
+|.Before(t2 time)                      | bool                                        |
+|.Format(layout string)                | string                                      |
+|.AppendFormat(b bytes, layout string) | bytes                                       |
+|.In(loc location)                     | time                                        |
+|.Round(duration int)                  | time                                        |
+|.Truncate(duration int)               | time                                        |
+|.Equal(t2 time)                       | bool                                        |
+|.Date()                               | {"year": int, "month": int, "day": int}     |
+|.Clock()                              | {"hour": int, "minute": int, "second": int} |
+|.UTC()                                | time                                        |
+|.Unix()                               | int                                         |
+|.UnixNano()                           | int                                         |
+|.Year()                               | int                                         |
+|.Month()                              | int                                         |
+|.Day()                                | int                                         |
+|.Hour()                               | int                                         |
+|.Minute()                             | int                                         |
+|.Second()                             | int                                         |
+|.NanoSecond()                         | int                                         |
+|.IsZero()                             | bool                                        |
+|.Local()                              | time                                        |
+|.Location()                           | location                                    |
+|.YearDay()                            | int                                         |
+|.Weekday()                            | int                                         |
+|.ISOWeek()                            | {"year": int, "week": int}                  |
+|.Zone()                               | {"name": string, "offset": int}             |
 
 ## Constants
 
@@ -121,6 +159,18 @@ Dynamically calculated getters for a time value are as follows:
 - `Hour`: int(3600000000000)
 
 ## Functions
+
+`UTC() -> location`
+
+Returns Universal Coordinated Time (UTC) location.
+
+---
+
+`Local() -> location`
+
+Returns the system's local time zone location.
+
+---
 
 `MonthString(m int) -> month string`
 
@@ -265,18 +315,21 @@ Returns the local time corresponding to the given Unix time,
 sec seconds and nsec nanoseconds since January 1, 1970 UTC.
 Zero values of optional arguments are used if not provided.
 
+Deprecated: Use .Add method of time object.
 ---
 
 `Add(t time, duration int) -> time`
 
 Returns the time of t+duration.
 
+Deprecated: Use .Sub method of time object.
 ---
 
 `Sub(t1 time, t2 time) -> int`
 
 Returns the duration of t1-t2.
 
+Deprecated: Use .AddDate method of time object.
 ---
 
 `AddDate(t time, years int, months int, days int) -> time`
@@ -284,18 +337,21 @@ Returns the duration of t1-t2.
 Returns the time corresponding to adding the given number of
 years, months, and days to t.
 
+Deprecated: Use .After method of time object.
 ---
 
 `After(t1 time, t2 time) -> bool`
 
 Reports whether the time t1 is after t2.
 
+Deprecated: Use .Before method of time object.
 ---
 
 `Before(t1 time, t2 time) -> bool`
 
 Reports whether the time t1 is before t2.
 
+Deprecated: Use .Format method of time object.
 ---
 
 `Format(t time, layout string) -> string`
@@ -303,6 +359,7 @@ Reports whether the time t1 is before t2.
 Returns a textual representation of the time value formatted according
 to layout.
 
+Deprecated: Use .AppendFormat method of time object.
 ---
 
 `AppendFormat(t time, b bytes, layout string) -> bytes`
@@ -310,6 +367,7 @@ to layout.
 It is like `Format` but appends the textual representation to b and
 returns the extended buffer.
 
+Deprecated: Use .In method of time object.
 ---
 
 `In(t time, loc location) -> time`
@@ -317,6 +375,7 @@ returns the extended buffer.
 Returns a copy of t representing the same time t, but with the copy's
 location information set to loc for display purposes.
 
+Deprecated: Use .Round method of time object.
 ---
 
 `Round(t time, duration int) -> time`
@@ -324,6 +383,7 @@ location information set to loc for display purposes.
 Round returns the result of rounding t to the nearest multiple of
 duration.
 
+Deprecated: Use .Truncate method of time object.
 ---
 
 `Truncate(t time, duration int) -> time`

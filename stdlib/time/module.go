@@ -132,7 +132,7 @@ var Module = map[string]ugo.Object{
 
 	// ugo:doc
 	// Local() -> location
-	// Returns Local return the system's local time zone location.
+	// Returns the system's local time zone location.
 	"Local": &ugo.Function{
 		Name: "Local",
 		Value: stdlib.FuncPRO(func() ugo.Object {
