@@ -89,6 +89,11 @@ jobs:
 
     - name: Install Staticcheck
       run: go install honnef.co/go/tools/cmd/staticcheck@2022.1
+      if: ${{ matrix.go == '1.17' }} || ${{ matrix.go == '1.18' }}
+
+    - name: Install Staticcheck
+      run: go install honnef.co/go/tools/cmd/staticcheck@2023.1.2
+      if: ${{ matrix.go == '1.19' }} || ${{ matrix.go == '1.20' }}
 
     - name: Test
       run: make test
@@ -105,6 +110,7 @@ jobs:
     
     - name: 'Upload Artifact'
       uses: actions/upload-artifact@v3
+      if: ${{ matrix.go == '1.20' }}
       with:
         name: ${{ env.artifactPath }}
         path: ${{ env.artifactPath }}*
