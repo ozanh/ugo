@@ -1,4 +1,4 @@
-// Copyright (c) 2020-2022 Ozan Hacıbekiroğlu.
+// Copyright (c) 2020-2023 Ozan Hacıbekiroğlu.
 // Use of this source code is governed by a MIT License
 // that can be found in the LICENSE file.
 
@@ -342,7 +342,7 @@ func builtinMakeArrayFunc(n int, arg Object) (Object, error) {
 
 func builtinAppendFunc(args ...Object) (Object, error) {
 	if len(args) < 1 {
-		return nil, ErrWrongNumArguments.NewError("want>=1 got=0")
+		return Undefined, ErrWrongNumArguments.NewError("want>=1 got=0")
 	}
 
 	switch obj := args[0].(type) {
@@ -379,7 +379,7 @@ func builtinAppendFunc(args ...Object) (Object, error) {
 		}
 		return Array{}, nil
 	default:
-		return nil, NewArgumentTypeError(
+		return Undefined, NewArgumentTypeError(
 			"1st",
 			"array",
 			args[0].TypeName(),
@@ -466,7 +466,7 @@ func builtinContainsFunc(arg0, arg1 Object) (Object, error) {
 		case Bytes:
 			ok = bytes.Contains(obj, v)
 		default:
-			return nil, NewArgumentTypeError(
+			return Undefined, NewArgumentTypeError(
 				"2nd",
 				"int|uint|string|char|bytes",
 				arg1.TypeName(),
@@ -474,7 +474,7 @@ func builtinContainsFunc(arg0, arg1 Object) (Object, error) {
 		}
 	case *UndefinedType:
 	default:
-		return nil, NewArgumentTypeError(
+		return Undefined, NewArgumentTypeError(
 			"1st",
 			"map|array|string|bytes",
 			arg0.TypeName(),
@@ -531,6 +531,7 @@ func builtinSortFunc(arg Object) (ret Object, err error) {
 	case *UndefinedType:
 		ret = Undefined
 	default:
+		ret = Undefined
 		err = NewArgumentTypeError(
 			"1st",
 			"array|string|bytes",
@@ -575,7 +576,7 @@ func builtinSortReverseFunc(arg Object) (Object, error) {
 		return Undefined, nil
 	}
 
-	return nil, NewArgumentTypeError(
+	return Undefined, NewArgumentTypeError(
 		"1st",
 		"array|string|bytes",
 		arg.TypeName(),
@@ -604,7 +605,7 @@ func builtinCharFunc(arg Object) (Object, error) {
 	if v == utf8.RuneError || arg == Undefined {
 		return Undefined, nil
 	}
-	return nil, NewArgumentTypeError(
+	return Undefined, NewArgumentTypeError(
 		"1st",
 		"numeric|string|bool",
 		arg.TypeName(),
@@ -631,7 +632,7 @@ func builtinBytesFunc(args ...Object) (Object, error) {
 		case Char:
 			out = append(out, byte(v))
 		default:
-			return nil, NewArgumentTypeError(
+			return Undefined, NewArgumentTypeError(
 				strconv.Itoa(i+1),
 				"int|uint|char",
 				args[i].TypeName(),
@@ -671,6 +672,7 @@ func builtinCharsFunc(arg Object) (ret Object, err error) {
 			i += w
 		}
 	default:
+		ret = Undefined
 		err = NewArgumentTypeError(
 			"1st",
 			"string|bytes",
@@ -716,7 +718,7 @@ func builtinPrintlnFunc(args ...Object) (ret Object, err error) {
 
 func builtinSprintfFunc(args ...Object) (Object, error) {
 	if len(args) < 1 {
-		return nil, ErrWrongNumArguments.NewError("want>=1 got=0")
+		return Undefined, ErrWrongNumArguments.NewError("want>=1 got=0")
 	}
 
 	vargs := make([]interface{}, len(args)-1)

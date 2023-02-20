@@ -1,4 +1,4 @@
-// Copyright (c) 2020-2022 Ozan Hacıbekiroğlu.
+// Copyright (c) 2020-2023 Ozan Hacıbekiroğlu.
 // Use of this source code is governed by a MIT License
 // that can be found in the LICENSE file.
 
@@ -52,6 +52,7 @@ const (
 	OpDefineLocal
 	OpTrue
 	OpFalse
+	OpCallName
 )
 
 // OpcodeNames are string representation of opcodes.
@@ -99,13 +100,14 @@ var OpcodeNames = [...]string{
 	OpDefineLocal:  "DEFINELOCAL",
 	OpTrue:         "TRUE",
 	OpFalse:        "FALSE",
+	OpCallName:     "CALLNAME",
 }
 
 // OpcodeOperands is the number of operands.
 var OpcodeOperands = [...][]int{
 	OpNoOp:         {},
 	OpConstant:     {2},    // constant index
-	OpCall:         {1, 1}, // number of arguments, expand
+	OpCall:         {1, 1}, // number of arguments, flags
 	OpGetGlobal:    {2},    // constant index
 	OpSetGlobal:    {2},    // constant index
 	OpGetLocal:     {1},    // local variable index
@@ -146,6 +148,7 @@ var OpcodeOperands = [...][]int{
 	OpDefineLocal:  {1},
 	OpTrue:         {},
 	OpFalse:        {},
+	OpCallName:     {1, 1}, // number of arguments, flags
 }
 
 // ReadOperands reads operands from the bytecode. Given operands slice is used to

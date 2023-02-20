@@ -1,4 +1,4 @@
-// Copyright (c) 2020-2022 Ozan Hacıbekiroğlu.
+// Copyright (c) 2020-2023 Ozan Hacıbekiroğlu.
 // Use of this source code is governed by a MIT License
 // that can be found in the LICENSE file.
 
@@ -351,7 +351,7 @@ func (r *repl) prefix() string {
 }
 
 func (r *repl) printInfo() {
-	_, _ = fmt.Fprintln(r.out, "Copyright (c) 2020-2022 Ozan Hacıbekiroğlu")
+	_, _ = fmt.Fprintln(r.out, "Copyright (c) 2020-2023 Ozan Hacıbekiroğlu")
 	_, _ = fmt.Fprintln(r.out, "https://github.com/ozanh/ugo License: MIT",
 		"Build:", runtime.Version(), runtime.GOOS, runtime.GOARCH)
 	_, _ = fmt.Fprintln(r.out, "Write .commands to list available commands")

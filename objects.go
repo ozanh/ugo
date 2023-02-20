@@ -1,4 +1,4 @@
-// Copyright (c) 2020-2022 Ozan Hacıbekiroğlu.
+// Copyright (c) 2020-2023 Ozan Hacıbekiroğlu.
 // Use of this source code is governed by a MIT License
 // that can be found in the LICENSE file.
 
@@ -95,6 +95,50 @@ type IndexDeleter interface {
 // LengthGetter wraps the Len method to get the number of elements of an object.
 type LengthGetter interface {
 	Len() int
+}
+
+// ExCallerObject is an interface for objects that can be called with CallEx
+// method. It is an extended version of the Call method that can be used to
+// call an object with a Call struct. Objects implementing this interface is
+// called with CallEx method instead of Call method.
+type ExCallerObject interface {
+	Object
+	CallEx(c Call) (Object, error)
+}
+
+// NameCallerObject is an interface for objects that can be called with CallName
+// method to call a method of an object.
+type NameCallerObject interface {
+	Object
+	CallName(name string, c Call) (Object, error)
+}
+
+// Call is a helper struct to pass arguments to CallEx and CallName methods.
+type Call struct {
+	vm    *VM
+	args  []Object
+	vargs []Object
+}
+
+// VM returns the VM of the call.
+func (c *Call) VM() *VM {
+	return c.vm
+}
+
+// Get returns the nth argument. If n is greater than the number of arguments,
+// it returns the nth variadic argument.
+// If n is greater than the number of arguments and variadic arguments, it
+// panics!
+func (c *Call) Get(n int) Object {
+	if n < len(c.args) {
+		return c.args[n]
+	}
+	return c.vargs[n-len(c.args)]
+}
+
+// Len returns the number of arguments including variadic arguments.
+func (c *Call) Len() int {
+	return len(c.args) + len(c.vargs)
 }
 
 // ObjectImpl is the basic Object implementation and it does not nothing, and

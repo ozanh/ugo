@@ -1,11 +1,10 @@
-// Copyright (c) 2020-2022 Ozan Hacıbekiroğlu.
+// Copyright (c) 2020-2023 Ozan Hacıbekiroğlu.
 // Use of this source code is governed by a MIT License
 // that can be found in the LICENSE file.
 
 // Package strings provides strings module implementing simple functions to
 // manipulate UTF-8 encoded strings for uGO script language. It wraps Go's
 // strings package functionalities.
-//
 package strings
 
 import (

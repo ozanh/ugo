@@ -1,11 +1,10 @@
-// Copyright (c) 2020-2022 Ozan Hacıbekiroğlu.
+// Copyright (c) 2020-2023 Ozan Hacıbekiroğlu.
 // Use of this source code is governed by a MIT License
 // that can be found in the LICENSE file.
 
 // Package time provides time module for measuring and displaying time for uGO
 // script language. It wraps Go's time package functionalities.
 // Note that: uGO's int values are converted to Go's time.Duration values.
-//
 package time
 
 import (
@@ -15,6 +14,9 @@ import (
 	"github.com/ozanh/ugo"
 	"github.com/ozanh/ugo/stdlib"
 )
+
+var utcLoc ugo.Object = &Location{Value: time.UTC}
+var localLoc ugo.Object = &Location{Value: time.Local}
 
 // Module represents time module.
 var Module = map[string]ugo.Object{
@@ -119,6 +121,26 @@ var Module = map[string]ugo.Object{
 
 	// ugo:doc
 	// ## Functions
+	// UTC() -> location
+	// Returns Universal Coordinated Time (UTC) location.
+	"UTC": &ugo.Function{
+		Name: "UTC",
+		Value: stdlib.FuncPRO(func() ugo.Object {
+			return utcLoc
+		}),
+	},
+
+	// ugo:doc
+	// Local() -> location
+	// Returns Local return the system's local time zone location.
+	"Local": &ugo.Function{
+		Name: "Local",
+		Value: stdlib.FuncPRO(func() ugo.Object {
+			return localLoc
+		}),
+	},
+
+	// ugo:doc
 	// MonthString(m int) -> month string
 	// Returns English name of the month m ("January", "February", ...).
 	"MonthString": &ugo.Function{
@@ -338,99 +360,89 @@ var Module = map[string]ugo.Object{
 		Value: unix,
 	},
 	// ugo:doc
+	// Deprecated: Use .Add method of time object.
 	// Add(t time, duration int) -> time
 	// Returns the time of t+duration.
 	"Add": &ugo.Function{
-		Name: "Add",
-		Value: funcPTi64RO(func(t *Time, duration int64) ugo.Object {
-			return &Time{Value: t.Value.Add(time.Duration(duration))}
-		}),
+		Name:  "Add",
+		Value: funcPTi64RO(timeAdd),
 	},
 	// ugo:doc
+	// Deprecated: Use .Sub method of time object.
 	// Sub(t1 time, t2 time) -> int
 	// Returns the duration of t1-t2.
 	"Sub": &ugo.Function{
-		Name: "Sub",
-		Value: funcPTTRO(func(t1, t2 *Time) ugo.Object {
-			return ugo.Int(t1.Value.Sub(t2.Value))
-		}),
+		Name:  "Sub",
+		Value: funcPTTRO(timeSub),
 	},
 	// ugo:doc
+	// Deprecated: Use .AddDate method of time object.
 	// AddDate(t time, years int, months int, days int) -> time
 	// Returns the time corresponding to adding the given number of
 	// years, months, and days to t.
 	"AddDate": &ugo.Function{
-		Name: "AddDate",
-		Value: funcPTiiiRO(func(t *Time, years, months, days int) ugo.Object {
-			return &Time{Value: t.Value.AddDate(years, months, days)}
-		}),
+		Name:  "AddDate",
+		Value: funcPTiiiRO(timeAddDate),
 	},
 	// ugo:doc
+	// Deprecated: Use .After method of time object.
 	// After(t1 time, t2 time) -> bool
 	// Reports whether the time t1 is after t2.
 	"After": &ugo.Function{
-		Name: "After",
-		Value: funcPTTRO(func(t1, t2 *Time) ugo.Object {
-			return ugo.Bool(t1.Value.After(t2.Value))
-		}),
+		Name:  "After",
+		Value: funcPTTRO(timeAfter),
 	},
 	// ugo:doc
+	// Deprecated: Use .Before method of time object.
 	// Before(t1 time, t2 time) -> bool
 	// Reports whether the time t1 is before t2.
 	"Before": &ugo.Function{
-		Name: "Before",
-		Value: funcPTTRO(func(t1, t2 *Time) ugo.Object {
-			return ugo.Bool(t1.Value.Before(t2.Value))
-		}),
+		Name:  "Before",
+		Value: funcPTTRO(timeBefore),
 	},
 	// ugo:doc
+	// Deprecated: Use .Format method of time object.
 	// Format(t time, layout string) -> string
 	// Returns a textual representation of the time value formatted according
 	// to layout.
 	"Format": &ugo.Function{
-		Name: "Format",
-		Value: funcPTsRO(func(t *Time, layout string) ugo.Object {
-			return ugo.String(t.Value.Format(layout))
-		}),
+		Name:  "Format",
+		Value: funcPTsRO(timeFormat),
 	},
 	// ugo:doc
+	// Deprecated: Use .AppendFormat method of time object.
 	// AppendFormat(t time, b bytes, layout string) -> bytes
 	// It is like `Format` but appends the textual representation to b and
 	// returns the extended buffer.
 	"AppendFormat": &ugo.Function{
-		Name: "AppendFormat", // funcPTb2sRO
-		Value: funcPTb2sRO(func(t *Time, b []byte, layout string) ugo.Object {
-			return ugo.Bytes(t.Value.AppendFormat(b, layout))
-		}),
+		Name:  "AppendFormat", // funcPTb2sRO
+		Value: funcPTb2sRO(timeAppendFormat),
 	},
 	// ugo:doc
+	// Deprecated: Use .In method of time object.
 	// In(t time, loc location) -> time
 	// Returns a copy of t representing the same time t, but with the copy's
 	// location information set to loc for display purposes.
 	"In": &ugo.Function{
-		Name: "In",
-		Value: funcPTLRO(func(t *Time, loc *Location) ugo.Object {
-			return &Time{Value: t.Value.In(loc.Value)}
-		}),
+		Name:  "In",
+		Value: funcPTLRO(timeIn),
 	},
 	// ugo:doc
+	// Deprecated: Use .Round method of time object.
 	// Round(t time, duration int) -> time
 	// Round returns the result of rounding t to the nearest multiple of
 	// duration.
 	"Round": &ugo.Function{
-		Name: "Round",
-		Value: funcPTi64RO(func(t *Time, duration int64) ugo.Object {
-			return &Time{Value: t.Value.Round(time.Duration(duration))}
-		}),
+		Name:  "Round",
+		Value: funcPTi64RO(timeRound),
 	},
 	// ugo:doc
+	// Deprecated: Use .Truncate method of time object.
 	// Truncate(t time, duration int) -> time
 	// Truncate returns the result of rounding t down to a multiple of duration.
 	"Truncate": &ugo.Function{
-		Name: "Truncate",
-		Value: funcPTi64RO(func(t *Time, duration int64) ugo.Object {
-			return &Time{Value: t.Value.Truncate(time.Duration(duration))}
-		}),
+		Name:  "Truncate",
+		Value: funcPTi64RO(timeTruncate),
 	},
 	// ugo:doc
 	// IsTime(any) -> bool
@@ -447,19 +459,18 @@ var Module = map[string]ugo.Object{
 func loadLocation(args ...ugo.Object) (ugo.Object, error) {
 	name, ok := args[0].(ugo.String)
 	if !ok {
-		return nil, ugo.NewArgumentTypeError(
-			"1st", "string", args[0].TypeName())
+		return newArgTypeErr("1st", "string", args[0].TypeName())
 	}
 	l, err := time.LoadLocation(string(name))
 	if err != nil {
-		return nil, err
+		return ugo.Undefined, err
 	}
 	return &Location{Value: l}, nil
 }
 
 func date(args ...ugo.Object) (ugo.Object, error) {
 	if len(args) < 3 || len(args) > 8 {
-		return nil, ugo.ErrWrongNumArguments.NewError(
+		return ugo.Undefined, ugo.ErrWrongNumArguments.NewError(
 			"want=3..8 got=" + strconv.Itoa(len(args)))
 	}
 	ymdHmsn := [7]int{}
@@ -489,55 +500,51 @@ func date(args ...ugo.Object) (ugo.Object, error) {
 
 func parse(args ...ugo.Object) (ugo.Object, error) {
 	if len(args) != 2 && len(args) != 3 {
-		return nil, ugo.ErrWrongNumArguments.NewError(
+		return ugo.Undefined, ugo.ErrWrongNumArguments.NewError(
 			"want=2..3 got=" + strconv.Itoa(len(args)))
 	}
 	layout, ok := ugo.ToGoString(args[0])
 	if !ok {
-		return nil, ugo.NewArgumentTypeError(
-			"1st", "string", args[0].TypeName())
+		return newArgTypeErr("1st", "string", args[0].TypeName())
 	}
 	value, ok := ugo.ToGoString(args[1])
 	if !ok {
-		return nil, ugo.NewArgumentTypeError(
-			"2nd", "string", args[1].TypeName())
+		return newArgTypeErr("2nd", "string", args[1].TypeName())
 	}
 	if len(args) == 2 {
 		tm, err := time.Parse(layout, value)
 		if err != nil {
-			return nil, err
+			return ugo.Undefined, err
 		}
 		return &Time{Value: tm}, nil
 	}
 	loc, ok := ToLocation(args[2])
 	if !ok {
-		return nil, ugo.NewArgumentTypeError(
-			"3rd", "location", args[2].TypeName())
+		return newArgTypeErr("3rd", "location", args[2].TypeName())
 	}
 	tm, err := time.ParseInLocation(layout, value, loc.Value)
 	if err != nil {
-		return nil, err
+		return ugo.Undefined, err
 	}
 	return &Time{Value: tm}, nil
 }
 
 func unix(args ...ugo.Object) (ugo.Object, error) {
 	if len(args) != 1 && len(args) != 2 {
-		return nil, ugo.ErrWrongNumArguments.NewError(
+		return ugo.Undefined, ugo.ErrWrongNumArguments.NewError(
 			"want=1..2 got=" + strconv.Itoa(len(args)))
 	}
 
 	sec, ok := ugo.ToGoInt64(args[0])
 	if !ok {
-		return nil, ugo.NewArgumentTypeError("1st", "int", args[0].TypeName())
+		return newArgTypeErr("1st", "int", args[0].TypeName())
 	}
 
 	var nsec int64
 	if len(args) > 1 {
 		nsec, ok = ugo.ToGoInt64(args[1])
 		if !ok {
-			return nil, ugo.NewArgumentTypeError(
-				"2nd", "int", args[1].TypeName())
+			return newArgTypeErr("2nd", "int", args[1].TypeName())
 		}
 	}
 	return &Time{Value: time.Unix(sec, nsec)}, nil

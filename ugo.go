@@ -1,4 +1,4 @@
-// Copyright (c) 2020-2022 Ozan Hacıbekiroğlu.
+// Copyright (c) 2020-2023 Ozan Hacıbekiroğlu.
 // Use of this source code is governed by a MIT License
 // that can be found in the LICENSE file.
 
@@ -10,6 +10,8 @@ import (
 	"fmt"
 	"strconv"
 	"unicode/utf8"
+
+	"github.com/ozanh/ugo/registry"
 )
 
 const (
@@ -101,6 +103,12 @@ func ToObject(v interface{}) (ret Object, err error) {
 	case error:
 		ret = &Error{Message: v.Error(), Cause: v}
 	default:
+		if out, ok := registry.ToObject(v); ok {
+			ret, ok = out.(Object)
+			if ok {
+				return
+			}
+		}
 		err = fmt.Errorf("cannot convert to object: %T", v)
 	}
 	return
@@ -196,6 +204,12 @@ func ToObjectAlt(v interface{}) (ret Object, err error) {
 	case error:
 		ret = &Error{Message: v.Error(), Cause: v}
 	default:
+		if out, ok := registry.ToObject(v); ok {
+			ret, ok = out.(Object)
+			if ok {
+				return
+			}
+		}
 		err = fmt.Errorf("cannot convert to object: %T", v)
 	}
 	return
@@ -244,7 +258,11 @@ func ToInterface(o Object) (ret interface{}) {
 	case *UndefinedType:
 		ret = nil
 	default:
-		ret = o
+		if out, ok := registry.ToInterface(o); ok {
+			ret = out
+		} else {
+			ret = o
+		}
 	}
 	return
 }

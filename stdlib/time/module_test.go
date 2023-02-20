@@ -516,9 +516,13 @@ func TestScript(t *testing.T) {
 		return String(NewArgumentTypeError(pos, expected, got).String())
 	}
 	nwrongArgs := func(want1, want2, got int) String {
-		return String(ErrWrongNumArguments.NewError(
-			fmt.Sprintf("want=%d..%d got=%d", want1, want2, got),
-		).String())
+		var msg string
+		if want2 <= 0 {
+			msg = fmt.Sprintf("want=%d got=%d", want1, got)
+		} else {
+			msg = fmt.Sprintf("want=%d..%d got=%d", want1, want2, got)
+		}
+		return String(ErrWrongNumArguments.NewError(msg).String())
 	}
 	expectRun(t, `import("time")`, nil, Undefined)
 
@@ -606,28 +610,192 @@ func TestScript(t *testing.T) {
 		newOpts().Args(&Time{Value: tm}), False)
 	expectRun(t, `param p1; time := import("time"); return time.Now()>p1`,
 		newOpts().Args(&Time{Value: tm}), True)
-	expectRun(t, `time := import("time"); return (time.Now()+time.Second)>=time.Now()`,
-		nil, True)
-	expectRun(t, `time := import("time"); return (time.Now()+time.Second)<=time.Now()`,
-		nil, False)
-	expectRun(t, `time := import("time"); return (time.Now()-10*time.Second)<=time.Now()`,
-		nil, True)
-	expectRun(t, `time := import("time"); return time.Now() == undefined`,
-		nil, False)
-	expectRun(t, `time := import("time"); return time.Now() > undefined`,
-		nil, True)
-	expectRun(t, `time := import("time"); return time.Now() >= undefined`,
-		nil, True)
-	expectRun(t, `time := import("time"); return time.Now() < undefined`,
-		nil, False)
-	expectRun(t, `time := import("time"); return time.Now() <= undefined`,
-		nil, False)
+	expectRun(t, `time := import("time"); return (time.Now()+time.Second)>=time.Now()`, nil, True)
+	expectRun(t, `time := import("time"); return (time.Now()+time.Second)<=time.Now()`, nil, False)
+	expectRun(t, `time := import("time"); return (time.Now()-10*time.Second)<=time.Now()`, nil, True)
+	expectRun(t, `time := import("time"); return time.Now() == undefined`, nil, False)
+	expectRun(t, `time := import("time"); return time.Now() > undefined`, nil, True)
+	expectRun(t, `time := import("time"); return time.Now() >= undefined`, nil, True)
+	expectRun(t, `time := import("time"); return time.Now() < undefined`, nil, False)
+	expectRun(t, `time := import("time"); return time.Now() <= undefined`, nil, False)
 	expectRun(t, `
 	time := import("time")
 	t1 := time.Now()
 	t2 := t1 + time.Second
 	return t2 - t1
 	`, nil, Int(time.Second))
+
+	// methods
+	// .Add
+	expectRun(t, `time := import("time"); return time.Time().Add(10*time.Second)`,
+		nil, &Time{Value: time.Time{}.Add(10 * time.Second)})
+	expectRun(t, catch(`time.Time().Add()`), nil, nwrongArgs(1, -1, 0))
+	expectRun(t, catch(`time.Time().Add(1, 2)`), nil, nwrongArgs(1, -1, 2))
+	expectRun(t, catch(`time.Time().Add(undefined)`), nil, typeErr("1st", "int", "undefined"))
+
+	// .Sub
+	expectRun(t, `time := import("time");
+	t1 := time.Time()
+	t2 := time.Time().Add(10*time.Second)
+	return t2.Sub(t1)`,
+		nil, Int(10*time.Second))
+	expectRun(t, catch(`time.Time().Sub()`), nil, nwrongArgs(1, -1, 0))
+	expectRun(t, catch(`time.Time().Sub(1, 2)`), nil, nwrongArgs(1, -1, 2))
+	expectRun(t, catch(`time.Time().Sub(undefined)`), nil, typeErr("1st", "time", "undefined"))
+
+	// .AddDate
+	expectRun(t, `time := import("time"); return time.Time().AddDate(1, 2, 3)`,
+		nil, &Time{Value: time.Time{}.AddDate(1, 2, 3)})
+	expectRun(t, catch(`time.Time().AddDate()`), nil, nwrongArgs(3, -1, 0))
+	expectRun(t, catch(`time.Time().AddDate(1, 2)`), nil, nwrongArgs(3, -1, 2))
+	expectRun(t, catch(`time.Time().AddDate(1, 2, 3, 4)`), nil, nwrongArgs(3, -1, 4))
+	expectRun(t, catch(`time.Time().AddDate(undefined, 2, 3)`), nil, typeErr("1st", "int", "undefined"))
+
+	// .After
+	expectRun(t, `time := import("time"); return time.Time().After(time.Time())`, nil, False)
+	expectRun(t, `time := import("time"); return time.Time().Add(time.Second).After(time.Time())`, nil, True)
+	expectRun(t, catch(`time.Time().After()`), nil, nwrongArgs(1, -1, 0))
+	expectRun(t, catch(`time.Time().After(1, 2)`), nil, nwrongArgs(1, -1, 2))
+	expectRun(t, catch(`time.Time().After(undefined)`), nil, typeErr("1st", "time", "undefined"))
+
+	// .Before
+	expectRun(t, `time := import("time"); return time.Time().Before(time.Time())`, nil, False)
+	expectRun(t, `time := import("time"); return time.Time().Add(-time.Second).Before(time.Time())`, nil, True)
+	expectRun(t, catch(`time.Time().Before()`), nil, nwrongArgs(1, -1, 0))
+	expectRun(t, catch(`time.Time().Before(1, 2)`), nil, nwrongArgs(1, -1, 2))
+	expectRun(t, catch(`time.Time().Before(undefined)`), nil, typeErr("1st", "time", "undefined"))
+
+	// .Format
+	expectRun(t, `time := import("time"); return time.Time().Format("2006-01-02")`, nil, String("0001-01-01"))
+	expectRun(t, catch(`time.Time().Format()`), nil, nwrongArgs(1, -1, 0))
+	expectRun(t, catch(`time.Time().Format(1, 2)`), nil, nwrongArgs(1, -1, 2))
+	expectRun(t, catch(`time.Time().Format(undefined)`), nil, typeErr("1st", "string", "undefined"))
+
+	// .AppendFormat
+	expectRun(t, `time := import("time"); return time.Time().AppendFormat("", "2006-01-02")`, nil, Bytes("0001-01-01"))
+	expectRun(t, catch(`time.Time().AppendFormat()`), nil, nwrongArgs(2, -1, 0))
+	expectRun(t, catch(`time.Time().AppendFormat(1)`), nil, nwrongArgs(2, -1, 1))
+	expectRun(t, catch(`time.Time().AppendFormat(1, 2, 3)`), nil, nwrongArgs(2, -1, 3))
+	expectRun(t, catch(`time.Time().AppendFormat(undefined, "2006-01-02")`), nil, typeErr("1st", "bytes", "undefined"))
+
+	// .In
+	expectRun(t, `param p1; time := import("time"); return p1.In(time.UTC())`,
+		newOpts().Args(&Time{Value: tm}), &Time{Value: tm.In(time.UTC)})
+	expectRun(t, catch(`time.Time().In()`), nil, nwrongArgs(1, -1, 0))
+	expectRun(t, catch(`time.Time().In(1, 2)`), nil, nwrongArgs(1, -1, 2))
+	expectRun(t, catch(`time.Time().In(undefined)`), nil, typeErr("1st", "location", "undefined"))
+
+	// .Round
+	expectRun(t, `param p1; time := import("time"); return p1.Round(time.Second)`,
+		newOpts().Args(&Time{Value: tm}), &Time{Value: tm.Round(time.Second)})
+	expectRun(t, catch(`time.Time().Round()`), nil, nwrongArgs(1, -1, 0))
+	expectRun(t, catch(`time.Time().Round(1, 2)`), nil, nwrongArgs(1, -1, 2))
+	expectRun(t, catch(`time.Time().Round(undefined)`), nil, typeErr("1st", "int", "undefined"))
+
+	// .Truncate
+	expectRun(t, `param p1; time := import("time"); return p1.Truncate(time.Second)`,
+		newOpts().Args(&Time{Value: tm}), &Time{Value: tm.Truncate(time.Second)})
+	expectRun(t, catch(`time.Time().Truncate()`), nil, nwrongArgs(1, -1, 0))
+	expectRun(t, catch(`time.Time().Truncate(1, 2)`), nil, nwrongArgs(1, -1, 2))
+	expectRun(t, catch(`time.Time().Truncate(undefined)`), nil, typeErr("1st", "int", "undefined"))
+
+	// .Equal
+	expectRun(t, `time := import("time"); return time.Time().Equal(time.Time())`, nil, True)
+	expectRun(t, `param (p1,p2); return p1.Equal(p2)`,
+		newOpts().Args(&Time{Value: tm}, &Time{Value: tm}), True)
+	expectRun(t, `param (p1,p2); return p1.Equal(p2)`,
+		newOpts().Args(&Time{Value: tm}, &Time{Value: tm.Add(time.Second)}), False)
+	expectRun(t, catch(`time.Time().Equal()`), nil, nwrongArgs(1, -1, 0))
+	expectRun(t, catch(`time.Time().Equal(1, 2)`), nil, nwrongArgs(1, -1, 2))
+	expectRun(t, catch(`time.Time().Equal(undefined)`), nil, typeErr("1st", "time", "undefined"))
+
+	// .Date
+	expectRun(t, `time := import("time"); return time.Time().Date()`,
+		nil, Map{"day": Int(1), "month": Int(1), "year": Int(1)})
+	expectRun(t, catch(`time.Time().Date(1)`), nil, nwrongArgs(0, -1, 1))
+
+	// .Clock
+	hour, minute, second := tm.Clock()
+	expectRun(t, `param p1; return p1.Clock()`,
+		newOpts().Args(&Time{Value: tm}),
+		Map{"hour": Int(hour), "minute": Int(minute), "second": Int(second)})
+	expectRun(t, catch(`time.Time().Clock(1)`), nil, nwrongArgs(0, -1, 1))
+
+	// .UTC
+	expectRun(t, `param p1; return p1.UTC()`,
+		newOpts().Args(&Time{Value: tm}), &Time{Value: tm.UTC()})
+	expectRun(t, catch(`time.Time().UTC(1)`), nil, nwrongArgs(0, -1, 1))
+
+	// .Unix
+	expectRun(t, `param p1; return p1.Unix()`,
+		newOpts().Args(&Time{Value: tm}), Int(tm.Unix()))
+	expectRun(t, catch(`time.Time().Unix(1)`), nil, nwrongArgs(0, -1, 1))
+
+	// .UnixNano
+	expectRun(t, `param p1; return p1.UnixNano()`,
+		newOpts().Args(&Time{Value: tm}), Int(tm.UnixNano()))
+	expectRun(t, catch(`time.Time().UnixNano(1)`), nil, nwrongArgs(0, -1, 1))
+
+	// .Year
+	expectRun(t, `param p1; return p1.Year()`,
+		newOpts().Args(&Time{Value: tm}), Int(tm.Year()))
+	expectRun(t, catch(`time.Time().Year(1)`), nil, nwrongArgs(0, -1, 1))
+
+	// .Month
+	expectRun(t, `param p1; return p1.Month()`,
+		newOpts().Args(&Time{Value: tm}), Int(tm.Month()))
+	expectRun(t, catch(`time.Time().Month(1)`), nil, nwrongArgs(0, -1, 1))
+
+	// .Day
+	expectRun(t, `param p1; return p1.Day()`,
+		newOpts().Args(&Time{Value: tm}), Int(tm.Day()))
+	expectRun(t, catch(`time.Time().Day(1)`), nil, nwrongArgs(0, -1, 1))
+
+	// .Hour
+	expectRun(t, `param p1; return p1.Hour()`,
+		newOpts().Args(&Time{Value: tm}), Int(tm.Hour()))
+	expectRun(t, catch(`time.Time().Hour(1)`), nil, nwrongArgs(0, -1, 1))
+
+	// .Minute
+	expectRun(t, `param p1; return p1.Minute()`,
+		newOpts().Args(&Time{Value: tm}), Int(tm.Minute()))
+	expectRun(t, catch(`time.Time().Minute(1)`), nil, nwrongArgs(0, -1, 1))
+
+	// .Second
+	expectRun(t, `param p1; return p1.Second()`,
+		newOpts().Args(&Time{Value: tm}), Int(tm.Second()))
+	expectRun(t, catch(`time.Time().Second(1)`), nil, nwrongArgs(0, -1, 1))
+
+	// .Nanosecond
+	expectRun(t, `param p1; return p1.Nanosecond()`,
+		newOpts().Args(&Time{Value: tm}), Int(tm.Nanosecond()))
+	expectRun(t, catch(`time.Time().Nanosecond(1)`), nil, nwrongArgs(0, -1, 1))
+
+	// .Weekday
+	expectRun(t, `param p1; return p1.Weekday()`,
+		newOpts().Args(&Time{Value: tm}), Int(tm.Weekday()))
+	expectRun(t, catch(`time.Time().Weekday(1)`), nil, nwrongArgs(0, -1, 1))
+
+	// .ISOWeek
+	year, week := tm.ISOWeek()
+	expectRun(t, `param p1; return p1.ISOWeek()`,
+		newOpts().Args(&Time{Value: tm}), Map{"year": Int(year), "week": Int(week)})
+	expectRun(t, catch(`time.Time().ISOWeek(1)`), nil, nwrongArgs(0, -1, 1))
+
+	// .YearDay
+	expectRun(t, `param p1; return p1.YearDay()`,
+		newOpts().Args(&Time{Value: tm}), Int(tm.YearDay()))
+	expectRun(t, catch(`time.Time().YearDay(1)`), nil, nwrongArgs(0, -1, 1))
+
+	// .Location
+	expectRun(t, `time := import("time"); return time.Time().Location()`, nil, &Location{Value: time.Time{}.Location()})
+	expectRun(t, catch(`time.Time().Location(1)`), nil, nwrongArgs(0, -1, 1))
+
+	// .Zone
+	zone, offset := tm.Zone()
+	expectRun(t, `param p1; return p1.Zone()`,
+		newOpts().Args(&Time{Value: tm}), Map{"name": String(zone), "offset": Int(offset)})
+	expectRun(t, catch(`time.Time().Zone(1)`), nil, nwrongArgs(0, -1, 1))
 }
 
 type illegalDur struct {

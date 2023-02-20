@@ -1,4 +1,4 @@
-// Copyright (c) 2020-2022 Ozan Hacıbekiroğlu.
+// Copyright (c) 2020-2023 Ozan Hacıbekiroğlu.
 // Use of this source code is governed by a MIT License
 // that can be found in the LICENSE file.
 //
@@ -12,7 +12,6 @@
 // go run ./cmd/ugodoc ./stdlib/time ./docs/stdlib-time.md
 //
 // go run ./cmd/ugodoc ./stdlib/json -
-//
 package main
 
 import (

@@ -1,10 +1,24 @@
 package fmt
 
 import (
+	"reflect"
 	"strconv"
 
 	"github.com/ozanh/ugo"
+	"github.com/ozanh/ugo/registry"
 )
+
+func init() {
+	registry.RegisterAnyConverter(reflect.TypeOf((*scanArg)(nil)),
+		func(in interface{}) (interface{}, bool) {
+			sa := in.(*scanArg)
+			if sa.argValue != nil {
+				return sa.Arg(), true
+			}
+			return ugo.Undefined, false
+		},
+	)
+}
 
 // ScanArg is an interface that wraps methods required to scan argument with
 // scan functions.

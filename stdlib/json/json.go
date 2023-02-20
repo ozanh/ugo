@@ -5,10 +5,32 @@
 package json
 
 import (
+	"encoding/json"
 	"fmt"
+	"reflect"
 
 	"github.com/ozanh/ugo"
+	"github.com/ozanh/ugo/registry"
 )
+
+func init() {
+	registry.RegisterObjectConverter(reflect.TypeOf(json.RawMessage(nil)),
+		func(in interface{}) (interface{}, bool) {
+			rm := in.(json.RawMessage)
+			if rm == nil {
+				return &RawMessage{Value: ugo.Bytes{}}, true
+			}
+			return &RawMessage{Value: rm}, true
+		},
+	)
+
+	registry.RegisterAnyConverter(reflect.TypeOf((*RawMessage)(nil)),
+		func(in interface{}) (interface{}, bool) {
+			rm := in.(*RawMessage)
+			return json.RawMessage(rm.Value), true
+		},
+	)
+}
 
 // ugo:doc
 // ## Types
