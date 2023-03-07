@@ -13,6 +13,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/ozanh/ugo/internal/compat"
 	"github.com/ozanh/ugo/parser"
 	"github.com/ozanh/ugo/token"
 )
@@ -415,6 +416,12 @@ switchpos:
 		right.TypeName())
 }
 
+// Format implements fmt.Formatter interface.
+func (o Bool) Format(s fmt.State, verb rune) {
+	format := compat.FmtFormatString(s, verb)
+	fmt.Fprintf(s, format, bool(o))
+}
+
 // String represents string values and implements Object interface.
 type String string
 
@@ -537,6 +544,12 @@ func (o String) BinaryOp(tok token.Token, right Object) (Object, error) {
 // Len implements LengthGetter interface.
 func (o String) Len() int {
 	return len(o)
+}
+
+// Format implements fmt.Formatter interface.
+func (o String) Format(s fmt.State, verb rune) {
+	format := compat.FmtFormatString(s, verb)
+	fmt.Fprintf(s, format, string(o))
 }
 
 // Bytes represents byte slice and implements Object interface.
@@ -687,6 +700,12 @@ func (o Bytes) BinaryOp(tok token.Token, right Object) (Object, error) {
 // Len implements LengthGetter interface.
 func (o Bytes) Len() int {
 	return len(o)
+}
+
+// Format implements fmt.Formatter interface.
+func (o Bytes) Format(s fmt.State, verb rune) {
+	format := compat.FmtFormatString(s, verb)
+	fmt.Fprintf(s, format, []byte(o))
 }
 
 // Function represents a function object and implements Object interface.
