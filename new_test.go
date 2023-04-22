@@ -922,3 +922,92 @@ func TestConstIota(t *testing.T) {
 	const (x = iota%2?"odd":"even", y, z)
 	return x,y,z`, nil, Array{String("even"), String("odd"), String("even")})
 }
+
+func TestVM_Invoke(t *testing.T) {
+	apply := &Function{
+		ValueEx: func(c Call) (Object, error) {
+			args := make([]Object, c.Len()-1)
+			for i := 1; i < c.Len(); i++ {
+				args[i-1] = c.Get(i)
+			}
+			inv := NewInvoker(c.VM(), c.Get(0))
+			inv.Acquire()
+			defer inv.Release()
+			return inv.Invoke(args...)
+		},
+	}
+
+	t.Run("apply", func(t *testing.T) {
+		scr := `
+global apply
+sum := func(...args) {
+	println("called f", args)
+	s := 0
+	for v in args {
+		println("v", v)
+		s += v
+	}
+	return s
+}
+return apply(sum, 1, 2, 3)
+`
+		expectRun(t, scr, newOpts().Globals(Map{"apply": apply}), Int(6))
+	})
+
+	t.Run("apply indirect", func(t *testing.T) {
+		scr := `
+global apply
+sum := func(...args) {
+	println("sum args", args)
+	s := 0
+	for v in args {
+		println("v", v)
+		s += v
+	}
+	return s
+}
+f := func(fn, ...args) {
+	return fn(...args)
+}
+return apply(f, sum, 1, 2, 3)
+`
+		expectRun(t, scr, newOpts().Globals(Map{"apply": apply}), Int(6))
+	})
+
+	t.Run("apply indirect 2", func(t *testing.T) {
+		scr := `
+global apply
+sum := func(...args) {
+	println("sum args", args)
+	s := 0
+	for v in args {
+		println("v", v)
+		s += v
+	}
+	return s
+}
+f := func(fn, ...args) {
+	return apply(fn, ...args)
+}
+return apply(f, sum, 1, 2, 3)
+	`
+		expectRun(t, scr, newOpts().Globals(Map{"apply": apply}), Int(6))
+	})
+
+	t.Run("apply go func", func(t *testing.T) {
+		sum := &Function{
+			ValueEx: func(c Call) (Object, error) {
+				s := Int(0)
+				for i := 0; i < c.Len(); i++ {
+					s += c.Get(i).(Int)
+				}
+				return s, nil
+			},
+		}
+		scr := `
+global (apply, sum)
+return apply(sum, 1, 2, 3)
+	`
+		expectRun(t, scr, newOpts().Globals(Map{"apply": apply, "sum": sum}), Int(6))
+	})
+}

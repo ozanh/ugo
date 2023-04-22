@@ -142,6 +142,16 @@ func (c *Call) Len() int {
 	return len(c.args) + len(c.vargs)
 }
 
+func (c *Call) callArgs() []Object {
+	if len(c.args) == 0 {
+		return c.vargs
+	}
+	args := make([]Object, 0, c.Len())
+	args = append(args, c.args...)
+	args = append(args, c.vargs...)
+	return args
+}
+
 // ObjectImpl is the basic Object implementation and it does not nothing, and
 // helps to implement Object interface by embedding and overriding methods in
 // custom implementations. String and TypeName must be implemented otherwise
@@ -711,8 +721,9 @@ func (o Bytes) Format(s fmt.State, verb rune) {
 // Function represents a function object and implements Object interface.
 type Function struct {
 	ObjectImpl
-	Name  string
-	Value func(args ...Object) (Object, error)
+	Name    string
+	Value   func(args ...Object) (Object, error)
+	ValueEx func(Call) (Object, error)
 }
 
 var _ Object = (*Function)(nil)
@@ -755,14 +766,22 @@ func (o *Function) Call(args ...Object) (Object, error) {
 	return o.Value(args...)
 }
 
+func (o *Function) CallEx(call Call) (Object, error) {
+	if o.ValueEx != nil {
+		return o.ValueEx(call)
+	}
+	return o.Value(call.callArgs()...)
+}
+
 // BuiltinFunction represents a builtin function object and implements Object interface.
 type BuiltinFunction struct {
 	ObjectImpl
-	Name  string
-	Value func(args ...Object) (Object, error)
+	Name    string
+	Value   func(args ...Object) (Object, error)
+	ValueEx func(Call) (Object, error)
 }
 
-var _ Object = (*BuiltinFunction)(nil)
+var _ ExCallerObject = (*BuiltinFunction)(nil)
 
 // TypeName implements Object interface.
 func (*BuiltinFunction) TypeName() string {
@@ -800,6 +819,13 @@ func (*BuiltinFunction) CanCall() bool { return true }
 // Call implements Object interface.
 func (o *BuiltinFunction) Call(args ...Object) (Object, error) {
 	return o.Value(args...)
+}
+
+func (o *BuiltinFunction) CallEx(c Call) (Object, error) {
+	if o.ValueEx != nil {
+		return o.ValueEx(c)
+	}
+	return o.Value(c.callArgs()...)
 }
 
 // Array represents array of objects and implements Object interface.

@@ -35,6 +35,7 @@ type VM struct {
 	bytecode     *Bytecode
 	modulesCache []Object
 	globals      Object
+	pool         vmPool
 	mu           sync.Mutex
 	err          error
 	noPanic      bool
@@ -50,6 +51,7 @@ func NewVM(bc *Bytecode) *VM {
 		bytecode:  bc,
 		constants: constants,
 	}
+	vm.pool.root = vm
 	return vm
 }
 
@@ -80,6 +82,7 @@ func (vm *VM) Clear() *VM {
 	for i := range vm.stack {
 		vm.stack[i] = nil
 	}
+	vm.pool.clear()
 	vm.modulesCache = nil
 	vm.globals = nil
 	return vm
@@ -138,6 +141,7 @@ func (vm *VM) RunCompiledFunction(
 
 // Abort aborts the VM execution.
 func (vm *VM) Abort() {
+	vm.pool.abort(vm)
 	atomic.StoreInt64(&vm.abort, 1)
 }
 
@@ -171,7 +175,8 @@ func (vm *VM) init(globals Object, args ...Object) (Object, error) {
 		}
 	}
 
-	for vm.run() {
+	for run := true; run; {
+		run = vm.run()
 	}
 	if vm.err != nil {
 		return nil, vm.err
@@ -1563,4 +1568,160 @@ func debugStack() []byte {
 		}
 		buf = make([]byte, 2*len(buf))
 	}
+}
+
+// Invoker invokes a given callee object (either a CompiledFunction or any other
+// callable object) with the given arguments.
+type Invoker struct {
+	vm         *VM
+	child      *VM
+	callee     Object
+	isCompiled bool
+	dorelease  bool
+}
+
+// NewInvoker creates a new Invoker object.
+func NewInvoker(vm *VM, callee Object) *Invoker {
+	inv := &Invoker{vm: vm, callee: callee}
+	_, inv.isCompiled = inv.callee.(*CompiledFunction)
+	return inv
+}
+
+// Acquire acquires a VM from the pool.
+func (inv *Invoker) Acquire() {
+	inv.acquire(true)
+}
+
+func (inv *Invoker) acquire(usePool bool) {
+	if !inv.isCompiled {
+		inv.child = inv.vm
+	}
+	if inv.child != nil {
+		return
+	}
+	inv.child = inv.vm.pool.acquire(
+		inv.callee.(*CompiledFunction),
+		usePool,
+	)
+	if usePool {
+		inv.dorelease = true
+	}
+}
+
+// Release releases the VM back to the pool if it was acquired from the pool.
+func (inv *Invoker) Release() {
+	if inv.child != nil && inv.dorelease {
+		inv.child.pool.release(inv.child)
+	}
+	inv.child = nil
+	inv.dorelease = false
+}
+
+// Invoke invokes the callee object with the given arguments.
+func (inv *Invoker) Invoke(args ...Object) (Object, error) {
+	if inv.child == nil {
+		inv.acquire(false)
+	}
+	if atomic.LoadInt64(&inv.child.abort) == 1 {
+		return Undefined, ErrVMAborted
+	}
+	if inv.isCompiled {
+		return inv.child.Run(inv.vm.globals, args...)
+	}
+	return inv.invokeObject(inv.callee, args...)
+}
+
+func (inv *Invoker) invokeObject(callee Object, args ...Object) (Object, error) {
+	if !callee.CanCall() {
+		return Undefined, ErrNotCallable.NewError(callee.TypeName())
+	}
+	if c, ok := callee.(ExCallerObject); ok {
+		return c.CallEx(
+			Call{
+				vm:    inv.vm,
+				vargs: args,
+			},
+		)
+	}
+	return callee.Call(args...)
+}
+
+type vmPool struct {
+	mu   sync.Mutex
+	root *VM
+	vms  map[*VM]struct{}
+}
+
+func (v *vmPool) abort(vm *VM) {
+	v.mu.Lock()
+	defer v.mu.Unlock()
+
+	for vm := range v.vms {
+		vm.Abort()
+	}
+}
+
+func (v *vmPool) acquire(cf *CompiledFunction, usePool bool) *VM {
+	var vm *VM
+	if usePool {
+		vm = vmSyncPool.Get().(*VM)
+	} else {
+		vm = &VM{bytecode: &Bytecode{}}
+	}
+	return v.root.pool._acquire(vm, cf)
+}
+
+func (v *vmPool) _acquire(vm *VM, cf *CompiledFunction) *VM {
+	v.mu.Lock()
+	defer v.mu.Unlock()
+
+	vm.bytecode.FileSet = v.root.bytecode.FileSet
+	vm.bytecode.Constants = v.root.bytecode.Constants
+	vm.bytecode.NumModules = v.root.bytecode.NumModules
+	vm.bytecode.Main = cf
+	vm.constants = v.root.bytecode.Constants
+	vm.modulesCache = v.root.modulesCache
+	vm.pool = vmPool{
+		root: v.root,
+	}
+	vm.noPanic = v.root.noPanic
+
+	if v.vms == nil {
+		v.vms = make(map[*VM]struct{})
+	}
+	v.vms[vm] = struct{}{}
+
+	return vm
+}
+
+func (v *vmPool) release(vm *VM) {
+	v.root.pool._release(vm)
+}
+
+func (v *vmPool) _release(vm *VM) {
+	v.mu.Lock()
+	delete(v.vms, vm)
+	v.mu.Unlock()
+
+	bc := vm.bytecode
+	*bc = Bytecode{}
+	*vm = VM{bytecode: bc}
+	vmSyncPool.Put(vm)
+}
+
+func (v *vmPool) clear() {
+	v.mu.Lock()
+	defer v.mu.Unlock()
+
+	for vm := range v.vms {
+		delete(v.vms, vm)
+	}
+}
+
+var vmSyncPool = sync.Pool{
+	New: func() interface{} {
+		return &VM{
+			bytecode: &Bytecode{},
+		}
+	},
 }

@@ -116,7 +116,7 @@ func (o *CompiledFunction) Copy() Object {
 }
 
 // CanIterate implements Object interface
-func (o *CompiledFunction) CanIterate() bool { return false }
+func (*CompiledFunction) CanIterate() bool { return false }
 
 // Iterate implements Object interface
 func (*CompiledFunction) Iterate() Iterator { return nil }
@@ -132,20 +132,20 @@ func (*CompiledFunction) IndexSet(index, value Object) error {
 }
 
 // CanCall implements Object interface
-func (o *CompiledFunction) CanCall() bool { return true }
+func (*CompiledFunction) CanCall() bool { return true }
 
 // Call implements Object interface
-func (o *CompiledFunction) Call(...Object) (Object, error) {
-	return Undefined, nil
+func (*CompiledFunction) Call(...Object) (Object, error) {
+	return Undefined, ErrNotCallable
 }
 
 // BinaryOp implements Object interface
-func (o *CompiledFunction) BinaryOp(token.Token, Object) (Object, error) {
+func (*CompiledFunction) BinaryOp(token.Token, Object) (Object, error) {
 	return nil, ErrInvalidOperator
 }
 
 // IsFalsy implements Object interface
-func (o *CompiledFunction) IsFalsy() bool { return false }
+func (*CompiledFunction) IsFalsy() bool { return false }
 
 // Equal implements Object interface
 func (o *CompiledFunction) Equal(right Object) bool {
