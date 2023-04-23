@@ -2180,6 +2180,23 @@ func TestParseTryThrow(t *testing.T) {
 	expectParseError(t, `throw`)
 }
 
+func TestParseRBraceEOF(t *testing.T) {
+	expectParseError(t, `if true {}}`)
+	expectParseError(t, `if true {}}else{}`)
+	expectParseError(t, `a:=1; if true {}}else{}`)
+	expectParseError(t, `if true {}} else{} return`)
+	expectParseError(t, `if true {} else if true {}{`)
+	expectParseError(t, `
+if true {
+
+}
+} else{
+
+}
+
+return`)
+}
+
 type pfn func(int, int) Pos          // position conversion function
 type expectedFn func(pos pfn) []Stmt // callback function to return expected results
 
