@@ -924,11 +924,12 @@ func TestConstIota(t *testing.T) {
 }
 
 func TestVM_Invoke(t *testing.T) {
-	apply := &Function{
+	applyPool := &Function{
+		Name: "applyPool",
 		ValueEx: func(c Call) (Object, error) {
-			args := make([]Object, c.Len()-1)
+			args := make([]Object, 0, c.Len()-1)
 			for i := 1; i < c.Len(); i++ {
-				args[i-1] = c.Get(i)
+				args = append(args, c.Get(i))
 			}
 			inv := NewInvoker(c.VM(), c.Get(0))
 			inv.Acquire()
@@ -936,9 +937,21 @@ func TestVM_Invoke(t *testing.T) {
 			return inv.Invoke(args...)
 		},
 	}
-
-	t.Run("apply", func(t *testing.T) {
-		scr := `
+	applyNoPool := &Function{
+		Name: "applyNoPool",
+		ValueEx: func(c Call) (Object, error) {
+			args := make([]Object, 0, c.Len()-1)
+			for i := 1; i < c.Len(); i++ {
+				args = append(args, c.Get(i))
+			}
+			inv := NewInvoker(c.VM(), c.Get(0))
+			return inv.Invoke(args...)
+		},
+	}
+	for _, apply := range []*Function{applyPool, applyNoPool} {
+		t.Run(apply.Name, func(t *testing.T) {
+			t.Run("apply", func(t *testing.T) {
+				scr := `
 global apply
 sum := func(...args) {
 	println("called f", args)
@@ -951,11 +964,14 @@ sum := func(...args) {
 }
 return apply(sum, 1, 2, 3)
 `
-		expectRun(t, scr, newOpts().Globals(Map{"apply": apply}), Int(6))
-	})
+				expectRun(t, scr,
+					newOpts().Globals(Map{"apply": apply}),
+					Int(6),
+				)
+			})
 
-	t.Run("apply indirect", func(t *testing.T) {
-		scr := `
+			t.Run("apply indirect", func(t *testing.T) {
+				scr := `
 global apply
 sum := func(...args) {
 	println("sum args", args)
@@ -971,11 +987,14 @@ f := func(fn, ...args) {
 }
 return apply(f, sum, 1, 2, 3)
 `
-		expectRun(t, scr, newOpts().Globals(Map{"apply": apply}), Int(6))
-	})
+				expectRun(t, scr,
+					newOpts().Globals(Map{"apply": apply}),
+					Int(6),
+				)
+			})
 
-	t.Run("apply indirect 2", func(t *testing.T) {
-		scr := `
+			t.Run("apply indirect 2", func(t *testing.T) {
+				scr := `
 global apply
 sum := func(...args) {
 	println("sum args", args)
@@ -990,24 +1009,113 @@ f := func(fn, ...args) {
 	return apply(fn, ...args)
 }
 return apply(f, sum, 1, 2, 3)
-	`
-		expectRun(t, scr, newOpts().Globals(Map{"apply": apply}), Int(6))
-	})
+`
+				expectRun(t, scr,
+					newOpts().Globals(Map{"apply": apply}),
+					Int(6),
+				)
+			})
 
-	t.Run("apply go func", func(t *testing.T) {
-		sum := &Function{
-			ValueEx: func(c Call) (Object, error) {
-				s := Int(0)
-				for i := 0; i < c.Len(); i++ {
-					s += c.Get(i).(Int)
+			t.Run("apply go func", func(t *testing.T) {
+				sum := &Function{
+					ValueEx: func(c Call) (Object, error) {
+						s := Int(0)
+						for i := 0; i < c.Len(); i++ {
+							s += c.Get(i).(Int)
+						}
+						return s, nil
+					},
 				}
-				return s, nil
-			},
-		}
-		scr := `
+				scr := `
 global (apply, sum)
 return apply(sum, 1, 2, 3)
-	`
-		expectRun(t, scr, newOpts().Globals(Map{"apply": apply, "sum": sum}), Int(6))
-	})
+`
+				expectRun(t, scr,
+					newOpts().Globals(Map{"apply": apply, "sum": sum}),
+					Int(6),
+				)
+			})
+
+			t.Run("module state", func(t *testing.T) {
+				scr := `
+module := import("module")
+module.counter = 1
+
+global apply
+
+inc := func(a) {
+	module := import("module")
+	module.counter += a
+}
+apply(inc, 3)
+return module.counter
+`
+				t.Run("builtin", func(t *testing.T) {
+					expectRun(t, scr,
+						newOpts().
+							Globals(Map{"apply": apply}).
+							Module("module", Map{}),
+						Int(4),
+					)
+				})
+				t.Run("source", func(t *testing.T) {
+					expectRun(t, scr,
+						newOpts().
+							Globals(Map{"apply": apply}).
+							Module("module", `return {}`),
+						Int(4),
+					)
+				})
+			})
+
+			t.Run("closure", func(t *testing.T) {
+				scr := `
+global apply
+
+counter := 1
+f1 := func(a) {
+	counter += a
+}
+
+f2 := func(a) {
+	counter += a
+}
+apply(f1, 3)
+apply(f2, 5)
+return counter
+`
+				expectRun(t, scr,
+					newOpts().Globals(Map{"apply": apply}),
+					Int(9),
+				)
+			})
+
+			t.Run("global", func(t *testing.T) {
+				scr := `
+global apply
+global counter
+
+f1 := func(a) {
+	counter += a
+}
+
+f2 := func(a) {
+	counter += a
+}
+apply(f1, 3)
+apply(f2, 5)
+return counter
+`
+				expected := Int(9)
+				globals := Map{"apply": apply, "counter": Int(1)}
+				expectRun(t, scr,
+					newOpts().Globals(globals).Skip2Pass(),
+					expected,
+				)
+				if expected != globals["counter"] {
+					t.Fatalf("expected %s, got %v", expected, globals["counter"])
+				}
+			})
+		})
+	}
 }
