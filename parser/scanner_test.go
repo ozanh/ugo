@@ -5,7 +5,6 @@ import (
 	"math/rand"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/require"
 
@@ -275,8 +274,4 @@ func countLines(s string) int {
 		}
 	}
 	return n
-}
-
-func init() {
-	rand.Seed(time.Now().UnixNano())
 }

@@ -552,10 +552,6 @@ func ToGoBool(o Object) (v bool, ok bool) {
 //
 //ugo:callable func(o Object) (ret Object, err error)
 
-// builtin error
-//
-//ugo:callable func(s string) (ret Object)
-
 // builtin int
 //
 //ugo:callable func(v int64) (ret Object)
@@ -563,10 +559,6 @@ func ToGoBool(o Object) (v bool, ok bool) {
 // builtin uint
 //
 //ugo:callable func(v uint64) (ret Object)
-
-// builtin char
-//
-//ugo:callable func(v rune) (ret Object)
 
 // builtin float
 //

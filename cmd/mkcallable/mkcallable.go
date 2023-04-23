@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Ozan Hacıbekiroğlu.
+// Copyright (c) 2022-2023 Ozan Hacıbekiroğlu.
 // Use of this source code is governed by a MIT License
 // that can be found in the LICENSE file.
 
@@ -32,7 +32,7 @@ import (
 const ugoCallablePrefix = "//ugo:callable"
 const ugoDot = "ugo."
 
-type converterFunc func(index int, argsName string, p *Param) string
+type converterFunc func(index int, argsName string, p *Param, extended bool) string
 
 var converters = map[string]interface{}{
 	"string":       "ugo.ToGoString",
@@ -53,7 +53,10 @@ var converters = map[string]interface{}{
 	"ugo.Array":    "ugo.ToArray",
 	"ugo.Map":      "ugo.ToMap",
 	"*ugo.SyncMap": "ugo.ToSyncMap",
-	"ugo.Object": converterFunc(func(index int, argsName string, p *Param) string {
+	"ugo.Object": converterFunc(func(index int, argsName string, p *Param, extended bool) string {
+		if extended {
+			return fmt.Sprintf("%s := %s.Get(%d)", p.Name, argsName, index)
+		}
 		return fmt.Sprintf("%s := %s[%d]", p.Name, argsName, index)
 	}),
 }
@@ -129,6 +132,7 @@ func ordinalize(num int) string {
 var (
 	filename = flag.String("output", "", "output file name (standard output if omitted)")
 	export   = flag.Bool("export", false, "export auto generated function names")
+	extended = flag.Bool("extended", false, "generate only extended functions")
 )
 
 var packageName string
@@ -164,7 +168,7 @@ func main() {
 		usage()
 	}
 
-	src, err := ParseFiles(flag.Args())
+	src, err := ParseFiles(*extended, flag.Args())
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -192,11 +196,12 @@ func main() {
 
 // ParseFiles parses files listed in files and extracts all directives listed in
 // ugo:callable comments. It returns *Source if successful.
-func ParseFiles(files []string) (*Source, error) {
+func ParseFiles(extendedOnly bool, files []string) (*Source, error) {
 	src := &Source{
 		Funcs:           make([]*Fn, 0),
 		GoImports:       []Pkg{{Path: "strconv"}},
 		ExternalImports: []Pkg{},
+		ExtendedOnly:    extendedOnly,
 	}
 	for _, file := range files {
 		if err := src.ParseFile(file); err != nil {
@@ -230,6 +235,7 @@ type Source struct {
 	Funcs           []*Fn
 	GoImports       []Pkg
 	ExternalImports []Pkg
+	ExtendedOnly    bool
 }
 
 // Generate output source file from a source set src.
@@ -449,7 +455,7 @@ func (p *Param) HelperAssignVar() string {
 	}
 	if conv != nil {
 		if fn, ok := conv.(converterFunc); ok {
-			return fn(p.idx, p.fn.argsName, p)
+			return fn(p.idx, p.fn.argsName, p, false)
 		}
 	}
 	if ugodot() == "" {
@@ -461,6 +467,36 @@ func (p *Param) HelperAssignVar() string {
 	return fmt.Sprintf(`%s, ok := %s(%s[%d])
 		if !ok {
 			return %sUndefined, %sNewArgumentTypeError("%s", "%s", %s[%d].TypeName())
+		}`,
+		p.Name, conv, p.fn.argsName, p.idx,
+		ugodot(), ugodot(), ordinalize(p.idx+1), ugoTypeName, p.fn.argsName, p.idx,
+	)
+}
+
+// HelperAssignVarEx is a helper function used in template to create variable
+// assignment with appropriate converter for extended API.
+func (p *Param) HelperAssignVarEx() string {
+	conv := converters[p.Type]
+	if conv == nil {
+		conv = converters[ugoDot+p.Type]
+		if conv == nil {
+			conv = "CONVERTER_NOT_FOUND"
+		}
+	}
+	if conv != nil {
+		if fn, ok := conv.(converterFunc); ok {
+			return fn(p.idx, p.fn.argsName, p, true)
+		}
+	}
+	if ugodot() == "" {
+		conv = strings.TrimPrefix(conv.(string), ugoDot)
+	}
+
+	ugoTypeName := p.ugoTypeName()
+
+	return fmt.Sprintf(`%s, ok := %s(%s.Get(%d))
+		if !ok {
+			return %sUndefined, %sNewArgumentTypeError("%s", "%s", %s.Get(%d).TypeName())
 		}`,
 		p.Name, conv, p.fn.argsName, p.idx,
 		ugodot(), ugodot(), ordinalize(p.idx+1), ugoTypeName, p.fn.argsName, p.idx,
@@ -593,6 +629,9 @@ func (f *Fn) ParamList() string {
 // FuncName returns the Fn's Name field.
 func (f *Fn) FuncName() string { return f.Name }
 
+// FuncNameEx returns the Fn's Name field with Ex suffix.
+func (f *Fn) FuncNameEx() string { return f.Name + "Ex" }
+
 // FnName returns the fn parameter name.
 func (f *Fn) FnName() string { return f.fnName }
 
@@ -614,6 +653,14 @@ func (f *Fn) HelperCheckNumArgs() string {
 	return fmt.Sprintf(`if len(%s)!=%d {
 			return %sUndefined, %sErrWrongNumArguments.NewError("want=%d got=" + strconv.Itoa(len(%s)))
 	    }`, f.argsName, len(f.Params), ugodot(), ugodot(), len(f.Params), f.argsName)
+}
+
+// HelperCheckNumArgsEx is an helper used in template to return code block to
+// check number of arguments for extended API.
+func (f *Fn) HelperCheckNumArgsEx() string {
+	return fmt.Sprintf(`if err := %s.CheckLen(%d); err!=nil {
+			return %sUndefined, err
+	    }`, f.argsName, len(f.Params), ugodot())
 }
 
 // HelperCall is an helper used in template to return function call block with
@@ -779,8 +826,34 @@ import ({{range .GoImports}}
 	{{.HelperImport}}{{end}}
 )
 
+{{if .ExtendedOnly}}
+{{range .Funcs}}{{template "funcbodyEx" .}}{{end}}
+{{else}}
+{{range .Funcs}}{{template "funcbodyEx" .}}{{end}}
 {{range .Funcs}}{{template "funcbody" .}}{{end}}
+{{end}}
 
+{{end}}
+
+{{define "funcbodyEx"}}
+// {{.FuncNameEx}} is a generated function to make {{ugodot}}CallableExFunc.
+// Source: {{.SourceString}}
+func {{.FuncNameEx}}({{.FnName}} func({{.ParamList}}) {{.Rets.List}}) {{ugodot}}CallableExFunc {
+	return func{{template "ugocallparamsEx" .}} {{template "ugoresults" .}} {
+		{{template "checknumargsEx" .}}
+		{{template "assignvarsEx" .}}
+		{{template "call" .}}
+		return
+	}
+}
+{{end}}
+
+{{define "ugocallparamsEx"}}({{.ArgsName}} {{ugodot}}Call){{end}}
+
+{{define "checknumargsEx"}}{{.HelperCheckNumArgsEx}}{{end}}
+
+{{define "assignvarsEx"}}{{range .Params}}
+		{{.HelperAssignVarEx}}{{end}}
 {{end}}
 
 

@@ -121,6 +121,15 @@ type Call struct {
 	vargs []Object
 }
 
+// NewCall creates a new Call struct with the given arguments.
+func NewCall(vm *VM, args []Object, vargs ...Object) Call {
+	return Call{
+		vm:    vm,
+		args:  args,
+		vargs: vargs,
+	}
+}
+
 // VM returns the VM of the call.
 func (c *Call) VM() *VM {
 	return c.vm
@@ -140,6 +149,34 @@ func (c *Call) Get(n int) Object {
 // Len returns the number of arguments including variadic arguments.
 func (c *Call) Len() int {
 	return len(c.args) + len(c.vargs)
+}
+
+// CheckLen checks the number of arguments and variadic arguments. If the number
+// of arguments is not equal to n, it returns an error.
+func (c *Call) CheckLen(n int) error {
+	if n != c.Len() {
+		return ErrWrongNumArguments.NewError(
+			fmt.Sprintf("want=%d got=%d", n, c.Len()),
+		)
+	}
+	return nil
+}
+
+// shift returns the first argument and removes it from the arguments.
+// It updates the arguments and variadic arguments accordingly.
+// If it cannot shift, it returns nil and false.
+func (c *Call) shift() (Object, bool) {
+	if len(c.args) == 0 {
+		if len(c.vargs) == 0 {
+			return nil, false
+		}
+		v := c.vargs[0]
+		c.vargs = c.vargs[1:]
+		return v, true
+	}
+	v := c.args[0]
+	c.args = c.args[1:]
+	return v, true
 }
 
 func (c *Call) callArgs() []Object {

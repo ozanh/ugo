@@ -139,10 +139,17 @@ func (vm *VM) RunCompiledFunction(
 	return vm.init(globals, args...)
 }
 
-// Abort aborts the VM execution.
+// Abort aborts the VM execution. It is safe to call this method from another
+// goroutine.
 func (vm *VM) Abort() {
 	vm.pool.abort(vm)
 	atomic.StoreInt64(&vm.abort, 1)
+}
+
+// Aborted reports whether VM is aborted. It is safe to call this method from
+// another goroutine.
+func (vm *VM) Aborted() bool {
+	return atomic.LoadInt64(&vm.abort) == 1
 }
 
 // Run runs VM and executes the instructions until the OpReturn Opcode or Abort call.
@@ -386,20 +393,7 @@ VMLoop:
 			vm.curInsts = vm.curFrame.fn.Instructions
 		case OpGetBuiltin:
 			builtinIndex := BuiltinType(int(vm.curInsts[vm.ip+1]))
-			var builtin Object
-			if builtinIndex == BuiltinGlobals {
-				// let panic if somehow builtins updated
-				bf := BuiltinObjects[builtinIndex].(*BuiltinFunction)
-				builtin = &BuiltinFunction{
-					Name: bf.Name,
-					Value: func(_ ...Object) (Object, error) {
-						return vm.globals, nil
-					},
-				}
-			} else {
-				builtin = BuiltinObjects[builtinIndex]
-			}
-			vm.stack[vm.sp] = builtin
+			vm.stack[vm.sp] = BuiltinObjects[builtinIndex]
 			vm.sp++
 			vm.ip++
 		case OpClosure:
@@ -1622,7 +1616,7 @@ func (inv *Invoker) Invoke(args ...Object) (Object, error) {
 	if inv.child == nil {
 		inv.acquire(false)
 	}
-	if atomic.LoadInt64(&inv.child.abort) == 1 {
+	if inv.child.Aborted() {
 		return Undefined, ErrVMAborted
 	}
 	if inv.isCompiled {

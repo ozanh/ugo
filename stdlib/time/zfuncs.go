@@ -8,6 +8,168 @@ import (
 	"github.com/ozanh/ugo"
 )
 
+// funcPTROEx is a generated function to make ugo.CallableExFunc.
+// Source: funcPTRO(t *Time) (ret ugo.Object)
+func funcPTROEx(fn func(*Time) ugo.Object) ugo.CallableExFunc {
+	return func(args ugo.Call) (ret ugo.Object, err error) {
+		if err := args.CheckLen(1); err != nil {
+			return ugo.Undefined, err
+		}
+
+		t, ok := ToTime(args.Get(0))
+		if !ok {
+			return ugo.Undefined, ugo.NewArgumentTypeError("1st", "time", args.Get(0).TypeName())
+		}
+
+		ret = fn(t)
+		return
+	}
+}
+
+// funcPTi64ROEx is a generated function to make ugo.CallableExFunc.
+// Source: funcPTi64RO(t *Time, d int64) (ret ugo.Object)
+func funcPTi64ROEx(fn func(*Time, int64) ugo.Object) ugo.CallableExFunc {
+	return func(args ugo.Call) (ret ugo.Object, err error) {
+		if err := args.CheckLen(2); err != nil {
+			return ugo.Undefined, err
+		}
+
+		t, ok := ToTime(args.Get(0))
+		if !ok {
+			return ugo.Undefined, ugo.NewArgumentTypeError("1st", "time", args.Get(0).TypeName())
+		}
+		d, ok := ugo.ToGoInt64(args.Get(1))
+		if !ok {
+			return ugo.Undefined, ugo.NewArgumentTypeError("2nd", "int", args.Get(1).TypeName())
+		}
+
+		ret = fn(t, d)
+		return
+	}
+}
+
+// funcPTTROEx is a generated function to make ugo.CallableExFunc.
+// Source: funcPTTRO(t1 *Time, t2 *Time) (ret ugo.Object)
+func funcPTTROEx(fn func(*Time, *Time) ugo.Object) ugo.CallableExFunc {
+	return func(args ugo.Call) (ret ugo.Object, err error) {
+		if err := args.CheckLen(2); err != nil {
+			return ugo.Undefined, err
+		}
+
+		t1, ok := ToTime(args.Get(0))
+		if !ok {
+			return ugo.Undefined, ugo.NewArgumentTypeError("1st", "time", args.Get(0).TypeName())
+		}
+		t2, ok := ToTime(args.Get(1))
+		if !ok {
+			return ugo.Undefined, ugo.NewArgumentTypeError("2nd", "time", args.Get(1).TypeName())
+		}
+
+		ret = fn(t1, t2)
+		return
+	}
+}
+
+// funcPTiiiROEx is a generated function to make ugo.CallableExFunc.
+// Source: funcPTiiiRO(t *Time, i1 int, i2 int, i3 int) (ret ugo.Object)
+func funcPTiiiROEx(fn func(*Time, int, int, int) ugo.Object) ugo.CallableExFunc {
+	return func(args ugo.Call) (ret ugo.Object, err error) {
+		if err := args.CheckLen(4); err != nil {
+			return ugo.Undefined, err
+		}
+
+		t, ok := ToTime(args.Get(0))
+		if !ok {
+			return ugo.Undefined, ugo.NewArgumentTypeError("1st", "time", args.Get(0).TypeName())
+		}
+		i1, ok := ugo.ToGoInt(args.Get(1))
+		if !ok {
+			return ugo.Undefined, ugo.NewArgumentTypeError("2nd", "int", args.Get(1).TypeName())
+		}
+		i2, ok := ugo.ToGoInt(args.Get(2))
+		if !ok {
+			return ugo.Undefined, ugo.NewArgumentTypeError("3rd", "int", args.Get(2).TypeName())
+		}
+		i3, ok := ugo.ToGoInt(args.Get(3))
+		if !ok {
+			return ugo.Undefined, ugo.NewArgumentTypeError("4th", "int", args.Get(3).TypeName())
+		}
+
+		ret = fn(t, i1, i2, i3)
+		return
+	}
+}
+
+// funcPTsROEx is a generated function to make ugo.CallableExFunc.
+// Source: funcPTsRO(t *Time, s string) (ret ugo.Object)
+func funcPTsROEx(fn func(*Time, string) ugo.Object) ugo.CallableExFunc {
+	return func(args ugo.Call) (ret ugo.Object, err error) {
+		if err := args.CheckLen(2); err != nil {
+			return ugo.Undefined, err
+		}
+
+		t, ok := ToTime(args.Get(0))
+		if !ok {
+			return ugo.Undefined, ugo.NewArgumentTypeError("1st", "time", args.Get(0).TypeName())
+		}
+		s, ok := ugo.ToGoString(args.Get(1))
+		if !ok {
+			return ugo.Undefined, ugo.NewArgumentTypeError("2nd", "string", args.Get(1).TypeName())
+		}
+
+		ret = fn(t, s)
+		return
+	}
+}
+
+// funcPTb2sROEx is a generated function to make ugo.CallableExFunc.
+// Source: funcPTb2sRO(t *Time, b []byte, s string) (ret ugo.Object)
+func funcPTb2sROEx(fn func(*Time, []byte, string) ugo.Object) ugo.CallableExFunc {
+	return func(args ugo.Call) (ret ugo.Object, err error) {
+		if err := args.CheckLen(3); err != nil {
+			return ugo.Undefined, err
+		}
+
+		t, ok := ToTime(args.Get(0))
+		if !ok {
+			return ugo.Undefined, ugo.NewArgumentTypeError("1st", "time", args.Get(0).TypeName())
+		}
+		b, ok := ugo.ToGoByteSlice(args.Get(1))
+		if !ok {
+			return ugo.Undefined, ugo.NewArgumentTypeError("2nd", "bytes", args.Get(1).TypeName())
+		}
+		s, ok := ugo.ToGoString(args.Get(2))
+		if !ok {
+			return ugo.Undefined, ugo.NewArgumentTypeError("3rd", "string", args.Get(2).TypeName())
+		}
+
+		ret = fn(t, b, s)
+		return
+	}
+}
+
+// funcPTLROEx is a generated function to make ugo.CallableExFunc.
+// Source: funcPTLRO(t *Time, loc *Location) (ret ugo.Object)
+func funcPTLROEx(fn func(*Time, *Location) ugo.Object) ugo.CallableExFunc {
+	return func(args ugo.Call) (ret ugo.Object, err error) {
+		if err := args.CheckLen(2); err != nil {
+			return ugo.Undefined, err
+		}
+
+		t, ok := ToTime(args.Get(0))
+		if !ok {
+			return ugo.Undefined, ugo.NewArgumentTypeError("1st", "time", args.Get(0).TypeName())
+		}
+		loc, ok := ToLocation(args.Get(1))
+		if !ok {
+			return ugo.Undefined, ugo.NewArgumentTypeError("2nd", "location", args.Get(1).TypeName())
+		}
+
+		ret = fn(t, loc)
+		return
+	}
+}
+
 // funcPTRO is a generated function to make ugo.CallableFunc.
 // Source: funcPTRO(t *Time) (ret ugo.Object)
 func funcPTRO(fn func(*Time) ugo.Object) ugo.CallableFunc {

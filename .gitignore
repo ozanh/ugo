@@ -17,5 +17,7 @@
 
 # Output of the go coverage tool
 *.out
+# Profiling files
+*.prof
 
 /TODO*

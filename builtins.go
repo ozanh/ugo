@@ -142,160 +142,199 @@ var BuiltinsMap = map[string]BuiltinType{
 var BuiltinObjects = [...]Object{
 	// :makeArray is a private builtin function to help destructuring array assignments
 	BuiltinMakeArray: &BuiltinFunction{
-		Name:  ":makeArray",
-		Value: funcPiOROe(builtinMakeArrayFunc),
+		Name:    ":makeArray",
+		Value:   funcPiOROe(builtinMakeArrayFunc),
+		ValueEx: funcPiOROeEx(builtinMakeArrayFunc),
 	},
 	BuiltinAppend: &BuiltinFunction{
-		Name:  "append",
-		Value: builtinAppendFunc,
+		Name:    "append",
+		Value:   callExAdapter(builtinAppendFunc),
+		ValueEx: builtinAppendFunc,
 	},
 	BuiltinDelete: &BuiltinFunction{
-		Name:  "delete",
-		Value: funcPOsRe(builtinDeleteFunc),
+		Name:    "delete",
+		Value:   funcPOsRe(builtinDeleteFunc),
+		ValueEx: funcPOsReEx(builtinDeleteFunc),
 	},
 	BuiltinCopy: &BuiltinFunction{
-		Name:  "copy",
-		Value: funcPORO(builtinCopyFunc),
+		Name:    "copy",
+		Value:   funcPORO(builtinCopyFunc),
+		ValueEx: funcPOROEx(builtinCopyFunc),
 	},
 	BuiltinRepeat: &BuiltinFunction{
-		Name:  "repeat",
-		Value: funcPOiROe(builtinRepeatFunc),
+		Name:    "repeat",
+		Value:   funcPOiROe(builtinRepeatFunc),
+		ValueEx: funcPOiROeEx(builtinRepeatFunc),
 	},
 	BuiltinContains: &BuiltinFunction{
-		Name:  "contains",
-		Value: funcPOOROe(builtinContainsFunc),
+		Name:    "contains",
+		Value:   funcPOOROe(builtinContainsFunc),
+		ValueEx: funcPOOROeEx(builtinContainsFunc),
 	},
 	BuiltinLen: &BuiltinFunction{
-		Name:  "len",
-		Value: funcPORO(builtinLenFunc),
+		Name:    "len",
+		Value:   funcPORO(builtinLenFunc),
+		ValueEx: funcPOROEx(builtinLenFunc),
 	},
 	BuiltinCap: &BuiltinFunction{
-		Name:  "cap",
-		Value: funcPORO(builtinCapFunc),
+		Name:    "cap",
+		Value:   funcPORO(builtinCapFunc),
+		ValueEx: funcPOROEx(builtinCapFunc),
 	},
 	BuiltinSort: &BuiltinFunction{
-		Name:  "sort",
-		Value: funcPOROe(builtinSortFunc),
+		Name:    "sort",
+		Value:   funcPOROe(builtinSortFunc),
+		ValueEx: funcPOROeEx(builtinSortFunc),
 	},
 	BuiltinSortReverse: &BuiltinFunction{
-		Name:  "sortReverse",
-		Value: funcPOROe(builtinSortReverseFunc),
+		Name:    "sortReverse",
+		Value:   funcPOROe(builtinSortReverseFunc),
+		ValueEx: funcPOROeEx(builtinSortReverseFunc),
 	},
 	BuiltinError: &BuiltinFunction{
-		Name:  "error",
-		Value: funcPORO(builtinErrorFunc),
+		Name:    "error",
+		Value:   funcPORO(builtinErrorFunc),
+		ValueEx: funcPOROEx(builtinErrorFunc),
 	},
 	BuiltinTypeName: &BuiltinFunction{
-		Name:  "typeName",
-		Value: funcPORO(builtinTypeNameFunc),
+		Name:    "typeName",
+		Value:   funcPORO(builtinTypeNameFunc),
+		ValueEx: funcPOROEx(builtinTypeNameFunc),
 	},
 	BuiltinBool: &BuiltinFunction{
-		Name:  "bool",
-		Value: funcPORO(builtinBoolFunc),
+		Name:    "bool",
+		Value:   funcPORO(builtinBoolFunc),
+		ValueEx: funcPOROEx(builtinBoolFunc),
 	},
 	BuiltinInt: &BuiltinFunction{
-		Name:  "int",
-		Value: funcPi64RO(builtinIntFunc),
+		Name:    "int",
+		Value:   funcPi64RO(builtinIntFunc),
+		ValueEx: funcPi64ROEx(builtinIntFunc),
 	},
 	BuiltinUint: &BuiltinFunction{
-		Name:  "uint",
-		Value: funcPu64RO(builtinUintFunc),
+		Name:    "uint",
+		Value:   funcPu64RO(builtinUintFunc),
+		ValueEx: funcPu64ROEx(builtinUintFunc),
 	},
 	BuiltinFloat: &BuiltinFunction{
-		Name:  "float",
-		Value: funcPf64RO(builtinFloatFunc),
+		Name:    "float",
+		Value:   funcPf64RO(builtinFloatFunc),
+		ValueEx: funcPf64ROEx(builtinFloatFunc),
 	},
 	BuiltinChar: &BuiltinFunction{
-		Name:  "char",
-		Value: funcPOROe(builtinCharFunc),
+		Name:    "char",
+		Value:   funcPOROe(builtinCharFunc),
+		ValueEx: funcPOROeEx(builtinCharFunc),
 	},
 	BuiltinString: &BuiltinFunction{
-		Name:  "string",
-		Value: funcPORO(builtinStringFunc),
+		Name:    "string",
+		Value:   funcPORO(builtinStringFunc),
+		ValueEx: funcPOROEx(builtinStringFunc),
 	},
 	BuiltinBytes: &BuiltinFunction{
-		Name:  "bytes",
-		Value: builtinBytesFunc,
+		Name:    "bytes",
+		Value:   callExAdapter(builtinBytesFunc),
+		ValueEx: builtinBytesFunc,
 	},
 	BuiltinChars: &BuiltinFunction{
-		Name:  "chars",
-		Value: funcPOROe(builtinCharsFunc),
+		Name:    "chars",
+		Value:   funcPOROe(builtinCharsFunc),
+		ValueEx: funcPOROeEx(builtinCharsFunc),
 	},
 	BuiltinPrintf: &BuiltinFunction{
-		Name:  "printf",
-		Value: builtinPrintfFunc,
+		Name:    "printf",
+		Value:   callExAdapter(builtinPrintfFunc),
+		ValueEx: builtinPrintfFunc,
 	},
 	BuiltinPrintln: &BuiltinFunction{
-		Name:  "println",
-		Value: builtinPrintlnFunc,
+		Name:    "println",
+		Value:   callExAdapter(builtinPrintlnFunc),
+		ValueEx: builtinPrintlnFunc,
 	},
 	BuiltinSprintf: &BuiltinFunction{
-		Name:  "sprintf",
-		Value: builtinSprintfFunc,
+		Name:    "sprintf",
+		Value:   callExAdapter(builtinSprintfFunc),
+		ValueEx: builtinSprintfFunc,
 	},
 	BuiltinGlobals: &BuiltinFunction{
-		Name:  "globals",
-		Value: noopFunc, // Value is set at runtime
+		Name:    "globals",
+		Value:   callExAdapter(builtinGlobalsFunc),
+		ValueEx: builtinGlobalsFunc,
 	},
 	BuiltinIsError: &BuiltinFunction{
-		Name:  "isError",
-		Value: builtinIsErrorFunc,
+		Name:    "isError",
+		Value:   callExAdapter(builtinIsErrorFunc),
+		ValueEx: builtinIsErrorFunc,
 	},
 	BuiltinIsInt: &BuiltinFunction{
-		Name:  "isInt",
-		Value: funcPORO(builtinIsIntFunc),
+		Name:    "isInt",
+		Value:   funcPORO(builtinIsIntFunc),
+		ValueEx: funcPOROEx(builtinIsIntFunc),
 	},
 	BuiltinIsUint: &BuiltinFunction{
-		Name:  "isUint",
-		Value: funcPORO(builtinIsUintFunc),
+		Name:    "isUint",
+		Value:   funcPORO(builtinIsUintFunc),
+		ValueEx: funcPOROEx(builtinIsUintFunc),
 	},
 	BuiltinIsFloat: &BuiltinFunction{
-		Name:  "isFloat",
-		Value: funcPORO(builtinIsFloatFunc),
+		Name:    "isFloat",
+		Value:   funcPORO(builtinIsFloatFunc),
+		ValueEx: funcPOROEx(builtinIsFloatFunc),
 	},
 	BuiltinIsChar: &BuiltinFunction{
-		Name:  "isChar",
-		Value: funcPORO(builtinIsCharFunc),
+		Name:    "isChar",
+		Value:   funcPORO(builtinIsCharFunc),
+		ValueEx: funcPOROEx(builtinIsCharFunc),
 	},
 	BuiltinIsBool: &BuiltinFunction{
-		Name:  "isBool",
-		Value: funcPORO(builtinIsBoolFunc),
+		Name:    "isBool",
+		Value:   funcPORO(builtinIsBoolFunc),
+		ValueEx: funcPOROEx(builtinIsBoolFunc),
 	},
 	BuiltinIsString: &BuiltinFunction{
-		Name:  "isString",
-		Value: funcPORO(builtinIsStringFunc),
+		Name:    "isString",
+		Value:   funcPORO(builtinIsStringFunc),
+		ValueEx: funcPOROEx(builtinIsStringFunc),
 	},
 	BuiltinIsBytes: &BuiltinFunction{
-		Name:  "isBytes",
-		Value: funcPORO(builtinIsBytesFunc),
+		Name:    "isBytes",
+		Value:   funcPORO(builtinIsBytesFunc),
+		ValueEx: funcPOROEx(builtinIsBytesFunc),
 	},
 	BuiltinIsMap: &BuiltinFunction{
-		Name:  "isMap",
-		Value: funcPORO(builtinIsMapFunc),
+		Name:    "isMap",
+		Value:   funcPORO(builtinIsMapFunc),
+		ValueEx: funcPOROEx(builtinIsMapFunc),
 	},
 	BuiltinIsSyncMap: &BuiltinFunction{
-		Name:  "isSyncMap",
-		Value: funcPORO(builtinIsSyncMapFunc),
+		Name:    "isSyncMap",
+		Value:   funcPORO(builtinIsSyncMapFunc),
+		ValueEx: funcPOROEx(builtinIsSyncMapFunc),
 	},
 	BuiltinIsArray: &BuiltinFunction{
-		Name:  "isArray",
-		Value: funcPORO(builtinIsArrayFunc),
+		Name:    "isArray",
+		Value:   funcPORO(builtinIsArrayFunc),
+		ValueEx: funcPOROEx(builtinIsArrayFunc),
 	},
 	BuiltinIsUndefined: &BuiltinFunction{
-		Name:  "isUndefined",
-		Value: funcPORO(builtinIsUndefinedFunc),
+		Name:    "isUndefined",
+		Value:   funcPORO(builtinIsUndefinedFunc),
+		ValueEx: funcPOROEx(builtinIsUndefinedFunc),
 	},
 	BuiltinIsFunction: &BuiltinFunction{
-		Name:  "isFunction",
-		Value: funcPORO(builtinIsFunctionFunc),
+		Name:    "isFunction",
+		Value:   funcPORO(builtinIsFunctionFunc),
+		ValueEx: funcPOROEx(builtinIsFunctionFunc),
 	},
 	BuiltinIsCallable: &BuiltinFunction{
 		Name:  "isCallable",
 		Value: funcPORO(builtinIsCallableFunc),
+		//ValueEx: funcPOROEx(builtinIsCallableFunc),
 	},
 	BuiltinIsIterable: &BuiltinFunction{
-		Name:  "isIterable",
-		Value: funcPORO(builtinIsIterableFunc),
+		Name:    "isIterable",
+		Value:   funcPORO(builtinIsIterableFunc),
+		ValueEx: funcPOROEx(builtinIsIterableFunc),
 	},
 
 	BuiltinWrongNumArgumentsError:  ErrWrongNumArguments,
@@ -309,8 +348,6 @@ var BuiltinObjects = [...]Object{
 	BuiltinZeroDivisionError:       ErrZeroDivision,
 	BuiltinTypeError:               ErrType,
 }
-
-func noopFunc(_ ...Object) (Object, error) { return Undefined, nil }
 
 func builtinMakeArrayFunc(n int, arg Object) (Object, error) {
 	if n <= 0 {
@@ -340,49 +377,49 @@ func builtinMakeArrayFunc(n int, arg Object) (Object, error) {
 	return ret, nil
 }
 
-func builtinAppendFunc(args ...Object) (Object, error) {
-	if len(args) < 1 {
+func builtinAppendFunc(c Call) (Object, error) {
+	target, ok := c.shift()
+	if !ok {
 		return Undefined, ErrWrongNumArguments.NewError("want>=1 got=0")
 	}
 
-	switch obj := args[0].(type) {
+	switch obj := target.(type) {
 	case Array:
-		if len(args) > 1 {
-			return append(obj, args[1:]...), nil
-		}
+		obj = append(obj, c.args...)
+		obj = append(obj, c.vargs...)
 		return obj, nil
 	case Bytes:
-		if len(args) > 1 {
-			var rest []byte
-			for i, v := range args[1:] {
+		n := 0
+		for _, args := range [][]Object{c.args, c.vargs} {
+			for _, v := range args {
+				n++
 				switch vv := v.(type) {
 				case Int:
-					rest = append(rest, byte(vv))
+					obj = append(obj, byte(vv))
 				case Uint:
-					rest = append(rest, byte(vv))
+					obj = append(obj, byte(vv))
 				case Char:
-					rest = append(rest, byte(vv))
+					obj = append(obj, byte(vv))
 				default:
-					return nil, NewArgumentTypeError(
-						strconv.Itoa(i+1),
+					return Undefined, NewArgumentTypeError(
+						strconv.Itoa(n),
 						"int|uint|char",
-						args[i+1].TypeName(),
+						vv.TypeName(),
 					)
 				}
 			}
-			return append(obj, rest...), nil
 		}
 		return obj, nil
 	case *UndefinedType:
-		if len(args) > 1 {
-			return append(Array{}, args[1:]...), nil
-		}
-		return Array{}, nil
+		ret := make(Array, 0, c.Len())
+		ret = append(ret, c.args...)
+		ret = append(ret, c.vargs...)
+		return ret, nil
 	default:
 		return Undefined, NewArgumentTypeError(
 			"1st",
 			"array",
-			args[0].TypeName(),
+			obj.TypeName(),
 		)
 	}
 }
@@ -436,6 +473,41 @@ func builtinRepeatFunc(arg Object, count int) (ret Object, err error) {
 	}
 	return
 }
+
+// func builtinRepeatExFunc(c Call) (ret Object, err error) {
+// 	if err = c.CheckLen(2); err != nil {
+// 		return Undefined, err
+// 	}
+// 	arg1, arg2 := c.Get(0), c.Get(1)
+// 	count, ok := ToGoInt(arg2)
+// 	if !ok || count < 0 {
+// 		return Undefined, NewArgumentTypeError(
+// 			"2nd",
+// 			"non-negative integer",
+// 			arg2.TypeName(),
+// 		)
+// 	}
+
+// 	switch v := arg1.(type) {
+// 	case Array:
+// 		out := make(Array, 0, len(v)*count)
+// 		for i := 0; i < count; i++ {
+// 			out = append(out, v...)
+// 		}
+// 		ret = out
+// 	case String:
+// 		ret = String(strings.Repeat(string(v), count))
+// 	case Bytes:
+// 		ret = Bytes(bytes.Repeat(v, count))
+// 	default:
+// 		err = NewArgumentTypeError(
+// 			"1st",
+// 			"array|string|bytes",
+// 			arg.TypeName(),
+// 		)
+// 	}
+// 	return
+// }
 
 func builtinContainsFunc(arg0, arg1 Object) (Object, error) {
 	var ok bool
@@ -614,29 +686,35 @@ func builtinCharFunc(arg Object) (Object, error) {
 
 func builtinStringFunc(arg Object) Object { return String(arg.String()) }
 
-func builtinBytesFunc(args ...Object) (Object, error) {
-	if len(args) == 0 {
+func builtinBytesFunc(c Call) (Object, error) {
+	size := c.Len()
+
+	switch size {
+	case 0:
 		return Bytes{}, nil
-	}
-	if v, ok := ToBytes(args[0]); ok {
-		return v, nil
+	case 1:
+		if v, ok := ToBytes(c.Get(0)); ok {
+			return v, nil
+		}
 	}
 
-	out := make(Bytes, 0, len(args))
-	for i, obj := range args {
-		switch v := obj.(type) {
-		case Int:
-			out = append(out, byte(v))
-		case Uint:
-			out = append(out, byte(v))
-		case Char:
-			out = append(out, byte(v))
-		default:
-			return Undefined, NewArgumentTypeError(
-				strconv.Itoa(i+1),
-				"int|uint|char",
-				args[i].TypeName(),
-			)
+	out := make(Bytes, 0, size)
+	for _, args := range [][]Object{c.args, c.vargs} {
+		for i, obj := range args {
+			switch v := obj.(type) {
+			case Int:
+				out = append(out, byte(v))
+			case Uint:
+				out = append(out, byte(v))
+			case Char:
+				out = append(out, byte(v))
+			default:
+				return Undefined, NewArgumentTypeError(
+					strconv.Itoa(i+1),
+					"int|uint|char",
+					args[i].TypeName(),
+				)
+			}
 		}
 	}
 	return out, nil
@@ -682,70 +760,80 @@ func builtinCharsFunc(arg Object) (ret Object, err error) {
 	return
 }
 
-func builtinPrintfFunc(args ...Object) (ret Object, err error) {
+func builtinPrintfFunc(c Call) (ret Object, err error) {
 	ret = Undefined
-	switch len(args) {
+	switch size := c.Len(); size {
 	case 0:
 		err = ErrWrongNumArguments.NewError("want>=1 got=0")
 	case 1:
-		_, err = fmt.Fprint(PrintWriter, args[0].String())
+		_, err = fmt.Fprint(PrintWriter, c.Get(0).String())
 	default:
-		vargs := make([]interface{}, len(args)-1)
-		for i := range args[1:] {
-			vargs[i] = args[i+1]
+		format, _ := c.shift()
+		vargs := make([]interface{}, 0, size-1)
+		for i := 0; i < size-1; i++ {
+			vargs = append(vargs, c.Get(i))
 		}
-		_, err = fmt.Fprintf(PrintWriter, args[0].String(), vargs...)
+		_, err = fmt.Fprintf(PrintWriter, format.String(), vargs...)
 	}
 	return
 }
 
-func builtinPrintlnFunc(args ...Object) (ret Object, err error) {
+func builtinPrintlnFunc(c Call) (ret Object, err error) {
 	ret = Undefined
-	switch len(args) {
+	switch size := c.Len(); size {
 	case 0:
 		_, err = fmt.Fprintln(PrintWriter)
 	case 1:
-		_, err = fmt.Fprintln(PrintWriter, args[0])
+		_, err = fmt.Fprintln(PrintWriter, c.Get(0))
 	default:
-		vargs := make([]interface{}, len(args))
-		for i := range args {
-			vargs[i] = args[i]
+		vargs := make([]interface{}, 0, size)
+		for i := 0; i < size; i++ {
+			vargs = append(vargs, c.Get(i))
 		}
 		_, err = fmt.Fprintln(PrintWriter, vargs...)
 	}
 	return
 }
 
-func builtinSprintfFunc(args ...Object) (Object, error) {
-	if len(args) < 1 {
-		return Undefined, ErrWrongNumArguments.NewError("want>=1 got=0")
+func builtinSprintfFunc(c Call) (ret Object, err error) {
+	ret = Undefined
+	switch size := c.Len(); size {
+	case 0:
+		err = ErrWrongNumArguments.NewError("want>=1 got=0")
+	case 1:
+		ret = String(c.Get(0).String())
+	default:
+		format, _ := c.shift()
+		vargs := make([]interface{}, 0, size-1)
+		for i := 0; i < size-1; i++ {
+			vargs = append(vargs, c.Get(i))
+		}
+		ret = String(fmt.Sprintf(format.String(), vargs...))
 	}
-
-	vargs := make([]interface{}, len(args)-1)
-	for i := range args[1:] {
-		vargs[i] = args[i+1]
-	}
-
-	return String(fmt.Sprintf(args[0].String(), vargs...)), nil
+	return
 }
 
-func builtinIsErrorFunc(args ...Object) (ret Object, err error) {
+func builtinGlobalsFunc(c Call) (Object, error) {
+	return c.VM().GetGlobals(), nil
+}
+
+func builtinIsErrorFunc(c Call) (ret Object, err error) {
 	ret = False
-	switch len(args) {
+	switch c.Len() {
 	case 1:
 		// We have Error, BuiltinError and also user defined error types.
-		if _, ok := args[0].(error); ok {
+		if _, ok := c.Get(0).(error); ok {
 			ret = True
 		}
 	case 2:
-		if err, ok := args[0].(error); ok {
-			if target, ok := args[1].(error); ok {
+		if err, ok := c.Get(0).(error); ok {
+			if target, ok := c.Get(1).(error); ok {
 				ret = Bool(errors.Is(err, target))
 			}
 		}
 	default:
 		err = ErrWrongNumArguments.NewError(
-			"want=1..2 got=", strconv.Itoa(len(args)))
+			"want=1..2 got=", strconv.Itoa(c.Len()))
 	}
 	return
 }
@@ -801,9 +889,6 @@ func builtinIsArrayFunc(arg Object) Object {
 }
 
 func builtinIsUndefinedFunc(arg Object) Object {
-	if arg == Undefined {
-		return True
-	}
 	_, ok := arg.(*UndefinedType)
 	return Bool(ok)
 }
@@ -826,3 +911,9 @@ func builtinIsFunctionFunc(arg Object) Object {
 func builtinIsCallableFunc(arg Object) Object { return Bool(arg.CanCall()) }
 
 func builtinIsIterableFunc(arg Object) Object { return Bool(arg.CanIterate()) }
+
+func callExAdapter(fn CallableExFunc) CallableFunc {
+	return func(args ...Object) (Object, error) {
+		return fn(Call{args: args})
+	}
+}

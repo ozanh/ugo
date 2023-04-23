@@ -6,7 +6,6 @@ package time
 
 import (
 	"reflect"
-	"strconv"
 	"time"
 
 	"github.com/ozanh/ugo"
@@ -264,21 +263,30 @@ func (o *Time) CallName(name string, c ugo.Call) (ugo.Object, error) {
 }
 
 var methodTable = map[string]func(*Time, *ugo.Call) (ugo.Object, error){
-	"Add": callLenChecker(1, func(o *Time, c *ugo.Call) (ugo.Object, error) {
+	"Add": func(o *Time, c *ugo.Call) (ugo.Object, error) {
+		if err := c.CheckLen(1); err != nil {
+			return ugo.Undefined, err
+		}
 		d, ok := ugo.ToGoInt64(c.Get(0))
 		if !ok {
 			return newArgTypeErr("1st", "int", c.Get(0).TypeName())
 		}
 		return timeAdd(o, d), nil
-	}),
-	"Sub": callLenChecker(1, func(o *Time, c *ugo.Call) (ugo.Object, error) {
+	},
+	"Sub": func(o *Time, c *ugo.Call) (ugo.Object, error) {
+		if err := c.CheckLen(1); err != nil {
+			return ugo.Undefined, err
+		}
 		t2, ok := ToTime(c.Get(0))
 		if !ok {
 			return newArgTypeErr("1st", "time", c.Get(0).TypeName())
 		}
 		return timeSub(o, t2), nil
-	}),
-	"AddDate": callLenChecker(3, func(o *Time, c *ugo.Call) (ugo.Object, error) {
+	},
+	"AddDate": func(o *Time, c *ugo.Call) (ugo.Object, error) {
+		if err := c.CheckLen(3); err != nil {
+			return ugo.Undefined, err
+		}
 		year, ok := ugo.ToGoInt(c.Get(0))
 		if !ok {
 			return newArgTypeErr("1st", "int", c.Get(0).TypeName())
@@ -292,29 +300,41 @@ var methodTable = map[string]func(*Time, *ugo.Call) (ugo.Object, error){
 			return newArgTypeErr("3rd", "int", c.Get(2).TypeName())
 		}
 		return timeAddDate(o, year, month, day), nil
-	}),
-	"After": callLenChecker(1, func(o *Time, c *ugo.Call) (ugo.Object, error) {
+	},
+	"After": func(o *Time, c *ugo.Call) (ugo.Object, error) {
+		if err := c.CheckLen(1); err != nil {
+			return ugo.Undefined, err
+		}
 		t2, ok := ToTime(c.Get(0))
 		if !ok {
 			return newArgTypeErr("1st", "time", c.Get(0).TypeName())
 		}
 		return timeAfter(o, t2), nil
-	}),
-	"Before": callLenChecker(1, func(o *Time, c *ugo.Call) (ugo.Object, error) {
+	},
+	"Before": func(o *Time, c *ugo.Call) (ugo.Object, error) {
+		if err := c.CheckLen(1); err != nil {
+			return ugo.Undefined, err
+		}
 		t2, ok := ToTime(c.Get(0))
 		if !ok {
 			return newArgTypeErr("1st", "time", c.Get(0).TypeName())
 		}
 		return timeBefore(o, t2), nil
-	}),
-	"Format": callLenChecker(1, func(o *Time, c *ugo.Call) (ugo.Object, error) {
+	},
+	"Format": func(o *Time, c *ugo.Call) (ugo.Object, error) {
+		if err := c.CheckLen(1); err != nil {
+			return ugo.Undefined, err
+		}
 		format, ok := ugo.ToGoString(c.Get(0))
 		if !ok {
 			return newArgTypeErr("1st", "string", c.Get(0).TypeName())
 		}
 		return timeFormat(o, format), nil
-	}),
-	"AppendFormat": callLenChecker(2, func(o *Time, c *ugo.Call) (ugo.Object, error) {
+	},
+	"AppendFormat": func(o *Time, c *ugo.Call) (ugo.Object, error) {
+		if err := c.CheckLen(2); err != nil {
+			return ugo.Undefined, err
+		}
 		b, ok := ugo.ToGoByteSlice(c.Get(0))
 		if !ok {
 			return newArgTypeErr("1st", "bytes", c.Get(0).TypeName())
@@ -324,98 +344,167 @@ var methodTable = map[string]func(*Time, *ugo.Call) (ugo.Object, error){
 			return newArgTypeErr("2nd", "string", c.Get(1).TypeName())
 		}
 		return timeAppendFormat(o, b, format), nil
-	}),
-	"In": callLenChecker(1, func(o *Time, c *ugo.Call) (ugo.Object, error) {
+	},
+	"In": func(o *Time, c *ugo.Call) (ugo.Object, error) {
+		if err := c.CheckLen(1); err != nil {
+			return ugo.Undefined, err
+		}
 		loc, ok := ToLocation(c.Get(0))
 		if !ok {
 			return newArgTypeErr("1st", "location", c.Get(0).TypeName())
 		}
 		return timeIn(o, loc), nil
-	}),
-	"Round": callLenChecker(1, func(o *Time, c *ugo.Call) (ugo.Object, error) {
+	},
+	"Round": func(o *Time, c *ugo.Call) (ugo.Object, error) {
+		if err := c.CheckLen(1); err != nil {
+			return ugo.Undefined, err
+		}
 		d, ok := ugo.ToGoInt64(c.Get(0))
 		if !ok {
 			return newArgTypeErr("1st", "int", c.Get(0).TypeName())
 		}
 		return timeRound(o, d), nil
-	}),
-	"Truncate": callLenChecker(1, func(o *Time, c *ugo.Call) (ugo.Object, error) {
+	},
+	"Truncate": func(o *Time, c *ugo.Call) (ugo.Object, error) {
+		if err := c.CheckLen(1); err != nil {
+			return ugo.Undefined, err
+		}
 		d, ok := ugo.ToGoInt64(c.Get(0))
 		if !ok {
 			return newArgTypeErr("1st", "int", c.Get(0).TypeName())
 		}
 		return timeTruncate(o, d), nil
-	}),
-	"Equal": callLenChecker(1, func(o *Time, c *ugo.Call) (ugo.Object, error) {
+	},
+	"Equal": func(o *Time, c *ugo.Call) (ugo.Object, error) {
+		if err := c.CheckLen(1); err != nil {
+			return ugo.Undefined, err
+		}
 		t2, ok := ToTime(c.Get(0))
 		if !ok {
 			return newArgTypeErr("1st", "time", c.Get(0).TypeName())
 		}
 		return timeEqual(o, t2), nil
-	}),
-	"Date": callLenChecker(0, func(o *Time, c *ugo.Call) (ugo.Object, error) {
+	},
+	"Date": func(o *Time, c *ugo.Call) (ugo.Object, error) {
+		if err := c.CheckLen(0); err != nil {
+			return ugo.Undefined, err
+		}
 		y, m, d := o.Value.Date()
 		return ugo.Map{"year": ugo.Int(y), "month": ugo.Int(m),
 			"day": ugo.Int(d)}, nil
-	}),
-	"Clock": callLenChecker(0, func(o *Time, c *ugo.Call) (ugo.Object, error) {
+	},
+	"Clock": func(o *Time, c *ugo.Call) (ugo.Object, error) {
+		if err := c.CheckLen(0); err != nil {
+			return ugo.Undefined, err
+		}
 		h, m, s := o.Value.Clock()
 		return ugo.Map{"hour": ugo.Int(h), "minute": ugo.Int(m),
 			"second": ugo.Int(s)}, nil
-	}),
-	"UTC": callLenChecker(0, func(o *Time, c *ugo.Call) (ugo.Object, error) {
+	},
+	"UTC": func(o *Time, c *ugo.Call) (ugo.Object, error) {
+		if err := c.CheckLen(0); err != nil {
+			return ugo.Undefined, err
+		}
 		return &Time{Value: o.Value.UTC()}, nil
-	}),
-	"Unix": callLenChecker(0, func(o *Time, c *ugo.Call) (ugo.Object, error) {
+	},
+	"Unix": func(o *Time, c *ugo.Call) (ugo.Object, error) {
+		if err := c.CheckLen(0); err != nil {
+			return ugo.Undefined, err
+		}
 		return ugo.Int(o.Value.Unix()), nil
-	}),
-	"UnixNano": callLenChecker(0, func(o *Time, c *ugo.Call) (ugo.Object, error) {
+	},
+	"UnixNano": func(o *Time, c *ugo.Call) (ugo.Object, error) {
+		if err := c.CheckLen(0); err != nil {
+			return ugo.Undefined, err
+		}
 		return ugo.Int(o.Value.UnixNano()), nil
-	}),
-	"Year": callLenChecker(0, func(o *Time, c *ugo.Call) (ugo.Object, error) {
+	},
+	"Year": func(o *Time, c *ugo.Call) (ugo.Object, error) {
+		if err := c.CheckLen(0); err != nil {
+			return ugo.Undefined, err
+		}
 		return ugo.Int(o.Value.Year()), nil
-	}),
-	"Month": callLenChecker(0, func(o *Time, c *ugo.Call) (ugo.Object, error) {
+	},
+	"Month": func(o *Time, c *ugo.Call) (ugo.Object, error) {
+		if err := c.CheckLen(0); err != nil {
+			return ugo.Undefined, err
+		}
 		return ugo.Int(o.Value.Month()), nil
-	}),
-	"Day": callLenChecker(0, func(o *Time, c *ugo.Call) (ugo.Object, error) {
+	},
+	"Day": func(o *Time, c *ugo.Call) (ugo.Object, error) {
+		if err := c.CheckLen(0); err != nil {
+			return ugo.Undefined, err
+		}
 		return ugo.Int(o.Value.Day()), nil
-	}),
-	"Hour": callLenChecker(0, func(o *Time, c *ugo.Call) (ugo.Object, error) {
+	},
+	"Hour": func(o *Time, c *ugo.Call) (ugo.Object, error) {
+		if err := c.CheckLen(0); err != nil {
+			return ugo.Undefined, err
+		}
 		return ugo.Int(o.Value.Hour()), nil
-	}),
-	"Minute": callLenChecker(0, func(o *Time, c *ugo.Call) (ugo.Object, error) {
+	},
+	"Minute": func(o *Time, c *ugo.Call) (ugo.Object, error) {
+		if err := c.CheckLen(0); err != nil {
+			return ugo.Undefined, err
+		}
 		return ugo.Int(o.Value.Minute()), nil
-	}),
-	"Second": callLenChecker(0, func(o *Time, c *ugo.Call) (ugo.Object, error) {
+	},
+	"Second": func(o *Time, c *ugo.Call) (ugo.Object, error) {
+		if err := c.CheckLen(0); err != nil {
+			return ugo.Undefined, err
+		}
 		return ugo.Int(o.Value.Second()), nil
-	}),
-	"Nanosecond": callLenChecker(0, func(o *Time, c *ugo.Call) (ugo.Object, error) {
+	},
+	"Nanosecond": func(o *Time, c *ugo.Call) (ugo.Object, error) {
+		if err := c.CheckLen(0); err != nil {
+			return ugo.Undefined, err
+		}
 		return ugo.Int(o.Value.Nanosecond()), nil
-	}),
-	"IsZero": callLenChecker(0, func(o *Time, c *ugo.Call) (ugo.Object, error) {
+	},
+	"IsZero": func(o *Time, c *ugo.Call) (ugo.Object, error) {
+		if err := c.CheckLen(0); err != nil {
+			return ugo.Undefined, err
+		}
 		return ugo.Bool(o.Value.IsZero()), nil
-	}),
-	"Local": callLenChecker(0, func(o *Time, c *ugo.Call) (ugo.Object, error) {
+	},
+	"Local": func(o *Time, c *ugo.Call) (ugo.Object, error) {
+		if err := c.CheckLen(0); err != nil {
+			return ugo.Undefined, err
+		}
 		return &Time{Value: o.Value.Local()}, nil
-	}),
-	"Location": callLenChecker(0, func(o *Time, c *ugo.Call) (ugo.Object, error) {
+	},
+	"Location": func(o *Time, c *ugo.Call) (ugo.Object, error) {
+		if err := c.CheckLen(0); err != nil {
+			return ugo.Undefined, err
+		}
 		return &Location{Value: o.Value.Location()}, nil
-	}),
-	"YearDay": callLenChecker(0, func(o *Time, c *ugo.Call) (ugo.Object, error) {
+	},
+	"YearDay": func(o *Time, c *ugo.Call) (ugo.Object, error) {
+		if err := c.CheckLen(0); err != nil {
+			return ugo.Undefined, err
+		}
 		return ugo.Int(o.Value.YearDay()), nil
-	}),
-	"Weekday": callLenChecker(0, func(o *Time, c *ugo.Call) (ugo.Object, error) {
+	},
+	"Weekday": func(o *Time, c *ugo.Call) (ugo.Object, error) {
+		if err := c.CheckLen(0); err != nil {
+			return ugo.Undefined, err
+		}
 		return ugo.Int(o.Value.Weekday()), nil
-	}),
-	"ISOWeek": callLenChecker(0, func(o *Time, c *ugo.Call) (ugo.Object, error) {
+	},
+	"ISOWeek": func(o *Time, c *ugo.Call) (ugo.Object, error) {
+		if err := c.CheckLen(0); err != nil {
+			return ugo.Undefined, err
+		}
 		y, w := o.Value.ISOWeek()
 		return ugo.Map{"year": ugo.Int(y), "week": ugo.Int(w)}, nil
-	}),
-	"Zone": callLenChecker(0, func(o *Time, c *ugo.Call) (ugo.Object, error) {
+	},
+	"Zone": func(o *Time, c *ugo.Call) (ugo.Object, error) {
+		if err := c.CheckLen(0); err != nil {
+			return ugo.Undefined, err
+		}
 		name, offset := o.Value.Zone()
 		return ugo.Map{"name": ugo.String(name), "offset": ugo.Int(offset)}, nil
-	}),
+	},
 }
 
 // MarshalBinary implements encoding.BinaryMarshaler interface.
@@ -490,16 +579,6 @@ func timeTruncate(t *Time, duration int64) ugo.Object {
 
 func timeEqual(t1, t2 *Time) ugo.Object {
 	return ugo.Bool(t1.Value.Equal(t2.Value))
-}
-
-func callLenChecker(numArgs int, callee func(o *Time, c *ugo.Call) (ugo.Object, error)) func(*Time, *ugo.Call) (ugo.Object, error) {
-	return func(o *Time, c *ugo.Call) (ugo.Object, error) {
-		if c.Len() != numArgs {
-			return ugo.Undefined, ugo.ErrWrongNumArguments.NewError(
-				"want=" + strconv.Itoa(numArgs) + " got=" + strconv.Itoa(c.Len()))
-		}
-		return callee(o, c)
-	}
 }
 
 func newArgTypeErr(pos, want, got string) (ugo.Object, error) {
