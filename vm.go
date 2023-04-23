@@ -757,31 +757,26 @@ func (vm *VM) initLocals(args []Object) {
 	for i := 0; i < vm.bytecode.Main.NumLocals; i++ {
 		locals[i] = Undefined
 	}
+	if numParams <= 0 {
+		return
+	}
 
-	// if main function is variadic, default value for last argument is empty array
+	if len(args) < numParams {
+		if vm.bytecode.Main.Variadic {
+			locals[numParams-1] = Array{}
+		}
+		copy(locals, args)
+		return
+	}
+
 	if vm.bytecode.Main.Variadic {
-		vm.stack[numParams-1] = Array{}
+		vargs := args[numParams-1:]
+		arr := make(Array, 0, len(vargs))
+		locals[numParams-1] = append(arr, vargs...)
+	} else {
+		locals[numParams-1] = args[numParams-1]
 	}
-
-	// copy args to stack
-	if numParams > 0 {
-		if len(args) < numParams {
-			copy(locals, args)
-			return
-		}
-
-		if len(args) >= numParams {
-			for i := range args[:numParams-1] {
-				locals[i] = args[i]
-			}
-
-			if vm.bytecode.Main.Variadic {
-				locals[numParams-1] = append(Array{}, args[numParams-1:]...)
-			} else {
-				locals[numParams-1] = args[numParams-1]
-			}
-		}
-	}
+	copy(locals, args[:numParams-1])
 }
 
 func (vm *VM) initCurrentFrame() {
@@ -1477,7 +1472,6 @@ func (t *errHandlers) pop() bool {
 	if t == nil || len(t.handlers) == 0 {
 		return false
 	}
-
 	t.handlers = t.handlers[:len(t.handlers)-1]
 	return true
 }

@@ -373,6 +373,13 @@ func TestScript(t *testing.T) {
 			e: Array{String("a"), String("b"), String("c"), String("d")}},
 		{s: `strings.Fields("")`, e: Array{}},
 
+		{s: `strings.FieldsFunc()`, m: catch, e: wrongArgs(2, 0)},
+		{s: `strings.FieldsFunc("")`, m: catch, e: wrongArgs(2, 1)},
+		{s: `strings.FieldsFunc("axbxcx", func(c){ return c == 'x' })`,
+			e: Array{String("a"), String("b"), String("c")}},
+		{s: `strings.FieldsFunc("axbxcx", func(c){ return false })`,
+			e: Array{String("axbxcx")}},
+
 		{s: `strings.HasPrefix()`, m: catch, e: wrongArgs(2, 0)},
 		{s: `strings.HasPrefix(1)`, m: catch, e: wrongArgs(2, 1)},
 		{s: `strings.HasPrefix(1, 2, 3)`, m: catch, e: wrongArgs(2, 3)},
@@ -423,6 +430,11 @@ func TestScript(t *testing.T) {
 		{s: `strings.IndexChar("", 1)`, e: Int(-1)},
 		{s: `strings.IndexChar("abcdef", 'c')`, e: Int(2)},
 
+		{s: `strings.IndexFunc()`, m: catch, e: wrongArgs(2, 0)},
+		{s: `strings.IndexFunc("")`, m: catch, e: wrongArgs(2, 1)},
+		{s: `strings.IndexFunc("abcd", func(c){return c == 'c'})`, e: Int(2)},
+		{s: `strings.IndexFunc("abcd", func(c){return c == 'e'})`, e: Int(-1)},
+
 		{s: `strings.Join()`, m: catch, e: wrongArgs(2, 0)},
 		{s: `strings.Join(1)`, m: catch, e: wrongArgs(2, 1)},
 		{s: `strings.Join(1, 2, 3)`, m: catch, e: wrongArgs(2, 3)},
@@ -455,6 +467,26 @@ func TestScript(t *testing.T) {
 		{s: `strings.LastIndexByte("efabcdef", 'f')`, e: Int(7)},
 		{s: `strings.LastIndexByte("efabcdef", int('f'))`, e: Int(7)},
 		{s: `strings.LastIndexByte("abcdef", 'g')`, e: Int(-1)},
+
+		{s: `strings.LastIndexFunc()`, m: catch, e: wrongArgs(2, 0)},
+		{s: `strings.LastIndexFunc("")`, m: catch, e: wrongArgs(2, 1)},
+		{s: `strings.LastIndexFunc("acbcd", func(c){return c=='c'})`, e: Int(3)},
+		{s: `strings.LastIndexFunc("abcd", func(c){return c=='e'})`, e: Int(-1)},
+
+		{s: `strings.Map()`, m: catch, e: wrongArgs(2, 0)},
+		{s: `strings.Map(func(){})`, m: catch, e: wrongArgs(2, 1)},
+		{s: `strings.Map(
+			func(c){
+				if c == 't' { return 'I' }
+				if c == 'e' { return '❤' }
+				if c == 'n' { return 'u' }
+				if c == 'g' { return 'G' }
+				if c == 'o' { return 'O' }
+				return c
+			},
+			"tengo")`, e: String("I❤uGO")},
+		{s: `strings.Map(func(c){return c}, "test")`,
+			m: catch, e: String("test")},
 
 		{s: `strings.PadLeft()`, m: catch, e: nwrongArgs(2, 3, 0)},
 		{s: `strings.PadLeft(1)`, m: catch, e: nwrongArgs(2, 3, 1)},
@@ -590,6 +622,12 @@ func TestScript(t *testing.T) {
 		{s: `strings.ToUpper("")`, e: String("")},
 		{s: `strings.ToUpper("çğ öşü")`, e: String("ÇĞ ÖŞÜ")},
 
+		{s: `strings.ToValidUTF8()`, m: catch, e: nwrongArgs(1, 2, 0)},
+		{s: `strings.ToValidUTF8(1, 2, 2)`, m: catch, e: nwrongArgs(1, 2, 3)},
+		{s: `strings.ToValidUTF8("a")`, e: String("a")},
+		{s: `strings.ToValidUTF8("a☺\xffb☺\xC0\xAFc☺\xff", "日本語")`, e: String("a☺日本語b☺日本語c☺日本語")},
+		{s: `strings.ToValidUTF8("a☺\xffb☺\xC0\xAFc☺\xff", "")`, e: String("a☺b☺c☺")},
+
 		{s: `strings.Trim()`, m: catch, e: wrongArgs(2, 0)},
 		{s: `strings.Trim(1)`, m: catch, e: wrongArgs(2, 1)},
 		{s: `strings.Trim(1, 2, 3)`, m: catch, e: wrongArgs(2, 3)},
@@ -599,6 +637,11 @@ func TestScript(t *testing.T) {
 		{s: `strings.Trim("!!xyz!!", "!")`, e: String("xyz")},
 		{s: `strings.Trim("!!xyz!!", "!?")`, e: String("xyz")},
 
+		{s: `strings.TrimFunc()`, m: catch, e: wrongArgs(2, 0)},
+		{s: `strings.TrimFunc("")`, m: catch, e: wrongArgs(2, 1)},
+		{s: `strings.TrimFunc("xabcxx",
+			func(c){return c=='x'})`, e: String("abc")},
+
 		{s: `strings.TrimLeft()`, m: catch, e: wrongArgs(2, 0)},
 		{s: `strings.TrimLeft(1)`, m: catch, e: wrongArgs(2, 1)},
 		{s: `strings.TrimLeft(1, 2, 3)`, m: catch, e: wrongArgs(2, 3)},
@@ -607,6 +650,13 @@ func TestScript(t *testing.T) {
 		{s: `strings.TrimLeft("!!xyz!!", "")`, e: String("!!xyz!!")},
 		{s: `strings.TrimLeft("!!xyz!!", "!")`, e: String("xyz!!")},
 		{s: `strings.TrimLeft("!!?xyz!!", "!?")`, e: String("xyz!!")},
+
+		{s: `strings.TrimLeftFunc()`, m: catch, e: wrongArgs(2, 0)},
+		{s: `strings.TrimLeftFunc("")`, m: catch, e: wrongArgs(2, 1)},
+		{s: `strings.TrimLeftFunc("xxabcxx",
+			func(c){return c=='x'})`, e: String("abcxx")},
+		{s: `strings.TrimLeftFunc("abcxx",
+			func(c){return c=='x'})`, e: String("abcxx")},
 
 		{s: `strings.TrimPrefix()`, m: catch, e: wrongArgs(2, 0)},
 		{s: `strings.TrimPrefix(1)`, m: catch, e: wrongArgs(2, 1)},
@@ -627,6 +677,13 @@ func TestScript(t *testing.T) {
 		{s: `strings.TrimRight("!!xyz!!", "!")`, e: String("!!xyz")},
 		{s: `strings.TrimRight("!!xyz?!!", "!?")`, e: String("!!xyz")},
 
+		{s: `strings.TrimRightFunc()`, m: catch, e: wrongArgs(2, 0)},
+		{s: `strings.TrimRightFunc("")`, m: catch, e: wrongArgs(2, 1)},
+		{s: `strings.TrimRightFunc("xxabcxx",
+			func(c){return c=='x'})`, e: String("xxabc")},
+		{s: `strings.TrimRightFunc("xxabc",
+			func(c){return c=='x'})`, e: String("xxabc")},
+
 		{s: `strings.TrimSpace()`, m: catch, e: wrongArgs(1, 0)},
 		{s: `strings.TrimSpace(1, 2)`, m: catch, e: wrongArgs(1, 2)},
 		{s: `strings.TrimSpace(1)`, e: String("1")},
@@ -643,15 +700,15 @@ func TestScript(t *testing.T) {
 		{s: `strings.TrimSuffix("!!xyz!!", "!!")`, e: String("!!xyz")},
 		{s: `strings.TrimSuffix("!!xyz!!", "z!!")`, e: String("!!xy")},
 	}
-	for _, tC := range testCases {
+	for _, tt := range testCases {
 		var s string
-		if tC.m == nil {
-			s = ret(tC.s)
+		if tt.m == nil {
+			s = ret(tt.s)
 		} else {
-			s = catch(tC.s)
+			s = catch(tt.s)
 		}
-		t.Run(tC.s, func(t *testing.T) {
-			expectRun(t, s, tC.e)
+		t.Run(tt.s, func(t *testing.T) {
+			expectRun(t, s, tt.e)
 		})
 	}
 }

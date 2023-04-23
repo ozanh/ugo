@@ -778,8 +778,9 @@ func (o *Function) String() string {
 // Copy implements Copier interface.
 func (o *Function) Copy() Object {
 	return &Function{
-		Name:  o.Name,
-		Value: o.Value,
+		Name:    o.Name,
+		Value:   o.Value,
+		ValueEx: o.ValueEx,
 	}
 }
 
@@ -833,8 +834,9 @@ func (o *BuiltinFunction) String() string {
 // Copy implements Copier interface.
 func (o *BuiltinFunction) Copy() Object {
 	return &BuiltinFunction{
-		Name:  o.Name,
-		Value: o.Value,
+		Name:    o.Name,
+		Value:   o.Value,
+		ValueEx: o.ValueEx,
 	}
 }
 

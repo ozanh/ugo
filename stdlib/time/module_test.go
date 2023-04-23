@@ -55,6 +55,44 @@ func TestModuleTypes(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, tm2.Value.Format(time.RFC3339Nano),
 		tm3.Value.Format(time.RFC3339Nano))
+
+	// test registers
+	//time
+	ret, err := ToObject(now)
+	require.NoError(t, err)
+	require.IsType(t, &Time{}, ret)
+	require.Equal(t, now.String(), ret.String())
+
+	iface := ToInterface(ret)
+	require.Equal(t, now, iface)
+
+	ret, err = ToObject(&now)
+	require.NoError(t, err)
+	require.IsType(t, &Time{}, ret)
+	require.Equal(t, now.String(), ret.String())
+
+	ret, err = ToObject((*time.Time)(nil))
+	require.NoError(t, err)
+	require.Equal(t, Undefined, ret)
+
+	//duration
+	ret, err = ToObject(time.Second)
+	require.NoError(t, err)
+	require.IsType(t, Int(0), ret)
+	require.Equal(t, Int(time.Second), ret)
+
+	//location
+	ret, err = ToObject(time.UTC)
+	require.NoError(t, err)
+	require.IsType(t, &Location{}, ret)
+	require.Equal(t, time.UTC.String(), ret.String())
+
+	iface = ToInterface(ret)
+	require.Equal(t, time.UTC, iface)
+
+	ret, err = ToObject((*time.Location)(nil))
+	require.NoError(t, err)
+	require.Equal(t, Undefined, ret)
 }
 
 func TestModuleMonthWeekday(t *testing.T) {

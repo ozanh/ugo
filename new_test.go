@@ -1119,3 +1119,90 @@ return counter
 		})
 	}
 }
+
+type nameCaller struct {
+	Map
+	counts map[string]int
+}
+
+func (n *nameCaller) CallName(name string, c Call) (Object, error) {
+	fn := n.Map[name]
+	args := make([]Object, 0, c.Len())
+	for i := 0; i < c.Len(); i++ {
+		args = append(args, c.Get(i))
+	}
+	ret, err := NewInvoker(c.VM(), fn).Invoke(args...)
+	n.counts[name]++
+	return ret, err
+}
+
+var _ NameCallerObject = &nameCaller{}
+
+func TestVMCallName(t *testing.T) {
+	newobject := func(extended bool) *nameCaller {
+		var f *Function
+		if extended {
+			f = &Function{
+				ValueEx: func(c Call) (Object, error) {
+					return c.Get(0).(Int) + 1, nil
+				},
+			}
+		} else {
+			f = &Function{
+				Value: func(args ...Object) (Object, error) {
+					return args[0].(Int) + 1, nil
+				},
+			}
+		}
+
+		return &nameCaller{Map: Map{"add1": f}, counts: map[string]int{}}
+	}
+	scr := `
+global object
+
+object.sub1 = func(a) {
+	return a - 1
+}
+
+return [object.add1(10), object.sub1(10)]
+`
+
+	for _, extended := range []bool{false, true} {
+		t.Run("extended "+Bool(extended).String(), func(t *testing.T) {
+			t.Run("basic", func(t *testing.T) {
+				expectRun(t, scr,
+					newOpts().Globals(Map{"object": newobject(extended)}),
+					Array{Int(11), Int(9)},
+				)
+			})
+
+			t.Run("counts single pass", func(t *testing.T) {
+				object := newobject(extended)
+				expectRun(t, scr,
+					newOpts().Globals(Map{"object": object}).Skip2Pass(),
+					Array{Int(11), Int(9)},
+				)
+				if object.counts["add1"] != 1 {
+					t.Fatalf("expected 1, got %d", object.counts["add1"])
+				}
+				if object.counts["sub1"] != 1 {
+					t.Fatalf("expected 1, got %d", object.counts["sub1"])
+				}
+			})
+
+			t.Run("counts all pass", func(t *testing.T) {
+				object := newobject(extended)
+				expectRun(t, scr,
+					newOpts().Globals(Map{"object": object}),
+					Array{Int(11), Int(9)},
+				)
+				if object.counts["add1"] <= 0 {
+					t.Fatalf("expected >0, got %d", object.counts["add1"])
+				}
+				if object.counts["sub1"] <= 0 {
+					t.Fatalf("expected >0, got %d", object.counts["sub1"])
+				}
+			})
+		})
+	}
+}

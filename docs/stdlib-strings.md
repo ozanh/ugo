@@ -243,6 +243,13 @@ code points contained in cutset removed.
 
 ---
 
+`TrimFunc(s string, f func(char) bool) -> string`
+
+Returns a slice of the string s with all leading and trailing Unicode
+code points satisfying f removed.
+
+---
+
 `TrimLeft(s string, cutset string) -> string`
 
 Returns a slice of the string s with all leading Unicode code points

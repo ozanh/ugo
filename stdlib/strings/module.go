@@ -347,6 +347,10 @@ var Module = map[string]ugo.Object{
 		Value:   stdlib.FuncPssRO(trimFunc),
 		ValueEx: stdlib.FuncPssROEx(trimFunc),
 	},
+	// ugo:doc
+	// TrimFunc(s string, f func(char) bool) -> string
+	// Returns a slice of the string s with all leading and trailing Unicode
+	// code points satisfying f removed.
 	"TrimFunc": &ugo.Function{
 		Name: "TrimFunc",
 		Value: func(args ...ugo.Object) (ugo.Object, error) {
