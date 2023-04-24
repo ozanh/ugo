@@ -335,24 +335,24 @@ var Module = map[string]ugo.Object{
 		ValueEx: unixFuncEx,
 	},
 	// ugo:doc
-	// Deprecated: Use .Add method of time object.
 	// Add(t time, duration int) -> time
+	// Deprecated: Use .Add method of time object.
 	// Returns the time of t+duration.
 	"Add": &ugo.Function{
 		Name:  "Add",
 		Value: funcPTi64RO(timeAdd),
 	},
 	// ugo:doc
-	// Deprecated: Use .Sub method of time object.
 	// Sub(t1 time, t2 time) -> int
+	// Deprecated: Use .Sub method of time object.
 	// Returns the duration of t1-t2.
 	"Sub": &ugo.Function{
 		Name:  "Sub",
 		Value: funcPTTRO(timeSub),
 	},
 	// ugo:doc
-	// Deprecated: Use .AddDate method of time object.
 	// AddDate(t time, years int, months int, days int) -> time
+	// Deprecated: Use .AddDate method of time object.
 	// Returns the time corresponding to adding the given number of
 	// years, months, and days to t.
 	"AddDate": &ugo.Function{
@@ -360,24 +360,24 @@ var Module = map[string]ugo.Object{
 		Value: funcPTiiiRO(timeAddDate),
 	},
 	// ugo:doc
-	// Deprecated: Use .After method of time object.
 	// After(t1 time, t2 time) -> bool
+	// Deprecated: Use .After method of time object.
 	// Reports whether the time t1 is after t2.
 	"After": &ugo.Function{
 		Name:  "After",
 		Value: funcPTTRO(timeAfter),
 	},
 	// ugo:doc
-	// Deprecated: Use .Before method of time object.
 	// Before(t1 time, t2 time) -> bool
+	// Deprecated: Use .Before method of time object.
 	// Reports whether the time t1 is before t2.
 	"Before": &ugo.Function{
 		Name:  "Before",
 		Value: funcPTTRO(timeBefore),
 	},
 	// ugo:doc
-	// Deprecated: Use .Format method of time object.
 	// Format(t time, layout string) -> string
+	// Deprecated: Use .Format method of time object.
 	// Returns a textual representation of the time value formatted according
 	// to layout.
 	"Format": &ugo.Function{
@@ -385,8 +385,8 @@ var Module = map[string]ugo.Object{
 		Value: funcPTsRO(timeFormat),
 	},
 	// ugo:doc
-	// Deprecated: Use .AppendFormat method of time object.
 	// AppendFormat(t time, b bytes, layout string) -> bytes
+	// Deprecated: Use .AppendFormat method of time object.
 	// It is like `Format` but appends the textual representation to b and
 	// returns the extended buffer.
 	"AppendFormat": &ugo.Function{
@@ -394,8 +394,8 @@ var Module = map[string]ugo.Object{
 		Value: funcPTb2sRO(timeAppendFormat),
 	},
 	// ugo:doc
-	// Deprecated: Use .In method of time object.
 	// In(t time, loc location) -> time
+	// Deprecated: Use .In method of time object.
 	// Returns a copy of t representing the same time t, but with the copy's
 	// location information set to loc for display purposes.
 	"In": &ugo.Function{
@@ -403,8 +403,8 @@ var Module = map[string]ugo.Object{
 		Value: funcPTLRO(timeIn),
 	},
 	// ugo:doc
-	// Deprecated: Use .Round method of time object.
 	// Round(t time, duration int) -> time
+	// Deprecated: Use .Round method of time object.
 	// Round returns the result of rounding t to the nearest multiple of
 	// duration.
 	"Round": &ugo.Function{
@@ -412,8 +412,8 @@ var Module = map[string]ugo.Object{
 		Value: funcPTi64RO(timeRound),
 	},
 	// ugo:doc
-	// Deprecated: Use .Truncate method of time object.
 	// Truncate(t time, duration int) -> time
+	// Deprecated: Use .Truncate method of time object.
 	// Truncate returns the result of rounding t down to a multiple of duration.
 	"Truncate": &ugo.Function{
 		Name:  "Truncate",
@@ -423,11 +423,9 @@ var Module = map[string]ugo.Object{
 	// IsTime(any) -> bool
 	// Reports whether any value is of time type.
 	"IsTime": &ugo.Function{
-		Name: "IsTime",
-		Value: stdlib.FuncPORO(func(o ugo.Object) ugo.Object {
-			_, ok := o.(*Time)
-			return ugo.Bool(ok)
-		}),
+		Name:    "IsTime",
+		Value:   stdlib.FuncPORO(isTimeFunc),
+		ValueEx: stdlib.FuncPOROEx(isTimeFunc),
 	},
 }
 
@@ -633,4 +631,9 @@ func unixFuncEx(c ugo.Call) (ugo.Object, error) {
 		}
 	}
 	return &Time{Value: time.Unix(sec, nsec)}, nil
+}
+
+func isTimeFunc(o ugo.Object) ugo.Object {
+	_, ok := o.(*Time)
+	return ugo.Bool(ok)
 }

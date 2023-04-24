@@ -474,41 +474,6 @@ func builtinRepeatFunc(arg Object, count int) (ret Object, err error) {
 	return
 }
 
-// func builtinRepeatExFunc(c Call) (ret Object, err error) {
-// 	if err = c.CheckLen(2); err != nil {
-// 		return Undefined, err
-// 	}
-// 	arg1, arg2 := c.Get(0), c.Get(1)
-// 	count, ok := ToGoInt(arg2)
-// 	if !ok || count < 0 {
-// 		return Undefined, NewArgumentTypeError(
-// 			"2nd",
-// 			"non-negative integer",
-// 			arg2.TypeName(),
-// 		)
-// 	}
-
-// 	switch v := arg1.(type) {
-// 	case Array:
-// 		out := make(Array, 0, len(v)*count)
-// 		for i := 0; i < count; i++ {
-// 			out = append(out, v...)
-// 		}
-// 		ret = out
-// 	case String:
-// 		ret = String(strings.Repeat(string(v), count))
-// 	case Bytes:
-// 		ret = Bytes(bytes.Repeat(v, count))
-// 	default:
-// 		err = NewArgumentTypeError(
-// 			"1st",
-// 			"array|string|bytes",
-// 			arg.TypeName(),
-// 		)
-// 	}
-// 	return
-// }
-
 func builtinContainsFunc(arg0, arg1 Object) (Object, error) {
 	var ok bool
 	switch obj := arg0.(type) {

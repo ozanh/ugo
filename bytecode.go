@@ -115,10 +115,10 @@ func (o *CompiledFunction) Copy() Object {
 	}
 }
 
-// CanIterate implements Object interface
+// CanIterate implements Object interface.
 func (*CompiledFunction) CanIterate() bool { return false }
 
-// Iterate implements Object interface
+// Iterate implements Object interface.
 func (*CompiledFunction) Iterate() Iterator { return nil }
 
 // IndexGet represents string values and implements Object interface.
@@ -131,23 +131,25 @@ func (*CompiledFunction) IndexSet(index, value Object) error {
 	return ErrNotIndexAssignable
 }
 
-// CanCall implements Object interface
+// CanCall implements Object interface.
 func (*CompiledFunction) CanCall() bool { return true }
 
-// Call implements Object interface
+// Call implements Object interface. CompiledFunction is not directly callable.
+// You should use Invoker to call it with a Virtual Machine. Because of this, it
+// always returns an error.
 func (*CompiledFunction) Call(...Object) (Object, error) {
 	return Undefined, ErrNotCallable
 }
 
-// BinaryOp implements Object interface
+// BinaryOp implements Object interface.
 func (*CompiledFunction) BinaryOp(token.Token, Object) (Object, error) {
 	return nil, ErrInvalidOperator
 }
 
-// IsFalsy implements Object interface
+// IsFalsy implements Object interface.
 func (*CompiledFunction) IsFalsy() bool { return false }
 
-// Equal implements Object interface
+// Equal implements Object interface.
 func (o *CompiledFunction) Equal(right Object) bool {
 	v, ok := right.(*CompiledFunction)
 	return ok && o == v
