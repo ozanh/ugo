@@ -102,19 +102,27 @@ type LengthGetter interface {
 // method. It is an extended version of the Call method that can be used to
 // call an object with a Call struct. Objects implementing this interface is
 // called with CallEx method instead of Call method.
+// Note that CanCall() should return true for objects implementing this
+// interface.
 type ExCallerObject interface {
 	Object
 	CallEx(c Call) (Object, error)
 }
 
 // NameCallerObject is an interface for objects that can be called with CallName
-// method to call a method of an object.
+// method to call a method of an object. Objects implementing this interface can
+// reduce allocations by not creating a callable object for each method call.
 type NameCallerObject interface {
 	Object
 	CallName(name string, c Call) (Object, error)
 }
 
-// Call is a helper struct to pass arguments to CallEx and CallName methods.
+// Call is a struct to pass arguments to CallEx and CallName methods.
+// It provides VM for various purposes.
+//
+// Call struct intentionally does not provide access to normal and variadic
+// arguments directly. Using Len() and Get() methods is preferred. It is safe to
+// create Call with a nil VM as long as VM is not required by the callee.
 type Call struct {
 	vm    *VM
 	args  []Object

@@ -10,11 +10,11 @@ uGO is a fast, dynamic scripting language to embed in Go applications.
 uGO is compiled and executed as bytecode on stack-based VM that's written
 in native Go.
 
-uGO is inspired by awesome script language [Tengo](https://github.com/d5/tengo)
-by Daniel Kang. A special thanks to Tengo's creater and contributors.
+uGO is actively used in production to evaluate Sigma Rules' conditions, and to
+perform compromise assessment dynamically.
 
 To see how fast uGO is, please have a look at fibonacci
-[benchmarks](https://github.com/ozanh/ugobenchfib).
+[benchmarks](https://github.com/ozanh/ugobenchfib) (not updated frequently).
 
 > Play with uGO via [Playground](https://play.verigraf.com) built for
 > WebAssembly.
@@ -40,13 +40,17 @@ return fib(arg0)
 ## Features
 
 * Written in native Go (no cgo).
+* Supports Go 1.15 and above.
 * `if else` statements.
 * `for` and `for in` statements.
 * `try catch finally` statements.
 * `param`, `global`, `var` and `const` declarations.
 * Rich builtins.
-* Module support.
+* Pure uGO and Go Module support.
 * Go like syntax with additions.
+* Call uGO functions from Go.
+* Import uGO modules from any source (file system, HTTP, etc.).
+* Create wrapper functions for Go functions using code generation.
 
 ## Why uGO
 
@@ -136,11 +140,17 @@ return v
 
 ## Roadmap
 
-More standard library modules will be added.
+Examples for best practices (2023).
 
-More tests will be added.
+Better Playground (2023).
 
-Basic object oriented programming support.
+More standard library modules (2023).
+
+Configurable Stdin, Stdout and Stderr per Virtual Machine (2023).
+
+Deferring function calls (2024).
+
+Concurrency support (2024).
 
 ## Documentation
 
@@ -158,3 +168,8 @@ Basic object oriented programming support.
 uGO is licensed under the MIT License.
 
 See [LICENSE](LICENSE) for the full license text.
+
+## Acknowledgements
+
+uGO is inspired by script language [Tengo](https://github.com/d5/tengo)
+by Daniel Kang. A special thanks to Tengo's creater and contributors.

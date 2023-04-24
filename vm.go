@@ -1560,6 +1560,23 @@ func debugStack() []byte {
 
 // Invoker invokes a given callee object (either a CompiledFunction or any other
 // callable object) with the given arguments.
+//
+// Invoker creates a new VM instance if the callee is a CompiledFunction,
+// otherwise it runs the callee directly. Every Invoker call checks if the VM is
+// aborted. If it is, it returns ErrVMAborted.
+//
+// Invoker is not safe for concurrent use by multiple goroutines.
+//
+// Acquire and Release methods are used to acquire and release a VM from the
+// pool. So it is possible to reuse a VM instance for multiple Invoke calls.
+// This is useful when you want to execute multiple functions in a single VM.
+// For example, you can use Acquire and Release to execute multiple functions
+// in a single VM instance.
+// Note that you should call Release after Acquire, if you want to reuse the VM.
+// If you don't want to use the pool, you can just call Invoke method.
+// It is unsafe to hold a reference to the VM after Release is called.
+// Using VM pool is about three times faster than creating a new VM for each
+// Invoke call.
 type Invoker struct {
 	vm         *VM
 	child      *VM
