@@ -1142,3 +1142,29 @@ type LengthGetter interface {
     Len() int
 }
 ```
+
+### Object Interface Extensions
+
+Note that `ExCallerObject` will replace the existing Object interface in the
+future.
+
+```go
+// ExCallerObject is an interface for objects that can be called with CallEx
+// method. It is an extended version of the Call method that can be used to
+// call an object with a Call struct. Objects implementing this interface is
+// called with CallEx method instead of Call method.
+// Note that CanCall() should return true for objects implementing this
+// interface.
+type ExCallerObject interface {
+    Object
+    CallEx(c Call) (Object, error)
+}
+
+// NameCallerObject is an interface for objects that can be called with CallName
+// method to call a method of an object. Objects implementing this interface can
+// reduce allocations by not creating a callable object for each method call.
+type NameCallerObject interface {
+    Object
+    CallName(name string, c Call) (Object, error)
+}
+```

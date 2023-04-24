@@ -1,6 +1,7 @@
 package json_test
 
 import (
+	"encoding/json"
 	"fmt"
 	"testing"
 
@@ -9,6 +10,19 @@ import (
 	. "github.com/ozanh/ugo"
 	. "github.com/ozanh/ugo/stdlib/json"
 )
+
+func TestModuleTypes(t *testing.T) {
+	ret, err := ToObject(json.RawMessage(nil))
+	require.NoError(t, err)
+	require.Equal(t, &RawMessage{Value: Bytes{}}, ret)
+
+	ret, err = ToObject(json.RawMessage([]byte("null")))
+	require.NoError(t, err)
+	require.Equal(t, &RawMessage{Value: Bytes([]byte("null"))}, ret)
+
+	iface := ToInterface(ret)
+	require.Equal(t, json.RawMessage([]byte("null")), iface)
+}
 
 func TestScript(t *testing.T) {
 	catchf := func(s string, args ...interface{}) string {

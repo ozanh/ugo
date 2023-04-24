@@ -1,4 +1,4 @@
-// Copyright (c) 2020-2022 Ozan Hacıbekiroğlu.
+// Copyright (c) 2020-2023 Ozan Hacıbekiroğlu.
 // Use of this source code is governed by a MIT License
 // that can be found in the LICENSE file.
 
@@ -397,7 +397,7 @@ func (c *Compiler) Compile(node parser.Node) error {
 
 func (c *Compiler) changeOperand(opPos int, operand ...int) {
 	op := c.instructions[opPos]
-	inst := make([]byte, 8)
+	inst := make([]byte, 0, 8)
 	inst, err := MakeInstruction(inst, op, operand...)
 	if err != nil {
 		panic(err)
@@ -476,7 +476,7 @@ func (c *Compiler) emit(node parser.Node, opcode Opcode, operands ...int) int {
 		filePos = node.Pos()
 	}
 
-	inst := make([]byte, 8)
+	inst := make([]byte, 0, 8)
 	inst, err := MakeInstruction(inst, opcode, operands...)
 	if err != nil {
 		panic(err)
@@ -695,7 +695,7 @@ func untracec(c *Compiler) {
 func MakeInstruction(buf []byte, op Opcode, args ...int) ([]byte, error) {
 	operands := OpcodeOperands[op]
 	if len(operands) != len(args) {
-		return nil, fmt.Errorf(
+		return buf, fmt.Errorf(
 			"MakeInstruction: %s expected %d operands, but got %d",
 			OpcodeNames[op], len(operands), len(args),
 		)
@@ -719,7 +719,7 @@ func MakeInstruction(buf []byte, op Opcode, args ...int) ([]byte, error) {
 		buf = append(buf, byte(args[0]))
 		buf = append(buf, byte(args[1]))
 		return buf, nil
-	case OpCall:
+	case OpCall, OpCallName:
 		buf = append(buf, byte(args[0]))
 		buf = append(buf, byte(args[1]))
 		return buf, nil
@@ -733,7 +733,7 @@ func MakeInstruction(buf []byte, op Opcode, args ...int) ([]byte, error) {
 		OpSetupCatch, OpSetupFinally, OpNoOp:
 		return buf, nil
 	default:
-		return nil, &Error{
+		return buf, &Error{
 			Name:    "MakeInstruction",
 			Message: fmt.Sprintf("unknown Opcode %d %s", op, OpcodeNames[op]),
 		}
@@ -791,10 +791,10 @@ func newModuleStore() *moduleStore {
 	}
 }
 
-func (mi *moduleStore) reset() *moduleStore {
-	mi.count = 0
-	for k := range mi.store {
-		delete(mi.store, k)
+func (ms *moduleStore) reset() *moduleStore {
+	ms.count = 0
+	for k := range ms.store {
+		delete(ms.store, k)
 	}
-	return mi
+	return ms
 }

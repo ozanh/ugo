@@ -1,4 +1,4 @@
-// Copyright (c) 2020-2022 Ozan Hacıbekiroğlu.
+// Copyright (c) 2020-2023 Ozan Hacıbekiroğlu.
 // Use of this source code is governed by a MIT License
 // that can be found in the LICENSE file.
 
@@ -1000,12 +1000,32 @@ func (c *Compiler) compileSliceExpr(node *parser.SliceExpr) error {
 }
 
 func (c *Compiler) compileCallExpr(node *parser.CallExpr) error {
-	if err := c.Compile(node.Func); err != nil {
-		return err
+	var op = OpCall
+	var selExpr *parser.SelectorExpr
+	var isSelector bool
+	if node.Func != nil {
+		selExpr, isSelector = node.Func.(*parser.SelectorExpr)
+	}
+
+	if isSelector {
+		if err := c.Compile(selExpr.Expr); err != nil {
+			return err
+		}
+		op = OpCallName
+	} else {
+		if err := c.Compile(node.Func); err != nil {
+			return err
+		}
 	}
 
 	for _, arg := range node.Args {
 		if err := c.Compile(arg); err != nil {
+			return err
+		}
+	}
+
+	if isSelector {
+		if err := c.Compile(selExpr.Sel); err != nil {
 			return err
 		}
 	}
@@ -1015,7 +1035,7 @@ func (c *Compiler) compileCallExpr(node *parser.CallExpr) error {
 		expand = 1
 	}
 
-	c.emit(node, OpCall, len(node.Args), expand)
+	c.emit(node, op, len(node.Args), expand)
 	return nil
 }
 

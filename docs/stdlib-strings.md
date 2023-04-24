@@ -45,6 +45,14 @@ if s contains only white space.
 
 ---
 
+`FieldsFunc(s string, f func(char) bool) -> array`
+
+Splits the string s at each run of Unicode code points c satisfying f(c),
+and returns an array of slices of s. If all code points in s satisfy
+f(c) or the string is empty, an empty array is returned.
+
+---
+
 `HasPrefix(s string, prefix string) -> bool`
 
 Reports whether the string s begins with prefix.
@@ -85,6 +93,13 @@ not present in s.
 
 ---
 
+`IndexFunc(s string, f func(char) bool) -> int`
+
+Returns the index into s of the first Unicode code point satisfying f(c),
+or -1 if none do.
+
+---
+
 `Join(arr array, sep string) -> string`
 
 Concatenates the string values of array arr elements to create a
@@ -111,6 +126,21 @@ Returns the index of the last instance of any char from chars in s, or
 
 Returns the index of byte value of the last instance of c in s, or -1
 if c is not present in s. c's integer value must be between 0 and 255.
+
+---
+
+`LastIndexFunc(s string, f func(char) bool) -> int`
+
+Returns the index into s of the last Unicode code point satisfying f(c),
+or -1 if none do.
+
+---
+
+`Map(f func(char) char, s string) -> string`
+
+Returns a copy of the string s with all its characters modified
+according to the mapping function f. If f returns a negative value, the
+character is dropped from the string with no replacement.
 
 ---
 
@@ -199,6 +229,13 @@ Returns s with all Unicode letters mapped to their upper case.
 
 ---
 
+`ToValidUTF8(s string[, replacement string]) -> string`
+
+Returns a copy of the string s with each run of invalid UTF-8 byte
+sequences replaced by the replacement string, which may be empty.
+
+---
+
 `Trim(s string, cutset string) -> string`
 
 Returns a slice of the string s with all leading and trailing Unicode
@@ -206,10 +243,24 @@ code points contained in cutset removed.
 
 ---
 
+`TrimFunc(s string, f func(char) bool) -> string`
+
+Returns a slice of the string s with all leading and trailing Unicode
+code points satisfying f removed.
+
+---
+
 `TrimLeft(s string, cutset string) -> string`
 
 Returns a slice of the string s with all leading Unicode code points
 contained in cutset removed.
+
+---
+
+`TrimLeftFunc(s string, f func(char) bool) -> string`
+
+Returns a slice of the string s with all leading Unicode code points
+c satisfying f(c) removed.
 
 ---
 
@@ -224,6 +275,13 @@ with prefix, s is returned unchanged.
 
 Returns a slice of the string s with all trailing Unicode code points
 contained in cutset removed.
+
+---
+
+`TrimRightFunc(s string, f func(char) bool) -> string`
+
+Returns a slice of the string s with all trailing Unicode code points
+c satisfying f(c) removed.
 
 ---
 

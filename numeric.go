@@ -1,13 +1,15 @@
-// Copyright (c) 2020-2022 Ozan Hacıbekiroğlu.
+// Copyright (c) 2020-2023 Ozan Hacıbekiroğlu.
 // Use of this source code is governed by a MIT License
 // that can be found in the LICENSE file.
 
 package ugo
 
 import (
+	"fmt"
 	"strconv"
 	"strings"
 
+	"github.com/ozanh/ugo/internal/compat"
 	"github.com/ozanh/ugo/token"
 )
 
@@ -151,6 +153,12 @@ func (o Int) BinaryOp(tok token.Token, right Object) (Object, error) {
 	)
 }
 
+// Format implements fmt.Formatter interface.
+func (o Int) Format(s fmt.State, verb rune) {
+	format := compat.FmtFormatString(s, verb)
+	fmt.Fprintf(s, format, int64(o))
+}
+
 // Uint represents unsigned integer values and implements Object interface.
 type Uint uint64
 
@@ -291,6 +299,12 @@ func (o Uint) BinaryOp(tok token.Token, right Object) (Object, error) {
 	)
 }
 
+// Format implements fmt.Formatter interface.
+func (o Uint) Format(s fmt.State, verb rune) {
+	format := compat.FmtFormatString(s, verb)
+	fmt.Fprintf(s, format, uint64(o))
+}
+
 // Float represents float values and implements Object interface.
 type Float float64
 
@@ -403,6 +417,12 @@ func (o Float) BinaryOp(tok token.Token, right Object) (Object, error) {
 		o.TypeName(),
 		right.TypeName(),
 	)
+}
+
+// Format implements fmt.Formatter interface.
+func (o Float) Format(s fmt.State, verb rune) {
+	format := compat.FmtFormatString(s, verb)
+	fmt.Fprintf(s, format, float64(o))
 }
 
 // Char represents a rune and implements Object interface.
@@ -562,4 +582,10 @@ func (o Char) BinaryOp(tok token.Token, right Object) (Object, error) {
 		o.TypeName(),
 		right.TypeName(),
 	)
+}
+
+// Format implements fmt.Formatter interface.
+func (o Char) Format(s fmt.State, verb rune) {
+	format := compat.FmtFormatString(s, verb)
+	fmt.Fprintf(s, format, rune(o))
 }

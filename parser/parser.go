@@ -1,6 +1,6 @@
 // A modified version Go and Tengo parsers.
 
-// Copyright (c) 2020-2022 Ozan Hacıbekiroğlu.
+// Copyright (c) 2020-2023 Ozan Hacıbekiroğlu.
 // Use of this source code is governed by a MIT License
 // that can be found in the LICENSE file.
 
@@ -188,6 +188,7 @@ func (p *Parser) ParseFile() (file *File, err error) {
 	}
 
 	stmts := p.parseStmtList()
+	p.expect(token.EOF)
 	if p.errors.Len() > 0 {
 		return nil, p.errors.Err()
 	}

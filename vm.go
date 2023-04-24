@@ -1,4 +1,4 @@
-// Copyright (c) 2020-2022 Ozan Hacıbekiroğlu.
+// Copyright (c) 2020-2023 Ozan Hacıbekiroğlu.
 // Use of this source code is governed by a MIT License
 // that can be found in the LICENSE file.
 
@@ -34,6 +34,8 @@ type VM struct {
 	frameIndex   int
 	bytecode     *Bytecode
 	modulesCache []Object
+	globals      Object
+	pool         vmPool
 	mu           sync.Mutex
 	err          error
 	noPanic      bool
@@ -49,6 +51,7 @@ func NewVM(bc *Bytecode) *VM {
 		bytecode:  bc,
 		constants: constants,
 	}
+	vm.pool.root = vm
 	return vm
 }
 
@@ -79,8 +82,15 @@ func (vm *VM) Clear() *VM {
 	for i := range vm.stack {
 		vm.stack[i] = nil
 	}
+	vm.pool.clear()
 	vm.modulesCache = nil
+	vm.globals = nil
 	return vm
+}
+
+// GetGlobals returns global variables.
+func (vm *VM) GetGlobals() Object {
+	return vm.globals
 }
 
 // GetLocals returns variables from stack up to the NumLocals of given Bytecode.
@@ -110,8 +120,9 @@ func (vm *VM) RunCompiledFunction(
 	args ...Object,
 ) (Object, error) {
 	vm.mu.Lock()
+	defer vm.mu.Unlock()
+
 	if vm.bytecode == nil {
-		vm.mu.Unlock()
 		return nil, errors.New("invalid Bytecode")
 	}
 
@@ -125,14 +136,20 @@ func (vm *VM) RunCompiledFunction(
 	for i := range vm.stack {
 		vm.stack[i] = nil
 	}
-
-	vm.mu.Unlock()
-	return vm.Run(globals, args...)
+	return vm.init(globals, args...)
 }
 
-// Abort aborts the VM execution.
+// Abort aborts the VM execution. It is safe to call this method from another
+// goroutine.
 func (vm *VM) Abort() {
+	vm.pool.abort(vm)
 	atomic.StoreInt64(&vm.abort, 1)
+}
+
+// Aborted reports whether VM is aborted. It is safe to call this method from
+// another goroutine.
+func (vm *VM) Aborted() bool {
+	return atomic.LoadInt64(&vm.abort) == 1
 }
 
 // Run runs VM and executes the instructions until the OpReturn Opcode or Abort call.
@@ -140,42 +157,34 @@ func (vm *VM) Run(globals Object, args ...Object) (Object, error) {
 	vm.mu.Lock()
 	defer vm.mu.Unlock()
 
+	return vm.init(globals, args...)
+}
+
+func (vm *VM) init(globals Object, args ...Object) (Object, error) {
 	if vm.bytecode == nil || vm.bytecode.Main == nil {
 		return nil, errors.New("invalid Bytecode")
 	}
 
 	vm.err = nil
 	atomic.StoreInt64(&vm.abort, 0)
+	vm.initGlobals(globals)
 	vm.initLocals(args)
-	vm.initCurFrame()
+	vm.initCurrentFrame()
 	vm.frameIndex = 1
 	vm.ip = -1
 	vm.sp = vm.curFrame.fn.NumLocals
 
 	// Resize modules cache or create it if not exists.
 	// Note that REPL can set module cache before running, don't recreate it add missing indexes.
-	if len(vm.modulesCache) < vm.bytecode.NumModules {
-		diff := vm.bytecode.NumModules - len(vm.modulesCache)
+	if diff := vm.bytecode.NumModules - len(vm.modulesCache); diff > 0 {
 		for i := 0; i < diff; i++ {
 			vm.modulesCache = append(vm.modulesCache, nil)
 		}
 	}
 
-	func() {
-		defer func() {
-			if vm.noPanic {
-				if r := recover(); r != nil {
-					vm.handlePanic(r, globals)
-				}
-			}
-			vm.clearCurFrame()
-		}()
-		if globals == nil {
-			globals = Map{}
-		}
-		vm.run(globals)
-	}()
-
+	for run := true; run; {
+		run = vm.run()
+	}
 	if vm.err != nil {
 		return nil, vm.err
 	}
@@ -189,7 +198,22 @@ func (vm *VM) Run(globals Object, args ...Object) (Object, error) {
 	return nil, ErrStackOverflow
 }
 
-func (vm *VM) run(globals Object) {
+func (vm *VM) run() (rerun bool) {
+	defer func() {
+		if vm.noPanic {
+			if r := recover(); r != nil {
+				vm.handlePanic(r)
+				rerun = vm.err == nil
+				return
+			}
+		}
+		vm.clearCurrentFrame()
+	}()
+	vm.loop()
+	return
+}
+
+func (vm *VM) loop() {
 VMLoop:
 	for atomic.LoadInt64(&vm.abort) == 0 {
 		vm.ip++
@@ -324,7 +348,16 @@ VMLoop:
 			vm.stack[vm.sp] = False
 			vm.sp++
 		case OpCall:
-			err := vm.execOpCall()
+			err := vm.xOpCall()
+			if err == nil {
+				continue
+			}
+			if err = vm.throwGenErr(err); err != nil {
+				vm.err = err
+				return
+			}
+		case OpCallName:
+			err := vm.xOpCallName()
 			if err == nil {
 				continue
 			}
@@ -352,7 +385,7 @@ VMLoop:
 			if vm.frameIndex == 1 {
 				return
 			}
-			vm.clearCurFrame()
+			vm.clearCurrentFrame()
 			parent := &(vm.frames[vm.frameIndex-2])
 			vm.frameIndex--
 			vm.ip = parent.ip
@@ -360,20 +393,7 @@ VMLoop:
 			vm.curInsts = vm.curFrame.fn.Instructions
 		case OpGetBuiltin:
 			builtinIndex := BuiltinType(int(vm.curInsts[vm.ip+1]))
-			var builtin Object
-			if builtinIndex == BuiltinGlobals {
-				// let panic if somehow builtins updated
-				bf := BuiltinObjects[builtinIndex].(*BuiltinFunction)
-				builtin = &BuiltinFunction{
-					Name: bf.Name,
-					Value: func(_ ...Object) (Object, error) {
-						return globals, nil
-					},
-				}
-			} else {
-				builtin = BuiltinObjects[builtinIndex]
-			}
-			vm.stack[vm.sp] = builtin
+			vm.stack[vm.sp] = BuiltinObjects[builtinIndex]
 			vm.sp++
 			vm.ip++
 		case OpClosure:
@@ -437,7 +457,7 @@ VMLoop:
 			index := vm.constants[cidx]
 			var ret Object
 			var err error
-			ret, err = globals.IndexGet(index)
+			ret, err = vm.globals.IndexGet(index)
 
 			if err != nil {
 				if err := vm.throwGenErr(err); err != nil {
@@ -464,7 +484,7 @@ VMLoop:
 				value = *v.Value
 			}
 
-			if err := globals.IndexSet(index, value); err != nil {
+			if err := vm.globals.IndexSet(index, value); err != nil {
 				if err := vm.throwGenErr(err); err != nil {
 					vm.err = err
 					return
@@ -560,7 +580,7 @@ VMLoop:
 			vm.stack[vm.sp-1] = nil
 			vm.sp -= 3
 		case OpSliceIndex:
-			err := vm.execOpSliceIndex()
+			err := vm.xOpSliceIndex()
 			if err == nil {
 				continue
 			}
@@ -674,13 +694,14 @@ VMLoop:
 			vm.modulesCache[midx] = value
 			vm.ip += 2
 		case OpSetupTry:
-			vm.execOpSetupTry()
+			vm.xOpSetupTry()
 		case OpSetupCatch:
-			vm.execOpSetupCatch()
+			vm.xOpSetupCatch()
 		case OpSetupFinally:
-			vm.execOpSetupFinally()
+			vm.xOpSetupFinally()
 		case OpThrow:
-			if err := vm.execOpThrow(); err != nil {
+			err := vm.xOpThrow()
+			if err != nil {
 				vm.err = err
 				return
 			}
@@ -703,7 +724,7 @@ VMLoop:
 			// set ip to finally's position
 			vm.ip = pos - 1
 		case OpUnary:
-			err := vm.execOpUnary()
+			err := vm.xOpUnary()
 			if err == nil {
 				continue
 			}
@@ -720,6 +741,13 @@ VMLoop:
 	vm.err = ErrVMAborted
 }
 
+func (vm *VM) initGlobals(globals Object) {
+	if globals == nil {
+		globals = Map{}
+	}
+	vm.globals = globals
+}
+
 func (vm *VM) initLocals(args []Object) {
 	// init all params as undefined
 	numParams := vm.bytecode.Main.NumParams
@@ -729,34 +757,29 @@ func (vm *VM) initLocals(args []Object) {
 	for i := 0; i < vm.bytecode.Main.NumLocals; i++ {
 		locals[i] = Undefined
 	}
+	if numParams <= 0 {
+		return
+	}
 
-	// if main function is variadic, default value for last argument is empty array
+	if len(args) < numParams {
+		if vm.bytecode.Main.Variadic {
+			locals[numParams-1] = Array{}
+		}
+		copy(locals, args)
+		return
+	}
+
 	if vm.bytecode.Main.Variadic {
-		vm.stack[numParams-1] = Array{}
+		vargs := args[numParams-1:]
+		arr := make(Array, 0, len(vargs))
+		locals[numParams-1] = append(arr, vargs...)
+	} else {
+		locals[numParams-1] = args[numParams-1]
 	}
-
-	// copy args to stack
-	if numParams > 0 {
-		if len(args) < numParams {
-			copy(locals, args)
-			return
-		}
-
-		if len(args) >= numParams {
-			for i := range args[:numParams-1] {
-				locals[i] = args[i]
-			}
-
-			if vm.bytecode.Main.Variadic {
-				locals[numParams-1] = append(Array{}, args[numParams-1:]...)
-			} else {
-				locals[numParams-1] = args[numParams-1]
-			}
-		}
-	}
+	copy(locals, args[:numParams-1])
 }
 
-func (vm *VM) initCurFrame() {
+func (vm *VM) initCurrentFrame() {
 	// initialize frame and pointers
 	vm.curInsts = vm.bytecode.Main.Instructions
 	vm.curFrame = &(vm.frames[0])
@@ -772,16 +795,14 @@ func (vm *VM) initCurFrame() {
 	vm.curFrame.basePointer = 0
 }
 
-func (vm *VM) clearCurFrame() {
+func (vm *VM) clearCurrentFrame() {
 	vm.curFrame.freeVars = nil
 	vm.curFrame.fn = nil
 	vm.curFrame.errHandlers = nil
 }
 
-func (vm *VM) handlePanic(r interface{}, globals Object) {
-	if vm.sp < stackSize &&
-		vm.frameIndex <= frameSize &&
-		vm.err == nil {
+func (vm *VM) handlePanic(r interface{}) {
+	if vm.sp < stackSize && vm.frameIndex <= frameSize && vm.err == nil {
 
 		if err := vm.throwGenErr(fmt.Errorf("%v", r)); err != nil {
 			vm.err = err
@@ -790,10 +811,7 @@ func (vm *VM) handlePanic(r interface{}, globals Object) {
 				vm.err = fmt.Errorf("panic: %v %w\nGo Stack:\n%s",
 					r, vm.err, gostack)
 			}
-			return
 		}
-
-		vm.run(globals)
 		return
 	}
 
@@ -807,7 +825,7 @@ func (vm *VM) handlePanic(r interface{}, globals Object) {
 	vm.err = fmt.Errorf("panic: %v\nGo Stack:\n%s", r, gostack)
 }
 
-func (vm *VM) execOpSetupTry() {
+func (vm *VM) xOpSetupTry() {
 	catch := int(vm.curInsts[vm.ip+2]) | int(vm.curInsts[vm.ip+1])<<8
 	finally := int(vm.curInsts[vm.ip+4]) | int(vm.curInsts[vm.ip+3])<<8
 
@@ -829,7 +847,7 @@ func (vm *VM) execOpSetupTry() {
 	vm.ip += 4
 }
 
-func (vm *VM) execOpSetupCatch() {
+func (vm *VM) xOpSetupCatch() {
 	value := Undefined
 	errHandlers := vm.curFrame.errHandlers
 
@@ -849,7 +867,7 @@ func (vm *VM) execOpSetupCatch() {
 	//Either OpSetLocal or OpPop is generated by compiler to handle error
 }
 
-func (vm *VM) execOpSetupFinally() {
+func (vm *VM) xOpSetupFinally() {
 	errHandlers := vm.curFrame.errHandlers
 
 	if errHandlers.hasHandler() {
@@ -859,7 +877,7 @@ func (vm *VM) execOpSetupFinally() {
 	}
 }
 
-func (vm *VM) execOpThrow() error {
+func (vm *VM) xOpThrow() error {
 	op := vm.curInsts[vm.ip+1]
 	vm.ip++
 
@@ -982,152 +1000,219 @@ func (vm *VM) handleThrownError(frame *frame, err *RuntimeError) error {
 	return nil
 }
 
-func (vm *VM) execOpCall() error {
+func (vm *VM) xOpCallName() error {
 	numArgs := int(vm.curInsts[vm.ip+1])
-	expand := int(vm.curInsts[vm.ip+2]) // 0 or 1
-	callee := vm.stack[vm.sp-numArgs-1]
+	flags := int(vm.curInsts[vm.ip+2]) // 0 or 1
+	obj := vm.stack[vm.sp-numArgs-2]
+	name := vm.stack[vm.sp-1]
 
-	if compFunc, ok := callee.(*CompiledFunction); ok {
-		basePointer := vm.sp - numArgs
-		numLocals := compFunc.NumLocals
-		numParams := compFunc.NumParams
-		if expand == 0 {
-			if !compFunc.Variadic {
-				if numArgs != numParams {
-					return ErrWrongNumArguments.NewError(
-						wantEqXGotY(numParams, numArgs),
-					)
-				}
-			} else {
-				if numArgs < numParams-1 {
-					// f := func(a, ...b) {}
-					// f()
-					return ErrWrongNumArguments.NewError(
-						wantGEqXGotY(numParams-1, numArgs),
-					)
-				}
-				if numArgs == numParams-1 {
-					// f := func(a, ...b) {} // a==1 b==[]
-					// f(1)
-					vm.stack[basePointer+numArgs] = Array{}
-				} else {
-					// f := func(a, ...b) {} // a == 1  b == [] // a == 1  b == [2, 3]
-					// f(1, 2) // f(1, 2, 3)
-					arr := vm.stack[basePointer+numParams-1 : basePointer+numArgs]
-					vm.stack[basePointer+numParams-1] = append(Array{}, arr...)
-				}
-			}
-		} else {
-			var arrSize int
-			if arr, ok := vm.stack[basePointer+numArgs-1].(Array); ok {
-				arrSize = len(arr)
-			} else {
-				return NewArgumentTypeError("last", "array",
-					vm.stack[basePointer+numArgs-1].TypeName())
-			}
-			if compFunc.Variadic {
-				if numArgs < numParams {
-					// f := func(a, ...b) {}
-					// f(...[1]) // f(...[1, 2])
-					if arrSize+numArgs < numParams {
-						// f := func(a, ...b) {}
-						// f(...[])
-						return ErrWrongNumArguments.NewError(
-							wantGEqXGotY(numParams-1, arrSize+numArgs-1),
-						)
-					}
-					tempBuf := make(Array, 0, arrSize+numArgs)
-					tempBuf = append(tempBuf,
-						vm.stack[basePointer:basePointer+numArgs-1]...)
-					tempBuf = append(tempBuf,
-						vm.stack[basePointer+numArgs-1].(Array)...)
-					copy(vm.stack[basePointer:], tempBuf[:numParams-1])
-					arr := tempBuf[numParams-1:]
-					vm.stack[basePointer+numParams-1] = append(Array{}, arr...)
-				} else if numArgs > numParams {
-					// f := func(a, ...b) {} // a == 1  b == [2, 3]
-					// f(1, 2, ...[3])
-					arr := append(Array{},
-						vm.stack[basePointer+numParams-1:basePointer+numArgs-1]...)
-					arr = append(arr, vm.stack[basePointer+numArgs-1].(Array)...)
-					vm.stack[basePointer+numParams-1] = arr
-				}
-			} else {
-				if arrSize+numArgs-1 != numParams {
-					// f := func(a, b) {}
-					// f(1, ...[2, 3, 4])
-					return ErrWrongNumArguments.NewError(
-						wantEqXGotY(numParams, arrSize+numArgs-1),
-					)
-				}
-				// f := func(a, b) {}
-				// f(...[1, 2])
-				arr := vm.stack[basePointer+numArgs-1].(Array)
-				copy(vm.stack[basePointer+numArgs-1:], arr)
+	vm.sp--
+	vm.stack[vm.sp] = nil
+
+	var err error
+
+	if nameCaller, ok := obj.(NameCallerObject); ok {
+		var vargs []Object
+		if flags > 0 {
+			vargs, err = lastAsSlice(vm)
+			if err != nil {
+				return err
 			}
 		}
+		c := Call{
+			vm:    vm,
+			args:  vm.stack[vm.sp-numArgs : vm.sp-flags],
+			vargs: vargs,
+		}
+		ret, err := nameCaller.CallName(name.String(), c)
 
-		for i := numParams; i < numLocals; i++ {
-			vm.stack[basePointer+i] = Undefined
+		for i := 0; i < numArgs; i++ {
+			vm.sp--
+			vm.stack[vm.sp] = nil
 		}
 
-		// test if it's tail-call
-		if compFunc == vm.curFrame.fn { // recursion
-			nextOp := vm.curInsts[vm.ip+2+1]
-
-			if nextOp == OpReturn ||
-				(nextOp == OpPop && OpReturn == vm.curInsts[vm.ip+2+2]) {
-				curBp := vm.curFrame.basePointer
-				copy(vm.stack[curBp:curBp+numLocals], vm.stack[basePointer:])
-				newSp := vm.sp - numArgs - 1
-				for i := vm.sp; i >= newSp; i-- {
-					vm.stack[i] = nil
-				}
-				vm.sp = newSp
-				vm.ip = -1                    // reset ip to beginning of the frame
-				vm.curFrame.errHandlers = nil // reset error handlers if any set
-				return nil
-			}
+		if err != nil {
+			return err
 		}
 
-		frame := &(vm.frames[vm.frameIndex])
-		vm.frameIndex++
+		vm.stack[vm.sp-1] = ret
+		//vm.sp++
 
-		if vm.frameIndex > frameSize-1 {
-			return ErrStackOverflow
-		}
-
-		frame.fn = compFunc
-		frame.freeVars = compFunc.Free
-		frame.errHandlers = nil
-		frame.basePointer = basePointer
-
-		vm.curFrame.ip = vm.ip + 2
-		vm.curInsts = compFunc.Instructions
-		vm.curFrame = frame
-		vm.sp = basePointer + numLocals
-		vm.ip = -1
+		//vm.sp = vm.sp - numArgs
+		vm.ip += 2
 		return nil
 	}
+	v, err := obj.IndexGet(name)
+	if err != nil {
+		return err
+	}
+	vm.stack[vm.sp-numArgs-1] = v
+	return vm.xOpCallAny(v, numArgs, flags)
+}
 
+func (vm *VM) xOpCall() error {
+	numArgs := int(vm.curInsts[vm.ip+1])
+	flags := int(vm.curInsts[vm.ip+2]) // 0 or 1
+	callee := vm.stack[vm.sp-numArgs-1]
+	return vm.xOpCallAny(callee, numArgs, flags)
+}
+
+func (vm *VM) xOpCallAny(callee Object, numArgs, flags int) error {
+	if cfunc, ok := callee.(*CompiledFunction); ok {
+		return vm.xOpCallCompiled(cfunc, numArgs, flags)
+	}
+	return vm.xOpCallObject(callee, numArgs, flags)
+}
+
+func (vm *VM) xOpCallCompiled(cfunc *CompiledFunction, numArgs, flags int) error {
+	basePointer := vm.sp - numArgs
+	numLocals := cfunc.NumLocals
+	numParams := cfunc.NumParams
+
+	if flags == 0 {
+		if !cfunc.Variadic {
+			if numArgs != numParams {
+				return ErrWrongNumArguments.NewError(
+					wantEqXGotY(numParams, numArgs),
+				)
+			}
+		} else {
+			if numArgs < numParams-1 {
+				// f := func(a, ...b) {}
+				// f()
+				return ErrWrongNumArguments.NewError(
+					wantGEqXGotY(numParams-1, numArgs),
+				)
+			}
+			if numArgs == numParams-1 {
+				// f := func(a, ...b) {} // a==1 b==[]
+				// f(1)
+				vm.stack[basePointer+numArgs] = Array{}
+			} else {
+				// f := func(a, ...b) {} // a == 1  b == [] // a == 1  b == [2, 3]
+				// f(1, 2) // f(1, 2, 3)
+				arr := vm.stack[basePointer+numParams-1 : basePointer+numArgs]
+				vm.stack[basePointer+numParams-1] = append(Array{}, arr...)
+			}
+		}
+	} else {
+		var arrSize int
+		if arr, ok := vm.stack[basePointer+numArgs-1].(Array); ok {
+			arrSize = len(arr)
+		} else {
+			return NewArgumentTypeError("last", "array",
+				vm.stack[basePointer+numArgs-1].TypeName())
+		}
+		if cfunc.Variadic {
+			if numArgs < numParams {
+				// f := func(a, ...b) {}
+				// f(...[1]) // f(...[1, 2])
+				if arrSize+numArgs < numParams {
+					// f := func(a, ...b) {}
+					// f(...[])
+					return ErrWrongNumArguments.NewError(
+						wantGEqXGotY(numParams-1, arrSize+numArgs-1),
+					)
+				}
+				tempBuf := make(Array, 0, arrSize+numArgs)
+				tempBuf = append(tempBuf,
+					vm.stack[basePointer:basePointer+numArgs-1]...)
+				tempBuf = append(tempBuf,
+					vm.stack[basePointer+numArgs-1].(Array)...)
+				copy(vm.stack[basePointer:], tempBuf[:numParams-1])
+				arr := tempBuf[numParams-1:]
+				vm.stack[basePointer+numParams-1] = append(Array{}, arr...)
+			} else if numArgs > numParams {
+				// f := func(a, ...b) {} // a == 1  b == [2, 3]
+				// f(1, 2, ...[3])
+				arr := append(Array{},
+					vm.stack[basePointer+numParams-1:basePointer+numArgs-1]...)
+				arr = append(arr, vm.stack[basePointer+numArgs-1].(Array)...)
+				vm.stack[basePointer+numParams-1] = arr
+			}
+		} else {
+			if arrSize+numArgs-1 != numParams {
+				// f := func(a, b) {}
+				// f(1, ...[2, 3, 4])
+				return ErrWrongNumArguments.NewError(
+					wantEqXGotY(numParams, arrSize+numArgs-1),
+				)
+			}
+			// f := func(a, b) {}
+			// f(...[1, 2])
+			arr := vm.stack[basePointer+numArgs-1].(Array)
+			copy(vm.stack[basePointer+numArgs-1:], arr)
+		}
+	}
+
+	for i := numParams; i < numLocals; i++ {
+		vm.stack[basePointer+i] = Undefined
+	}
+
+	// test if it's tail-call
+	if cfunc == vm.curFrame.fn { // recursion
+		nextOp := vm.curInsts[vm.ip+2+1]
+
+		if nextOp == OpReturn ||
+			(nextOp == OpPop && OpReturn == vm.curInsts[vm.ip+2+2]) {
+			curBp := vm.curFrame.basePointer
+			copy(vm.stack[curBp:curBp+numLocals], vm.stack[basePointer:])
+			newSp := vm.sp - numArgs - 1
+			for i := vm.sp; i >= newSp; i-- {
+				vm.stack[i] = nil
+			}
+			vm.sp = newSp
+			vm.ip = -1                    // reset ip to beginning of the frame
+			vm.curFrame.errHandlers = nil // reset error handlers if any set
+			return nil
+		}
+	}
+
+	frame := &(vm.frames[vm.frameIndex])
+	vm.frameIndex++
+
+	if vm.frameIndex > frameSize-1 {
+		return ErrStackOverflow
+	}
+
+	frame.fn = cfunc
+	frame.freeVars = cfunc.Free
+	frame.errHandlers = nil
+	frame.basePointer = basePointer
+
+	vm.curFrame.ip = vm.ip + 2
+	vm.curInsts = cfunc.Instructions
+	vm.curFrame = frame
+	vm.sp = basePointer + numLocals
+	vm.ip = -1
+	return nil
+}
+
+func (vm *VM) xOpCallObject(callee Object, numArgs, flags int) error {
 	if !callee.CanCall() {
 		return ErrNotCallable.NewError(callee.TypeName())
 	}
 
-	args := make([]Object, numArgs-expand, numArgs)
-	k := copy(args, vm.stack[vm.sp-numArgs:vm.sp-expand])
-
-	if expand > 0 {
-		switch obj := vm.stack[vm.sp-1].(type) {
-		case Array:
-			args = append(args[:k], obj...)
-		default:
-			return NewArgumentTypeError("last", "array",
-				vm.stack[vm.sp-1].TypeName())
-		}
+	if c, ok := callee.(ExCallerObject); ok {
+		return vm.xOpCallExCaller(c, numArgs, flags)
 	}
 
-	for i := 0; i < numArgs+1; i++ {
+	var args []Object
+
+	if flags > 0 {
+		last, err := lastAsSlice(vm)
+		if err != nil {
+			return err
+		}
+		args = make([]Object, 0, numArgs-1+len(last))
+		args = append(args, vm.stack[vm.sp-numArgs:vm.sp-1]...)
+		args = append(args, last...)
+	} else {
+		args = make([]Object, 0, numArgs)
+		args = append(args, vm.stack[vm.sp-numArgs:vm.sp]...)
+	}
+
+	for i := 0; i < numArgs; i++ {
 		vm.sp--
 		vm.stack[vm.sp] = nil
 	}
@@ -1137,14 +1222,55 @@ func (vm *VM) execOpCall() error {
 		return err
 	}
 
-	vm.stack[vm.sp] = result
-	vm.sp++
+	vm.stack[vm.sp-1] = result
 	vm.ip += 2
-
 	return nil
 }
 
-func (vm *VM) execOpUnary() error {
+func (vm *VM) xOpCallExCaller(callee ExCallerObject, numArgs, flags int) error {
+	var err error
+	var vargs []Object
+	var args = vm.stack[vm.sp-numArgs : vm.sp-flags]
+
+	if flags > 0 {
+		vargs, err = lastAsSlice(vm)
+		if err != nil {
+			return err
+		}
+	}
+
+	c := Call{
+		vm:    vm,
+		args:  args,
+		vargs: vargs,
+	}
+
+	result, err := callee.CallEx(c)
+
+	for i := 0; i < numArgs; i++ {
+		vm.sp--
+		vm.stack[vm.sp] = nil
+	}
+
+	if err != nil {
+		return err
+	}
+
+	vm.stack[vm.sp-1] = result
+	vm.ip += 2
+	return nil
+}
+
+func lastAsSlice(vm *VM) ([]Object, error) {
+	switch arr := vm.stack[vm.sp-1].(type) {
+	case Array:
+		return arr, nil
+	default:
+		return nil, NewArgumentTypeError("last", "array", arr.TypeName())
+	}
+}
+
+func (vm *VM) xOpUnary() error {
 	tok := token.Token(vm.curInsts[vm.ip+1])
 	right := vm.stack[vm.sp-1]
 	var value Object
@@ -1219,7 +1345,7 @@ invalidType:
 			tok.String(), right.TypeName()))
 }
 
-func (vm *VM) execOpSliceIndex() error {
+func (vm *VM) xOpSliceIndex() error {
 	obj := vm.stack[vm.sp-3]
 	left := vm.stack[vm.sp-2]
 	right := vm.stack[vm.sp-1]
@@ -1346,7 +1472,6 @@ func (t *errHandlers) pop() bool {
 	if t == nil || len(t.handlers) == 0 {
 		return false
 	}
-
 	t.handlers = t.handlers[:len(t.handlers)-1]
 	return true
 }
@@ -1431,4 +1556,177 @@ func debugStack() []byte {
 		}
 		buf = make([]byte, 2*len(buf))
 	}
+}
+
+// Invoker invokes a given callee object (either a CompiledFunction or any other
+// callable object) with the given arguments.
+//
+// Invoker creates a new VM instance if the callee is a CompiledFunction,
+// otherwise it runs the callee directly. Every Invoker call checks if the VM is
+// aborted. If it is, it returns ErrVMAborted.
+//
+// Invoker is not safe for concurrent use by multiple goroutines.
+//
+// Acquire and Release methods are used to acquire and release a VM from the
+// pool. So it is possible to reuse a VM instance for multiple Invoke calls.
+// This is useful when you want to execute multiple functions in a single VM.
+// For example, you can use Acquire and Release to execute multiple functions
+// in a single VM instance.
+// Note that you should call Release after Acquire, if you want to reuse the VM.
+// If you don't want to use the pool, you can just call Invoke method.
+// It is unsafe to hold a reference to the VM after Release is called.
+// Using VM pool is about three times faster than creating a new VM for each
+// Invoke call.
+type Invoker struct {
+	vm         *VM
+	child      *VM
+	callee     Object
+	isCompiled bool
+	dorelease  bool
+}
+
+// NewInvoker creates a new Invoker object.
+func NewInvoker(vm *VM, callee Object) *Invoker {
+	inv := &Invoker{vm: vm, callee: callee}
+	_, inv.isCompiled = inv.callee.(*CompiledFunction)
+	return inv
+}
+
+// Acquire acquires a VM from the pool.
+func (inv *Invoker) Acquire() {
+	inv.acquire(true)
+}
+
+func (inv *Invoker) acquire(usePool bool) {
+	if !inv.isCompiled {
+		inv.child = inv.vm
+	}
+	if inv.child != nil {
+		return
+	}
+	inv.child = inv.vm.pool.acquire(
+		inv.callee.(*CompiledFunction),
+		usePool,
+	)
+	if usePool {
+		inv.dorelease = true
+	}
+}
+
+// Release releases the VM back to the pool if it was acquired from the pool.
+func (inv *Invoker) Release() {
+	if inv.child != nil && inv.dorelease {
+		inv.child.pool.release(inv.child)
+	}
+	inv.child = nil
+	inv.dorelease = false
+}
+
+// Invoke invokes the callee object with the given arguments.
+func (inv *Invoker) Invoke(args ...Object) (Object, error) {
+	if inv.child == nil {
+		inv.acquire(false)
+	}
+	if inv.child.Aborted() {
+		return Undefined, ErrVMAborted
+	}
+	if inv.isCompiled {
+		return inv.child.Run(inv.vm.globals, args...)
+	}
+	return inv.invokeObject(inv.callee, args...)
+}
+
+func (inv *Invoker) invokeObject(callee Object, args ...Object) (Object, error) {
+	if !callee.CanCall() {
+		return Undefined, ErrNotCallable.NewError(callee.TypeName())
+	}
+	if c, ok := callee.(ExCallerObject); ok {
+		return c.CallEx(
+			Call{
+				vm:    inv.vm,
+				vargs: args,
+			},
+		)
+	}
+	return callee.Call(args...)
+}
+
+type vmPool struct {
+	mu   sync.Mutex
+	root *VM
+	vms  map[*VM]struct{}
+}
+
+func (v *vmPool) abort(vm *VM) {
+	v.mu.Lock()
+	defer v.mu.Unlock()
+
+	for vm := range v.vms {
+		vm.Abort()
+	}
+}
+
+func (v *vmPool) acquire(cf *CompiledFunction, usePool bool) *VM {
+	var vm *VM
+	if usePool {
+		vm = vmSyncPool.Get().(*VM)
+	} else {
+		vm = &VM{bytecode: &Bytecode{}}
+	}
+	return v.root.pool._acquire(vm, cf)
+}
+
+func (v *vmPool) _acquire(vm *VM, cf *CompiledFunction) *VM {
+	v.mu.Lock()
+	defer v.mu.Unlock()
+
+	vm.bytecode.FileSet = v.root.bytecode.FileSet
+	vm.bytecode.Constants = v.root.bytecode.Constants
+	vm.bytecode.NumModules = v.root.bytecode.NumModules
+	vm.bytecode.Main = cf
+	vm.constants = v.root.bytecode.Constants
+	vm.modulesCache = v.root.modulesCache
+	vm.pool = vmPool{
+		root: v.root,
+	}
+	vm.noPanic = v.root.noPanic
+
+	if v.vms == nil {
+		v.vms = make(map[*VM]struct{})
+	}
+	v.vms[vm] = struct{}{}
+
+	return vm
+}
+
+func (v *vmPool) release(vm *VM) {
+	v.root.pool._release(vm)
+}
+
+func (v *vmPool) _release(vm *VM) {
+	v.mu.Lock()
+	delete(v.vms, vm)
+	v.mu.Unlock()
+
+	bc := vm.bytecode
+	*bc = Bytecode{}
+	*vm = VM{bytecode: bc}
+	vmSyncPool.Put(vm)
+}
+
+func (v *vmPool) clear() {
+	v.mu.Lock()
+	defer v.mu.Unlock()
+
+	for vm := range v.vms {
+		delete(v.vms, vm)
+	}
+}
+
+var vmSyncPool = sync.Pool{
+	New: func() interface{} {
+		return &VM{
+			bytecode: &Bytecode{},
+		}
+	},
 }

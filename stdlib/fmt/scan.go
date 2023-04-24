@@ -1,10 +1,24 @@
 package fmt
 
 import (
+	"reflect"
 	"strconv"
 
 	"github.com/ozanh/ugo"
+	"github.com/ozanh/ugo/registry"
 )
+
+func init() {
+	registry.RegisterAnyConverter(reflect.TypeOf((*scanArg)(nil)),
+		func(in interface{}) (interface{}, bool) {
+			sa := in.(*scanArg)
+			if sa.argValue != nil {
+				return sa.Arg(), true
+			}
+			return ugo.Undefined, false
+		},
+	)
+}
 
 // ScanArg is an interface that wraps methods required to scan argument with
 // scan functions.
@@ -52,13 +66,14 @@ func (o *scanArg) IndexGet(index ugo.Object) (ugo.Object, error) {
 
 func (o *scanArg) Set(scanned bool) { o.ok = scanned }
 
-func newScanArg(args ...ugo.Object) (ugo.Object, error) {
+func newScanArgFunc(c ugo.Call) (ugo.Object, error) {
 	typ := "string"
-	if len(args) > 0 {
-		if b, ok := args[0].(*ugo.BuiltinFunction); ok {
+	if c.Len() > 0 {
+		v := c.Get(0)
+		if b, ok := v.(*ugo.BuiltinFunction); ok {
 			typ = b.Name
 		} else {
-			typ = args[0].String()
+			typ = v.String()
 		}
 	}
 	var scan scanArg

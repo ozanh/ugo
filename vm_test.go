@@ -2515,7 +2515,7 @@ func TestVMSourceModules(t *testing.T) {
 	expectRun(t, `out := import("mod0"); return out`,
 		newOpts().Module("mod0", `if 1 { } else { }`), Undefined)
 	expectRun(t, `out := import("mod0"); return out`,
-		newOpts().Module("mod0", `for v:=0;;v++ { if v == 3 { break } } }`), Undefined)
+		newOpts().Module("mod0", `for v:=0;;v++ { if v == 3 { break } }`), Undefined)
 
 	// importing same module multiple times returns same object
 	expectRun(t, `

@@ -1,4 +1,4 @@
-// Copyright (c) 2020-2022 Ozan Hacıbekiroğlu.
+// Copyright (c) 2020-2023 Ozan Hacıbekiroğlu.
 // Use of this source code is governed by a MIT License
 // that can be found in the LICENSE file.
 
@@ -59,8 +59,11 @@ var Module = map[string]ugo.Object{
 	// It returns the number of bytes written and any encountered write error
 	// throws a runtime error.
 	"Print": &ugo.Function{
-		Name:  "Print",
-		Value: fnPrint(fmt.Print),
+		Name: "Print",
+		Value: func(args ...ugo.Object) (ugo.Object, error) {
+			return newPrint(fmt.Print)(ugo.NewCall(nil, args))
+		},
+		ValueEx: newPrint(fmt.Print),
 	},
 	// ugo:doc
 	// Printf(format string, ...any) -> int
@@ -68,8 +71,11 @@ var Module = map[string]ugo.Object{
 	// It returns the number of bytes written and any encountered write error
 	// throws a runtime error.
 	"Printf": &ugo.Function{
-		Name:  "Printf",
-		Value: fnPrintf(fmt.Printf),
+		Name: "Printf",
+		Value: func(args ...ugo.Object) (ugo.Object, error) {
+			return newPrintf(fmt.Printf)(ugo.NewCall(nil, args))
+		},
+		ValueEx: newPrintf(fmt.Printf),
 	},
 	// ugo:doc
 	// Println(...any) -> int
@@ -78,8 +84,11 @@ var Module = map[string]ugo.Object{
 	// is appended. It returns the number of bytes written and any encountered
 	// write error throws a runtime error.
 	"Println": &ugo.Function{
-		Name:  "Println",
-		Value: fnPrint(fmt.Println),
+		Name: "Println",
+		Value: func(args ...ugo.Object) (ugo.Object, error) {
+			return newPrint(fmt.Println)(ugo.NewCall(nil, args))
+		},
+		ValueEx: newPrint(fmt.Println),
 	},
 	// ugo:doc
 	// Sprint(...any) -> string
@@ -87,15 +96,21 @@ var Module = map[string]ugo.Object{
 	// resulting string. Spaces are added between operands when neither is a
 	// string.
 	"Sprint": &ugo.Function{
-		Name:  "Sprint",
-		Value: fnSprint(fmt.Sprint),
+		Name: "Sprint",
+		Value: func(args ...ugo.Object) (ugo.Object, error) {
+			return newSprint(fmt.Sprint)(ugo.NewCall(nil, args))
+		},
+		ValueEx: newSprint(fmt.Sprint),
 	},
 	// ugo:doc
 	// Sprintf(format string, ...any) -> string
 	// Formats according to a format specifier and returns the resulting string.
 	"Sprintf": &ugo.Function{
-		Name:  "Sprintf",
-		Value: fnSprintf(fmt.Sprintf),
+		Name: "Sprintf",
+		Value: func(args ...ugo.Object) (ugo.Object, error) {
+			return newSprintf(fmt.Sprintf)(ugo.NewCall(nil, args))
+		},
+		ValueEx: newSprintf(fmt.Sprintf),
 	},
 	// ugo:doc
 	// Sprintln(...any) -> string
@@ -103,8 +118,11 @@ var Module = map[string]ugo.Object{
 	// resulting string. Spaces are always added between operands and a newline
 	// is appended.
 	"Sprintln": &ugo.Function{
-		Name:  "Sprintln",
-		Value: fnSprint(fmt.Sprintln),
+		Name: "Sprintln",
+		Value: func(args ...ugo.Object) (ugo.Object, error) {
+			return newSprint(fmt.Sprintln)(ugo.NewCall(nil, args))
+		},
+		ValueEx: newSprint(fmt.Sprintln),
 	},
 	// ugo:doc
 	// Sscan(str string, ScanArg[, ...ScanArg]) -> int | error
@@ -113,8 +131,11 @@ var Module = map[string]ugo.Object{
 	// encountered, it returns the number of items successfully scanned. If that
 	// is less than the number of arguments, error will report why.
 	"Sscan": &ugo.Function{
-		Name:  "Sscan",
-		Value: fnSscan(fmt.Sscan),
+		Name: "Sscan",
+		Value: func(args ...ugo.Object) (ugo.Object, error) {
+			return newSscan(fmt.Sscan)(ugo.NewCall(nil, args))
+		},
+		ValueEx: newSscan(fmt.Sscan),
 	},
 	// ugo:doc
 	// Sscanf(str string, format string, ScanArg[, ...ScanArg]) -> int | error
@@ -123,16 +144,22 @@ var Module = map[string]ugo.Object{
 	// number of items successfully parsed or an error.
 	// Newlines in the input must match newlines in the format.
 	"Sscanf": &ugo.Function{
-		Name:  "Sscanf",
-		Value: fnSscanf(fmt.Sscanf),
+		Name: "Sscanf",
+		Value: func(args ...ugo.Object) (ugo.Object, error) {
+			return newSscanf(fmt.Sscanf)(ugo.NewCall(nil, args))
+		},
+		ValueEx: newSscanf(fmt.Sscanf),
 	},
 	// Sscanln(str string, ScanArg[, ...ScanArg]) -> int | error
 	// Sscanln is similar to Sscan, but stops scanning at a newline and after
 	// the final item there must be a newline or EOF. It returns the number of
 	// items successfully parsed or an error.
 	"Sscanln": &ugo.Function{
-		Name:  "Sscanln",
-		Value: fnSscan(fmt.Sscanln),
+		Name: "Sscanln",
+		Value: func(args ...ugo.Object) (ugo.Object, error) {
+			return newSscan(fmt.Sscanln)(ugo.NewCall(nil, args))
+		},
+		ValueEx: newSscan(fmt.Sscanln),
 	},
 	// ugo:doc
 	// ScanArg(typeName string) -> scanArg
@@ -145,102 +172,92 @@ var Module = map[string]ugo.Object{
 	// functions can be provided to get the type name from the BuiltinFunction's
 	// Name field.
 	"ScanArg": &ugo.Function{
-		Name:  "ScanArg",
-		Value: newScanArg,
+		Name: "ScanArg",
+		Value: func(args ...ugo.Object) (ugo.Object, error) {
+			return newScanArgFunc(ugo.NewCall(nil, args))
+		},
+		ValueEx: newScanArgFunc,
 	},
 }
 
-func fnPrint(fn func(...interface{}) (int, error)) ugo.CallableFunc {
-
-	return func(args ...ugo.Object) (ret ugo.Object, err error) {
-		vargs := argsToPrintArgs(0, args)
+func newPrint(fn func(...interface{}) (int, error)) ugo.CallableExFunc {
+	return func(c ugo.Call) (ret ugo.Object, err error) {
+		vargs := toPrintArgs(0, c)
 		n, err := fn(vargs...)
-		if err != nil {
-			return nil, err
-		}
-		return ugo.Int(n), nil
+		return ugo.Int(n), err
 	}
 }
 
-func fnPrintf(fn func(string, ...interface{}) (int, error)) ugo.CallableFunc {
-
-	return func(args ...ugo.Object) (ret ugo.Object, err error) {
-		if len(args) < 1 {
-			return nil, ugo.ErrWrongNumArguments.NewError(
-				"want>=1 got=" + strconv.Itoa(len(args)))
+func newPrintf(fn func(string, ...interface{}) (int, error)) ugo.CallableExFunc {
+	return func(c ugo.Call) (ret ugo.Object, err error) {
+		if c.Len() < 1 {
+			return ugo.Undefined, ugo.ErrWrongNumArguments.NewError(
+				"want>=1 got=" + strconv.Itoa(c.Len()))
 		}
-		vargs := argsToPrintArgs(1, args)
-		n, err := fn(args[0].String(), vargs...)
-		if err != nil {
-			return nil, err
-		}
-		return ugo.Int(n), nil
+		vargs := toPrintArgs(1, c)
+		n, err := fn(c.Get(0).String(), vargs...)
+		return ugo.Int(n), err
 	}
 }
 
-func fnSprint(fn func(...interface{}) string) ugo.CallableFunc {
-
-	return func(args ...ugo.Object) (ret ugo.Object, err error) {
-		vargs := argsToPrintArgs(0, args)
+func newSprint(fn func(...interface{}) string) ugo.CallableExFunc {
+	return func(c ugo.Call) (ret ugo.Object, err error) {
+		vargs := toPrintArgs(0, c)
 		return ugo.String(fn(vargs...)), nil
 	}
 }
 
-func fnSprintf(fn func(string, ...interface{}) string) ugo.CallableFunc {
-
-	return func(args ...ugo.Object) (ret ugo.Object, err error) {
-		if len(args) < 1 {
-			return nil, ugo.ErrWrongNumArguments.NewError(
-				"want>=1 got=" + strconv.Itoa(len(args)))
+func newSprintf(fn func(string, ...interface{}) string) ugo.CallableExFunc {
+	return func(c ugo.Call) (ret ugo.Object, err error) {
+		if c.Len() < 1 {
+			return ugo.Undefined, ugo.ErrWrongNumArguments.NewError(
+				"want>=1 got=" + strconv.Itoa(c.Len()))
 		}
-		vargs := argsToPrintArgs(1, args)
-		return ugo.String(fn(args[0].String(), vargs...)), nil
+		vargs := toPrintArgs(1, c)
+		return ugo.String(fn(c.Get(0).String(), vargs...)), nil
 	}
 }
 
-func fnSscan(fn func(string, ...interface{}) (int, error)) ugo.CallableFunc {
-
-	return func(args ...ugo.Object) (ret ugo.Object, err error) {
-		if len(args) < 2 {
-			return nil, ugo.ErrWrongNumArguments.NewError(
-				"want>=2 got=" + strconv.Itoa(len(args)))
+func newSscan(fn func(string, ...interface{}) (int, error)) ugo.CallableExFunc {
+	return func(c ugo.Call) (ret ugo.Object, err error) {
+		if c.Len() < 2 {
+			return ugo.Undefined, ugo.ErrWrongNumArguments.NewError(
+				"want>=2 got=" + strconv.Itoa(c.Len()))
 		}
-		offset := 1
-		vargs, err := argsToScanArgs(offset, args)
+		vargs, err := toScanArgs(1, c)
 		if err != nil {
-			return nil, err
+			return ugo.Undefined, err
 		}
-		n, err := fn(args[0].String(), vargs...)
-		return postScan(n, err, args[offset:]), nil
+		n, err := fn(c.Get(0).String(), vargs...)
+		return postScan(1, n, err, c), nil
 	}
 }
 
-func fnSscanf(
+func newSscanf(
 	fn func(string, string, ...interface{}) (int, error),
-) ugo.CallableFunc {
-
-	return func(args ...ugo.Object) (ret ugo.Object, err error) {
-		if len(args) < 3 {
-			return nil, ugo.ErrWrongNumArguments.NewError(
-				"want>=3 got=" + strconv.Itoa(len(args)))
+) ugo.CallableExFunc {
+	return func(c ugo.Call) (ret ugo.Object, err error) {
+		if c.Len() < 3 {
+			return ugo.Undefined, ugo.ErrWrongNumArguments.NewError(
+				"want>=3 got=" + strconv.Itoa(c.Len()))
 		}
-		offset := 2
-		vargs, err := argsToScanArgs(offset, args)
+		vargs, err := toScanArgs(2, c)
 		if err != nil {
-			return nil, err
+			return ugo.Undefined, err
 		}
-		n, err := fn(args[0].String(), args[1].String(), vargs...)
-		return postScan(n, err, args[offset:]), nil
+		n, err := fn(c.Get(0).String(), c.Get(1).String(), vargs...)
+		return postScan(2, n, err, c), nil
 	}
 }
 
-func argsToScanArgs(offset int, args []ugo.Object) ([]interface{}, error) {
-	vargs := make([]interface{}, 0, len(args)-offset)
-	for i := offset; i < len(args); i++ {
-		v, ok := args[i].(ScanArg)
+func toScanArgs(offset int, c ugo.Call) ([]interface{}, error) {
+	size := c.Len()
+	vargs := make([]interface{}, 0, size-offset)
+	for i := offset; i < size; i++ {
+		v, ok := c.Get(i).(ScanArg)
 		if !ok {
 			return nil, ugo.NewArgumentTypeError(strconv.Itoa(i),
-				"ScanArg interface", args[i].TypeName())
+				"ScanArg interface", c.Get(i).TypeName())
 		}
 		v.Set(false)
 		vargs = append(vargs, v.Arg())
@@ -248,18 +265,19 @@ func argsToScanArgs(offset int, args []ugo.Object) ([]interface{}, error) {
 	return vargs, nil
 }
 
-func argsToPrintArgs(offset int, args []ugo.Object) []interface{} {
-	vargs := make([]interface{}, 0, len(args)-offset)
-	for i := offset; i < len(args); i++ {
-		vargs = append(vargs, args[i])
+func toPrintArgs(offset int, c ugo.Call) []interface{} {
+	size := c.Len()
+	vargs := make([]interface{}, 0, size-offset)
+	for i := offset; i < size; i++ {
+		vargs = append(vargs, c.Get(i))
 	}
 	return vargs
 }
 
 // args are always of ScanArg interface type.
-func postScan(n int, err error, args []ugo.Object) ugo.Object {
-	for i := 0; i < n; i++ {
-		args[i].(ScanArg).Set(true)
+func postScan(offset, n int, err error, c ugo.Call) ugo.Object {
+	for i := offset; i < n+offset; i++ {
+		c.Get(i).(ScanArg).Set(true)
 	}
 	if err != nil {
 		return &ugo.Error{
