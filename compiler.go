@@ -417,7 +417,7 @@ func (c *Compiler) addConstant(obj Object) (index int) {
 	defer func() {
 		if c.trace != nil {
 			printTrace(c.indent, c.trace,
-				fmt.Sprintf("CONST %04d %s", index, obj))
+				fmt.Sprintf("CONST %04d %v", index, obj))
 		}
 	}()
 
