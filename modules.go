@@ -112,7 +112,7 @@ func (m *ModuleMap) Copy() *ModuleMap {
 	return c
 }
 
-// SourceModule is an importable module that's written in Tengo.
+// SourceModule is an importable module that's written in uGO.
 type SourceModule struct {
 	Src []byte
 }
