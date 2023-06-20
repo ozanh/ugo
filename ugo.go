@@ -21,6 +21,9 @@ const (
 // CallableFunc is a function signature for a callable function.
 type CallableFunc = func(args ...Object) (ret Object, err error)
 
+// ContextCallableFunc is a function signature for a callable function with context.
+type ContextCallableFunc = func(ctx *CallContext) (ret Object, err error)
+
 // ToObject will try to convert an interface{} v to an Object.
 func ToObject(v interface{}) (ret Object, err error) {
 	switch v := v.(type) {
@@ -95,6 +98,12 @@ func ToObject(v interface{}) (ret Object, err error) {
 	case CallableFunc:
 		if v != nil {
 			ret = &Function{Value: v}
+		} else {
+			ret = Undefined
+		}
+	case ContextCallableFunc:
+		if v != nil {
+			ret = &ContextFunction{Value: v}
 		} else {
 			ret = Undefined
 		}

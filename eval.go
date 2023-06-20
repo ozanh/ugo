@@ -47,7 +47,7 @@ func (r *Eval) Run(ctx context.Context, script []byte) (Object, *Bytecode, error
 		return nil, nil, err
 	}
 
-	bytecode.Main.NumParams = bytecode.Main.NumLocals
+	bytecode.Main.NumArgs = bytecode.Main.NumLocals
 	r.Opts.Constants = bytecode.Constants
 	r.fixOpPop(bytecode)
 	r.VM.SetBytecode(bytecode)

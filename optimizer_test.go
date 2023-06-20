@@ -182,13 +182,13 @@ func TestOptimizer(t *testing.T) {
 
 	callF0 := compFunc(concatInsts(
 		makeInst(OpConstant, 0),
-		makeInst(OpCall, 0, 0),
+		makeInst(OpCall, 0, 0, 0, 0),
 		makeInst(OpReturn, 1),
 	))
 
 	callF1 := compFunc(concatInsts(
 		makeInst(OpConstant, 1),
-		makeInst(OpCall, 0, 0),
+		makeInst(OpCall, 0, 0, 0, 0),
 		makeInst(OpReturn, 1),
 	))
 
@@ -560,7 +560,7 @@ func TestOptimizerShadowing(t *testing.T) {
 				makeInst(OpCall, 1, 0),
 				makeInst(OpReturn, 1),
 			),
-				withParams(1),
+				withArgs(1),
 				withLocals(1),
 			),
 		))
@@ -619,7 +619,7 @@ func TestOptimizerShadowing(t *testing.T) {
 				makeInst(OpCall, 1, 0),
 				makeInst(OpReturn, 1),
 			),
-				withParams(1),
+				withArgs(1),
 				withLocals(1),
 			),
 		),
@@ -680,7 +680,7 @@ func TestOptimizerShadowing(t *testing.T) {
 					makeInst(OpCall, 1, 0),
 					makeInst(OpReturn, 1),
 				),
-					withParams(1),
+					withArgs(1),
 					withLocals(1),
 				),
 				Int(1),

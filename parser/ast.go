@@ -13,6 +13,7 @@
 package parser
 
 import (
+	"bytes"
 	"strings"
 )
 
@@ -80,6 +81,160 @@ func (n *IdentList) String() string {
 	return "(" + strings.Join(list, ", ") + ")"
 }
 
+// ArgsList represents a list of identifiers.
+type ArgsList struct {
+	Var    *Ident
+	Values []*Ident
+}
+
+// Pos returns the position of first character belonging to the node.
+func (n *ArgsList) Pos() Pos {
+	if len(n.Values) > 0 {
+		return n.Values[0].Pos()
+	}
+	return NoPos
+}
+
+// End returns the position of first character immediately after the node.
+func (n *ArgsList) End() Pos {
+	if l := len(n.Values); l > 0 {
+		return n.Values[l-1].End()
+	}
+	return NoPos
+}
+
+// NumFields returns the number of fields.
+func (n *ArgsList) NumFields() int {
+	if n == nil {
+		return 0
+	}
+	return len(n.Values)
+}
+
+func (n *ArgsList) String() string {
+	var list []string
+	for _, e := range n.Values {
+		list = append(list, e.String())
+	}
+	if n.Var != nil {
+		list = append(list, "..."+n.Var.String())
+	}
+	return strings.Join(list, ", ")
+}
+
+// KwargsList represents a list of identifier with value pairs.
+type KwargsList struct {
+	Var    *Ident
+	Names  []*Ident
+	Values []Expr
+}
+
+// Pos returns the position of first character belonging to the node.
+func (n *KwargsList) Pos() Pos {
+	if len(n.Names) > 0 {
+		return n.Names[0].Pos()
+	}
+	return NoPos
+}
+
+// End returns the position of first character immediately after the node.
+func (n *KwargsList) End() Pos {
+	if l := len(n.Names); l > 0 {
+		if n.Var != nil {
+			return n.Var.End()
+		}
+		return n.Values[l-1].End()
+	}
+	return NoPos
+}
+
+// NumFields returns the number of fields.
+func (n *KwargsList) NumFields() int {
+	if n == nil {
+		return 0
+	}
+	return len(n.Names)
+}
+
+func (n *KwargsList) String() string {
+	var list []string
+	for i, e := range n.Names {
+		list = append(list, e.String()+" = "+n.Values[i].String())
+	}
+	if n.Var != nil {
+		list = append(list, "..."+n.Var.String())
+	}
+	return strings.Join(list, ", ")
+}
+
+// FuncParams represents a function paramsw.
+type FuncParams struct {
+	LParen   Pos
+	Args     ArgsList
+	ArgVar   *Ident
+	Kwargs   KwargsList
+	KwargVar *Ident
+	RParen   Pos
+}
+
+// Pos returns the position of first character belonging to the node.
+func (n *FuncParams) Pos() Pos {
+	if n.LParen.IsValid() {
+		return n.LParen
+	}
+	if len(n.Args.Values) > 0 {
+		return n.Args.Values[0].Pos()
+	}
+	if n.ArgVar != nil {
+		return n.ArgVar.Pos()
+	}
+	if len(n.Kwargs.Names) > 0 {
+		return n.Kwargs.Names[0].Pos()
+	}
+	if n.KwargVar != nil {
+		return n.KwargVar.Pos()
+	}
+	return NoPos
+}
+
+// End returns the position of first character immediately after the node.
+func (n *FuncParams) End() Pos {
+	if n.RParen.IsValid() {
+		return n.RParen + 1
+	}
+	if len(n.Kwargs.Names) > 0 {
+		return n.Kwargs.End()
+	}
+	if len(n.Args.Values) > 0 {
+		return n.Args.End()
+	}
+	return NoPos
+}
+
+func (n *FuncParams) String() string {
+	buf := bytes.NewBufferString("(")
+	if len(n.Args.Values) > 0 {
+		buf.WriteString(n.Args.String())
+	}
+	if n.ArgVar != nil {
+		buf.WriteString("...")
+		buf.WriteString(n.ArgVar.Name)
+	}
+	if len(n.Kwargs.Names) > 0 {
+		buf.WriteString("; ")
+		buf.WriteString(n.Kwargs.String())
+		if n.KwargVar != nil {
+			buf.WriteString(", ")
+		}
+	}
+	if n.KwargVar != nil {
+		buf.WriteString("...")
+		buf.WriteString(n.KwargVar.Name)
+	}
+	buf.WriteString(")")
+	return buf.String()
+}
+
 // ----------------------------------------------------------------------------
 // Comments
 
@@ -99,7 +254,6 @@ func (c *Comment) End() Pos {
 
 // A CommentGroup represents a sequence of comments
 // with no other tokens and no empty lines between.
-//
 type CommentGroup struct {
 	List []*Comment // len(List) > 0
 }
@@ -134,7 +288,7 @@ func (g *CommentGroup) Text() string {
 		// The parser has given us exactly the comment text.
 		switch c[1] {
 		case '/':
-			//-style comment (no newline at the end)
+			// -style comment (no newline at the end)
 			c = c[2:]
 			if len(c) == 0 {
 				// empty line

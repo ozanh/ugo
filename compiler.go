@@ -54,6 +54,7 @@ type (
 		moduleStore   *moduleStore
 		modulePath    string
 		variadic      bool
+		varKwargs     bool
 		loops         []*loopStmts
 		loopIndex     int
 		tryCatchIndex int
@@ -266,16 +267,25 @@ func (c *Compiler) Bytecode() *Bytecode {
 		c.emit(nil, OpReturn, 0)
 	}
 
+	cf := &CompiledFunction{
+		NumArgs:      c.symbolTable.numParams,
+		NumKwargs:    c.symbolTable.numKwargs,
+		NumLocals:    c.symbolTable.maxDefinition,
+		Instructions: c.instructions,
+		SourceMap:    c.sourceMap,
+	}
+
+	if c.variadic {
+		cf.VarArgs = true
+	}
+	if c.varKwargs {
+		cf.VarKwargs = true
+	}
+
 	return &Bytecode{
-		FileSet:   c.file.Set(),
-		Constants: c.constants,
-		Main: &CompiledFunction{
-			NumParams:    c.symbolTable.NumParams(),
-			NumLocals:    c.symbolTable.MaxSymbols(),
-			Variadic:     c.variadic,
-			Instructions: c.instructions,
-			SourceMap:    c.sourceMap,
-		},
+		FileSet:    c.file.Set(),
+		Constants:  c.constants,
+		Main:       cf,
 		NumModules: c.moduleStore.count,
 	}
 }
@@ -720,8 +730,7 @@ func MakeInstruction(buf []byte, op Opcode, args ...int) ([]byte, error) {
 		buf = append(buf, byte(args[1]))
 		return buf, nil
 	case OpCall:
-		buf = append(buf, byte(args[0]))
-		buf = append(buf, byte(args[1]))
+		buf = append(buf, byte(args[0]), byte(args[1]), byte(args[2]), byte(args[3]))
 		return buf, nil
 	case OpGetBuiltin, OpReturn, OpBinaryOp, OpUnary, OpGetIndex, OpGetLocal,
 		OpSetLocal, OpGetFree, OpSetFree, OpGetLocalPtr, OpGetFreePtr, OpThrow,
@@ -762,6 +771,10 @@ func FormatInstructions(b []byte, posOffset int) []string {
 			out = append(out, fmt.Sprintf("%04d %-7s %-5d %-5d",
 				posOffset+i, OpcodeNames[b[i]],
 				operands[0], operands[1]))
+		case 4:
+			out = append(out, fmt.Sprintf("%04d %-7s %-5d %-5d %-5d %-5d",
+				posOffset+i, OpcodeNames[b[i]],
+				operands[0], operands[1], operands[2], operands[3]))
 		}
 		i += 1 + offset
 	}

@@ -49,12 +49,6 @@ type Object interface {
 	// Equal checks equality of objects.
 	Equal(right Object) bool
 
-	// Call is called from VM if CanCall() returns true. Check the number of
-	// arguments provided and their types in the method. Returned error stops VM
-	// execution if not handled with an error handler and VM.Run returns the
-	// same error as wrapped.
-	Call(args ...Object) (Object, error)
-
 	// CanCall returns true if type can be called with Call() method.
 	// VM returns an error if one tries to call a noncallable object.
 	CanCall() bool
@@ -80,6 +74,33 @@ type Object interface {
 	// error. Returned error stops VM execution if not handled with an error
 	// handler and VM.Run returns the same error as wrapped.
 	IndexSet(index, value Object) error
+}
+
+type Caller interface {
+	Object
+
+	// Call is called from VM if CanCall() returns true. Check the number of
+	// arguments provided and their types in the method. Returned error stops VM
+	// execution if not handled with an error handler and VM.Run returns the
+	// same error as wrapped.
+	Call(args ...Object) (Object, error)
+}
+
+// CallContext represents call context.
+type CallContext struct {
+	Args   Array
+	Kwargs Map
+}
+
+// ContextCaller represents caller with context arg.
+type ContextCaller interface {
+	Object
+
+	// Call is called from VM if CanCall() returns true. Check the number of
+	// arguments provided and their types in the method. Returned error stops VM
+	// execution if not handled with an error handler and VM.Run returns the
+	// same error as wrapped.
+	Call(*CallContext) (Object, error)
 }
 
 // Copier wraps the Copy method to create a deep copy of the object.
@@ -692,6 +713,53 @@ func (o *Function) Call(args ...Object) (Object, error) {
 	return o.Value(args...)
 }
 
+// ContextFunction represents a function object and implements Object interface.
+type ContextFunction struct {
+	ObjectImpl
+	Name  string
+	Value func(caller *CallContext) (Object, error)
+}
+
+var _ Object = (*ContextFunction)(nil)
+
+// TypeName implements Object interface.
+func (*ContextFunction) TypeName() string {
+	return "context_function"
+}
+
+// String implements Object interface.
+func (o *ContextFunction) String() string {
+	return fmt.Sprintf("<context_function:%s>", o.Name)
+}
+
+// Copy implements Copier interface.
+func (o *ContextFunction) Copy() Object {
+	return &ContextFunction{
+		Name:  o.Name,
+		Value: o.Value,
+	}
+}
+
+// Equal implements Object interface.
+func (o *ContextFunction) Equal(right Object) bool {
+	v, ok := right.(*ContextFunction)
+	if !ok {
+		return false
+	}
+	return v == o
+}
+
+// IsFalsy implements Object interface.
+func (*ContextFunction) IsFalsy() bool { return false }
+
+// CanCall implements Object interface.
+func (*ContextFunction) CanCall() bool { return true }
+
+// Call implements ContextCaller interface.
+func (o *ContextFunction) Call(ctx *CallContext) (Object, error) {
+	return o.Value(ctx)
+}
+
 // BuiltinFunction represents a builtin function object and implements Object interface.
 type BuiltinFunction struct {
 	ObjectImpl
@@ -961,11 +1029,18 @@ func (o *ObjectPtr) CanCall() bool {
 }
 
 // Call implements Object interface.
-func (o *ObjectPtr) Call(args ...Object) (Object, error) {
+func (o *ObjectPtr) Call(ctx *CallContext) (Object, error) {
 	if o.Value == nil {
 		return nil, errors.New("nil pointer")
 	}
-	return (*o.Value).Call(args...)
+	switch t := (*o.Value).(type) {
+	case ContextCaller:
+		return t.Call(ctx)
+	case Caller:
+		return t.Call(ctx.Args...)
+	default:
+		return nil, errors.New("not callable")
+	}
 }
 
 // Map represents map of objects and implements Object interface.
@@ -1114,6 +1189,24 @@ func (o Map) IndexDelete(key Object) error {
 // Len implements LengthGetter interface.
 func (o Map) Len() int {
 	return len(o)
+}
+
+// IndexPop returns Object in map if exists and delete then, other else returns nil.
+func (o Map) IndexPop(index string) (value Object, exists bool) {
+	if value, exists = o[index]; exists {
+		delete(o, index)
+	}
+	return
+}
+
+// IndexPopDefault returns Object in map if exists and delete then, other else returns default value.
+func (o Map) IndexPopDefault(index string, defaul Object) (value Object, exists bool) {
+	if value, exists = o[index]; exists {
+		delete(o, index)
+	} else {
+		value = defaul
+	}
+	return
 }
 
 // SyncMap represents map of objects and implements Object interface.

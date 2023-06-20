@@ -43,6 +43,8 @@ type SymbolTable struct {
 	maxDefinition    int
 	numDefinition    int
 	numParams        int
+	numKwargs        int
+	varKwargs        bool
 	store            map[string]*Symbol
 	disabledBuiltins map[string]struct{}
 	frees            []*Symbol
@@ -102,6 +104,39 @@ func (st *SymbolTable) SetParams(params ...string) error {
 
 	st.numParams = len(params)
 	for _, param := range params {
+		if _, ok := st.store[param]; ok {
+			return fmt.Errorf("%q redeclared in this block", param)
+		}
+		symbol := &Symbol{
+			Name:  param,
+			Index: st.NextIndex(),
+			Scope: ScopeLocal,
+		}
+		st.numDefinition++
+		st.store[param] = symbol
+		st.updateMaxDefs(symbol.Index + 1)
+		st.shadowBuiltin(param)
+	}
+	return nil
+}
+
+// SetKeywordParams sets parameters defined in the scope. This can be called only once.
+func (st *SymbolTable) SetKeywordParams(names ...string) error {
+	if len(names) == 0 {
+		return nil
+	}
+
+	if st.numKwargs > 0 {
+		return errors.New("keyword parameters already defined")
+	}
+
+	if st.disableParams {
+		return errors.New("parameters disabled")
+	}
+
+	st.numKwargs = len(names)
+
+	for _, param := range names {
 		if _, ok := st.store[param]; ok {
 			return fmt.Errorf("%q redeclared in this block", param)
 		}
@@ -255,6 +290,11 @@ func (st *SymbolTable) MaxSymbols() int {
 // NumParams returns number of parameters for the scope.
 func (st *SymbolTable) NumParams() int {
 	return st.numParams
+}
+
+// NumKwargs returns number of parameters for the scope.
+func (st *SymbolTable) NumKwargs() int {
+	return st.numKwargs
 }
 
 // FreeSymbols returns registered free symbols for the scope.

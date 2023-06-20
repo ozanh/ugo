@@ -315,33 +315,104 @@ func (p *Parser) parseCall(x Expr) *CallExpr {
 	lparen := p.expect(token.LParen)
 	p.exprLevel++
 
-	var list []Expr
-	var ellipsis Pos
-	for p.token != token.RParen && p.token != token.EOF {
+	var (
+		args   CallExprArgs
+		kwargs CallExprKwargs
+	)
+
+	for p.token != token.RParen && p.token != token.EOF && p.token != token.Semicolon {
 		if p.token == token.Ellipsis {
-			ellipsis = p.pos
+			args.Ellipsis = p.pos
 			p.next()
-			list = append(list, p.parseExpr())
-			continue
+			args.Values = append(args.Values, p.parseExpr())
+			goto kw
 		}
-		list = append(list, p.parseExpr())
-		if ellipsis.IsValid() {
-			break
+		args.Values = append(args.Values, p.parseExpr())
+		switch p.token {
+		case token.Semicolon:
+			goto kw
+		case token.Assign: // is kwarg
+			name := args.Values[len(args.Values)-1]
+
+			switch t := name.(type) {
+			case *Ident:
+				args.Values = args.Values[:len(args.Values)-1]
+				kwargs.Names = []KwargNameExpr{{Ident: t}}
+				p.next()
+				kwargs.Values = append(kwargs.Values, p.parseExpr())
+				goto kw
+			case *StringLit:
+				args.Values = args.Values[:len(args.Values)-1]
+				kwargs.Names = []KwargNameExpr{{String: t}}
+				p.next()
+				kwargs.Values = append(kwargs.Values, p.parseExpr())
+				goto kw
+			default:
+				p.errorExpected(name.Pos(), "kwarg name (ident or string)")
+				return nil
+			}
 		}
-		if !p.atComma("argument list", token.RParen) {
+		if !p.atComma("call argument", token.RParen) {
 			break
 		}
 		p.next()
 	}
 
+kw:
+	if p.token == token.Semicolon || p.token == token.Comma {
+		p.next()
+
+		for {
+			switch p.token {
+			case token.Ellipsis:
+				kwargs.Ellipsis = p.pos
+				p.next()
+				kwargs.Var = p.parseExpr()
+				goto done
+			case token.RParen, token.EOF:
+				goto done
+			default:
+				expr := p.parsePrimaryExpr()
+				switch t := expr.(type) {
+				case *Ident:
+					kwargs.Names = append(kwargs.Names, KwargNameExpr{Ident: t})
+				case *StringLit:
+					kwargs.Names = append(kwargs.Names, KwargNameExpr{String: t})
+				case *CallExpr, *SelectorExpr:
+					kwargs.Values = append(kwargs.Values, t)
+					kwargs.Ellipsis = p.pos
+					p.expect(token.Ellipsis)
+					if !p.atComma("call argument", token.RParen) {
+						goto done
+					}
+				default:
+					pos := p.pos
+					p.errorExpected(pos, "ident|selector|call")
+					p.advance(stmtStart)
+					goto done
+				}
+
+				p.expect(token.Assign)
+				kwargs.Values = append(kwargs.Values, p.parseExpr())
+
+				if !p.atComma("call argument", token.RParen) {
+					break
+				}
+
+				p.next()
+			}
+		}
+	}
+
+done:
 	p.exprLevel--
 	rparen := p.expect(token.RParen)
 	return &CallExpr{
-		Func:     x,
-		LParen:   lparen,
-		RParen:   rparen,
-		Ellipsis: ellipsis,
-		Args:     list,
+		Func:   x,
+		LParen: lparen,
+		RParen: rparen,
+		Args:   args,
+		Kwargs: kwargs,
 	}
 }
 
@@ -604,10 +675,88 @@ func (p *Parser) parseFuncType() *FuncType {
 	}
 
 	pos := p.expect(token.Func)
-	params := p.parseIdentList()
+	params := p.parseFuncParams()
 	return &FuncType{
 		FuncPos: pos,
 		Params:  params,
+	}
+}
+
+func (p *Parser) parseFuncParams() *FuncParams {
+	if p.trace {
+		defer untracep(tracep(p, "FuncParams"))
+	}
+
+	var (
+		args   ArgsList
+		kwargs KwargsList
+	)
+
+	lparen := p.expect(token.LParen)
+	if p.token != token.RParen {
+		if p.token == token.Semicolon {
+			goto kws
+		} else if p.token == token.Ellipsis {
+			p.next()
+			args.Var = p.parseIdent()
+			goto kws
+		}
+
+		args.Values = append(args.Values, p.parseIdent())
+		for args.Var == nil && p.token == token.Comma {
+			p.next()
+			if p.token == token.Semicolon {
+				goto kws
+			} else if p.token == token.Ellipsis {
+				p.next()
+				args.Var = p.parseIdent()
+				goto kws
+			}
+			args.Values = append(args.Values, p.parseIdent())
+		}
+
+	kws:
+		if p.token == token.Semicolon {
+			p.next()
+			switch p.token {
+			case token.Semicolon:
+				goto done
+			case token.Ellipsis:
+				p.next()
+				kwargs.Var = p.parseIdent()
+			default:
+				kwargs.Names = append(kwargs.Names, p.parseIdent())
+				p.expect(token.Assign)
+				kwargs.Values = append(kwargs.Values, p.parseUnaryExpr())
+
+				for p.token == token.Comma {
+					p.next()
+					if p.token == token.Ellipsis {
+						p.next()
+						kwargs.Var = p.parseIdent()
+						break
+					} else {
+						kwargs.Names = append(kwargs.Names, p.parseIdent())
+						p.expect(token.Assign)
+						if p.token == token.LParen {
+							val := p.parseUnaryExpr().(*ParenExpr)
+							kwargs.Values = append(kwargs.Values, val.Expr)
+						} else {
+							kwargs.Values = append(kwargs.Values, p.parseUnaryExpr())
+						}
+					}
+				}
+			}
+		}
+	}
+done:
+	rparen := p.expect(token.RParen)
+
+	return &FuncParams{
+		LParen: lparen,
+		RParen: rparen,
+		Args:   args,
+		Kwargs: kwargs,
 	}
 }
 
@@ -1180,7 +1329,7 @@ func (p *Parser) parseSimpleStmt(forIn bool) Stmt {
 					p.errorExpected(x[1].Pos(), "identifier")
 					value = &Ident{Name: "_", NamePos: x[1].Pos()}
 				}
-				//TODO: no more than 2 idents
+				// TODO: no more than 2 idents
 			}
 			return &ForInStmt{
 				Key:      key,

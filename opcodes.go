@@ -104,15 +104,15 @@ var OpcodeNames = [...]string{
 // OpcodeOperands is the number of operands.
 var OpcodeOperands = [...][]int{
 	OpNoOp:         {},
-	OpConstant:     {2},    // constant index
-	OpCall:         {1, 1}, // number of arguments, expand
-	OpGetGlobal:    {2},    // constant index
-	OpSetGlobal:    {2},    // constant index
-	OpGetLocal:     {1},    // local variable index
-	OpSetLocal:     {1},    // local variable index
-	OpGetBuiltin:   {1},    // builtin index
-	OpBinaryOp:     {1},    // operator
-	OpUnary:        {1},    // operator
+	OpConstant:     {2},          // constant index
+	OpCall:         {1, 1, 1, 1}, // number of arguments, expand arguments, has kwargs, expand kwargs
+	OpGetGlobal:    {2},          // constant index
+	OpSetGlobal:    {2},          // constant index
+	OpGetLocal:     {1},          // local variable index
+	OpSetLocal:     {1},          // local variable index
+	OpGetBuiltin:   {1},          // builtin index
+	OpBinaryOp:     {1},          // operator
+	OpUnary:        {1},          // operator
 	OpEqual:        {},
 	OpNotEqual:     {},
 	OpJump:         {2}, // position

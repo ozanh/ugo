@@ -1005,11 +1005,6 @@ func TestParseCall(t *testing.T) {
 	expectParseError(t, `add(1, ...)`)
 	expectParseError(t, `add(1, ..., )`)
 	expectParseError(t, `add(a...)`)
-	expectParseError(t, `add(...a,)`)
-	expectParseError(t, `add(,)`)
-	expectParseError(t, "add(\n,)")
-	expectParseError(t, "add(1\n,)")
-	expectParseError(t, "add(1,2\n,)")
 }
 
 func TestParseChar(t *testing.T) {
@@ -2409,7 +2404,11 @@ func incDecStmt(
 }
 
 func funcType(params *IdentList, pos Pos) *FuncType {
-	return &FuncType{Params: params, FuncPos: pos}
+	var args ArgsList
+	if len(params.List) > 0 {
+		args = ArgsList{Values: params.List}
+	}
+	return &FuncType{Params: &FuncParams{LParen: params.LParen, RParen: params.RParen, Args: args}, FuncPos: pos}
 }
 
 func blockStmt(lbrace, rbrace Pos, list ...Stmt) *BlockStmt {
@@ -2514,13 +2513,29 @@ func parenExpr(x Expr, lparen, rparen Pos) *ParenExpr {
 	return &ParenExpr{Expr: x, LParen: lparen, RParen: rparen}
 }
 
-func callExpr(
-	f Expr,
-	lparen, rparen, ellipsis Pos,
-	args ...Expr,
-) *CallExpr {
-	return &CallExpr{Func: f, LParen: lparen, RParen: rparen,
-		Ellipsis: ellipsis, Args: args}
+func caledKwargsLit(pos Pos) *CalledKwargsLit {
+	return &CalledKwargsLit{TokenPos: pos}
+}
+
+func args(ellipsis Pos, args ...Expr) CallExprArgs {
+	return CallExprArgs{Ellipsis: ellipsis, Values: args}
+}
+
+func kwargs(ellipsis Pos, pairs ...interface{}) (kw CallExprKwargs) {
+	kw = CallExprKwargs{Ellipsis: ellipsis}
+	l := len(pairs)
+	if ellipsis.IsValid() {
+		l--
+	}
+	for i := 0; i < l; i += 2 {
+		kw.Names = append(kw.Names, KwargNameExpr{Ident: pairs[i].(*Ident)})
+		kw.Values = append(kw.Values, pairs[i+1].(Expr))
+	}
+	if ellipsis.IsValid() {
+		kw.Values = append(kw.Values, pairs[l].(Expr))
+	}
+
+	return
 }
 
 func indexExpr(
@@ -2675,6 +2690,21 @@ func equalStmt(t *testing.T, expected, actual Stmt) {
 	}
 }
 
+func callExpr(f Expr, lparen, rparen Pos, args ...interface{}) *CallExpr {
+	e := &CallExpr{Func: f, LParen: lparen, RParen: rparen}
+	for _, arg := range args {
+		switch t := arg.(type) {
+		case CallExprKwargs:
+			e.Kwargs = t
+		case CallExprArgs:
+			e.Args = t
+		case Expr:
+			e.Args.Values = append(e.Args.Values, t)
+		}
+	}
+	return e
+}
+
 func equalExpr(t *testing.T, expected, actual Expr) {
 	if expected == nil || reflect.ValueOf(expected).IsNil() {
 		require.Nil(t, actual, "expected nil, but got not nil")
@@ -2731,6 +2761,12 @@ func equalExpr(t *testing.T, expected, actual Expr) {
 	case *UndefinedLit:
 		require.Equal(t, expected.TokenPos,
 			actual.(*UndefinedLit).TokenPos)
+	case *CalledKwargsLit:
+		require.Equal(t, expected.TokenPos,
+			actual.(*CalledKwargsLit).TokenPos)
+	case *CalledArgsLit:
+		require.Equal(t, expected.TokenPos,
+			actual.(*CalledArgsLit).TokenPos)
 	case *BinaryExpr:
 		equalExpr(t, expected.LHS,
 			actual.(*BinaryExpr).LHS)
@@ -2759,8 +2795,10 @@ func equalExpr(t *testing.T, expected, actual Expr) {
 			actual.(*CallExpr).LParen)
 		require.Equal(t, expected.RParen,
 			actual.(*CallExpr).RParen)
-		equalExprs(t, expected.Args,
-			actual.(*CallExpr).Args)
+		equalExprs(t, expected.Args.Values,
+			actual.(*CallExpr).Args.Values)
+		equalExprs(t, expected.Kwargs.Values,
+			actual.(*CallExpr).Kwargs.Values)
 	case *ParenExpr:
 		equalExpr(t, expected.Expr,
 			actual.(*ParenExpr).Expr)
@@ -2819,7 +2857,8 @@ func equalExpr(t *testing.T, expected, actual Expr) {
 func equalFuncType(t *testing.T, expected, actual *FuncType) {
 	require.Equal(t, expected.Params.LParen, actual.Params.LParen)
 	require.Equal(t, expected.Params.RParen, actual.Params.RParen)
-	equalIdents(t, expected.Params.List, actual.Params.List)
+	equalIdents(t, expected.Params.Args.Values, actual.Params.Args.Values)
+	equalValueIdents(t, &expected.Params.Kwargs, &actual.Params.Kwargs)
 }
 
 func equalIdents(t *testing.T, expected, actual []*Ident) {
@@ -2827,6 +2866,19 @@ func equalIdents(t *testing.T, expected, actual []*Ident) {
 	for i := 0; i < len(expected); i++ {
 		equalExpr(t, expected[i], actual[i])
 	}
+}
+
+func equalValueIdents(t *testing.T, expected, actual *KwargsList) {
+	if expected == nil && actual == nil {
+		return
+	}
+	require.NotNil(t, expected, "expected is nil")
+	require.NotNil(t, actual, "actual is nil")
+
+	require.Equal(t, expected.Var, actual.Var)
+	equalIdents(t, expected.Names, actual.Names)
+	equalIdents(t, expected.Names, actual.Names)
+	equalExprs(t, actual.Values, expected.Values)
 }
 
 func equalExprs(t *testing.T, expected, actual []Expr) {
