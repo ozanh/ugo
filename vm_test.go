@@ -1237,7 +1237,7 @@ func TestBytes(t *testing.T) {
 	expectRun(t, `return "Hello " + bytes("World!")`,
 		nil, String("Hello World!"))
 
-	//slice
+	// slice
 	expectRun(t, `return bytes("")[:]`, nil, Bytes{})
 	expectRun(t, `return bytes("abcde")[:]`, nil, Bytes(String("abcde")))
 	expectRun(t, `return bytes("abcde")[0:]`, nil, Bytes(String("abcde")))
@@ -2931,6 +2931,7 @@ func TestVMString(t *testing.T) {
 }
 
 func TestVMTailCall(t *testing.T) {
+
 	expectRun(t, `
 	var fac
 	fac = func(n, a) {
@@ -3023,6 +3024,17 @@ func TestVMTailCall(t *testing.T) {
 	}
 	iter(0, 9999)
 	return c`, nil, Int(9999))
+
+	// tail call with kwargs
+	expectRun(t, `
+	var fac
+	fac = func(n, a;kw1=2,...kwargs) {
+		if n == 1 {
+			return a
+		}
+		return fac(n-1, n*a;...{x:5})
+	}
+	return fac(5, 1;kw1=6)`, nil, Int(120))
 }
 
 func TestVMTailCallFreeVars(t *testing.T) {
@@ -3199,6 +3211,30 @@ func TestVMCall(t *testing.T) {
 		nil, Map{"a": make(Bytes, 4096)})
 }
 
+func TestVMCallWithKwargs(t *testing.T) {
+	expectRun(t, `return func(;a=2) { return a }(;a=3)`, nil, Int(3))
+	expectRun(t, `return func(x;a=2) { return x+a }(1)`, nil, Int(3))
+	expectRun(t, `return func(x;a=2,b=3) { return x+a+b }(1)`, nil, Int(6))
+	expectRun(t, `return func(x;a=2) { return x+a }(1;a=3)`, nil, Int(4))
+	expectRun(t, `return func(x;a=2) { return x+a }(1;a=3,...{"a":4})`, nil, Int(4))
+	expectRun(t, `return func(x;a=2) { return x+a }(1;a=4,...{"a":90})`, nil, Int(5))
+	expectRun(t, `return func(x;a=2) { return x+a }(1;a=3,...{})`, nil, Int(4))
+	expectRun(t, `return func(...z;a="A", b="B", ...c) { return [z,a,b,c] }(5,...[6,7,8,9];...{"a":"na", "b":"nb", "c":"C", "d":"D"})`,
+		nil, Array{Array{Int(5), Int(6), Int(7), Int(8), Int(9)}, String("na"), String("nb"), Map{"c": String("C"), "d": String("D")}})
+	expectRun(t, `return func(...z;a=false, b="B", ...c) { return [a,b,c] }(5,...[6,7,8,9];a=true,...{"a":"na", "b":"nb", "c":"C", "d":"D"})`,
+		nil, Array{True, String("nb"), Map{"c": String("C"), "d": String("D")}})
+	expectRun(t, `return func(...z;a=false, b="B", ...c) { return [a,b,c] }(5,...[6,7,8,9];a=true,...{"b":"nb", "c":"C", "d":"D"})`,
+		nil, Array{True, String("nb"), Map{"c": String("C"), "d": String("D")}})
+	expectRun(t, `return func(x, y, ...z;a="A", b="B", ...c) { return [x,y,z,a,b,c] }(5,...[6,7,8,9];...{"a":"na", "b":"nb", "c":"C", "d":"D"})`,
+		nil, Array{Int(5), Int(6), Array{Int(7), Int(8), Int(9)}, String("na"), String("nb"), Map{"c": String("C"), "d": String("D")}})
+	expectRun(t, `return func(x, y, ...z;a="A", b="B", ...c) { return [x,y,z,a,b,c] }(5,...[6,7,8,9];...{})`,
+		nil, Array{Int(5), Int(6), Array{Int(7), Int(8), Int(9)}, String("A"), String("B"), Map{}})
+	expectRun(t, `truncate := func(text; limit=3) {if len(text) > limit { return text[:limit]+"..." }; return text}
+return [ truncate("abcd"), truncate("abc"), truncate("ab"),	truncate("abcd";limit=2) ]
+`, nil, Array{String("abc..."), String("abc"), String("ab"), String("ab...")})
+
+}
+
 func TestVMCallCompiledFunction(t *testing.T) {
 	script := `
 	var v = 0
@@ -3222,7 +3258,7 @@ func TestVMCallCompiledFunction(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	//locals := vm.GetLocals(nil)
+	// locals := vm.GetLocals(nil)
 	// t.Log(f)
 	require.Contains(t, f.(Map), "add")
 	require.Contains(t, f.(Map), "sub")

@@ -985,13 +985,14 @@ func (vm *VM) handleThrownError(frame *frame, err *RuntimeError) error {
 }
 
 func (vm *VM) execOpCall() error {
-	numArgs := int(vm.curInsts[vm.ip+1])
-	expand := int(vm.curInsts[vm.ip+2]) // 0 or 1
-	hasKwargs := int(vm.curInsts[vm.ip+3])
-	expandKwargs := int(vm.curInsts[vm.ip+4]) // 0 or 1
-	callee := vm.stack[vm.sp-numArgs-hasKwargs-expandKwargs-1]
-
-	var kw interface{}
+	var (
+		numArgs      = int(vm.curInsts[vm.ip+1])
+		expand       = int(vm.curInsts[vm.ip+2]) // 0 or 1
+		hasKwargs    = int(vm.curInsts[vm.ip+3])
+		expandKwargs = int(vm.curInsts[vm.ip+4]) // 0 or 1
+		callee       = vm.stack[vm.sp-numArgs-hasKwargs-expandKwargs-1]
+		kw           interface{}
+	)
 
 	if compFunc, ok := callee.(*CompiledFunction); ok {
 		basePointer := vm.sp - numArgs - expandKwargs - hasKwargs
@@ -1001,7 +1002,29 @@ func (vm *VM) execOpCall() error {
 		if compFunc.VarKwargs || compFunc.NumKwargs > 0 {
 			var kwargs Map
 			if expandKwargs > 0 {
-				kwargs = vm.stack[vm.sp-expandKwargs].(Map)
+				switch t := vm.stack[vm.sp-expandKwargs].(type) {
+				case Map:
+					kwargs = t
+				case *SyncMap:
+					kwargs = make(Map, len(t.Value))
+					for key, value := range t.Value {
+						kwargs[key] = value
+					}
+				default:
+					if t.CanIterate() {
+						kwargs = Map{}
+						it := t.Iterate()
+						for it.Next() {
+							switch key := it.Key().(type) {
+							case String:
+								kwargs[string(key)] = it.Value()
+							default:
+								kwargs[key.String()] = it.Value()
+							}
+						}
+					}
+				}
+
 				if hasKwargs > 0 {
 					for key, value := range vm.stack[vm.sp-expandKwargs-hasKwargs].(Map) {
 						kwargs[key] = value
@@ -1012,6 +1035,19 @@ func (vm *VM) execOpCall() error {
 			} else if hasKwargs > 0 {
 				kw = vm.stack[vm.sp-expandKwargs-hasKwargs].(Map)
 			}
+
+			if !compFunc.VarKwargs {
+			kwargs_loop:
+				for key := range kwargs {
+					for _, name := range compFunc.Kwargs {
+						if name == key {
+							continue kwargs_loop
+						}
+					}
+					return ErrUnexpectedKwarg.NewError(strconv.Quote(key))
+				}
+			}
+
 		}
 
 		if expand == 0 {
@@ -1107,13 +1143,12 @@ func (vm *VM) execOpCall() error {
 
 		// test if it's tail-call
 		if compFunc == vm.curFrame.fn { // recursion
-			nextOp := vm.curInsts[vm.ip+2+1]
-
+			nextOp := vm.curInsts[vm.ip+2+2+1]
 			if nextOp == OpReturn ||
-				(nextOp == OpPop && OpReturn == vm.curInsts[vm.ip+2+2]) {
+				(nextOp == OpPop && OpReturn == vm.curInsts[vm.ip+2+2+1+1]) {
 				curBp := vm.curFrame.basePointer
 				copy(vm.stack[curBp:curBp+numLocals], vm.stack[basePointer:])
-				newSp := vm.sp - numArgs - 1
+				newSp := vm.sp - numArgs - hasKwargs - expandKwargs - 1
 				for i := vm.sp; i >= newSp; i-- {
 					vm.stack[i] = nil
 				}

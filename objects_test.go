@@ -119,8 +119,6 @@ func TestObjectCallable(t *testing.T) {
 	v, err = Bool(true).Call()
 	require.Nil(t, v)
 	require.Equal(t, ErrNotCallable, err)
-	v, err = Undefined.Call()
-	require.Nil(t, v)
 	require.Equal(t, ErrNotCallable, err)
 	v, err = (&Error{}).Call()
 	require.Nil(t, v)

@@ -557,7 +557,7 @@ func TestOptimizerShadowing(t *testing.T) {
 			compFunc(concatInsts(
 				makeInst(OpGetLocal, 0),
 				makeInst(OpConstant, 0),
-				makeInst(OpCall, 1, 0),
+				makeInst(OpCall, 1, 0, 0, 0),
 				makeInst(OpReturn, 1),
 			),
 				withArgs(1),
@@ -573,7 +573,7 @@ func TestOptimizerShadowing(t *testing.T) {
 				makeInst(OpDefineLocal, 0),
 				makeInst(OpGetLocal, 0),
 				makeInst(OpConstant, 0),
-				makeInst(OpCall, 1, 0),
+				makeInst(OpCall, 1, 0, 0, 0),
 				makeInst(OpReturn, 1),
 			),
 				withLocals(1),
@@ -588,7 +588,7 @@ func TestOptimizerShadowing(t *testing.T) {
 				compFunc(concatInsts(
 					makeInst(OpGetFree, 0),
 					makeInst(OpConstant, 0),
-					makeInst(OpCall, 1, 0),
+					makeInst(OpCall, 1, 0, 0, 0),
 					makeInst(OpReturn, 1),
 				)),
 			},
@@ -616,7 +616,7 @@ func TestOptimizerShadowing(t *testing.T) {
 			compFunc(concatInsts(
 				makeInst(OpGetLocal, 0),
 				makeInst(OpConstant, 0),
-				makeInst(OpCall, 1, 0),
+				makeInst(OpCall, 1, 0, 0, 0),
 				makeInst(OpReturn, 1),
 			),
 				withArgs(1),
@@ -635,7 +635,7 @@ func TestOptimizerShadowing(t *testing.T) {
 			compFunc(concatInsts(
 				makeInst(OpGetGlobal, 0),
 				makeInst(OpConstant, 1),
-				makeInst(OpCall, 1, 0),
+				makeInst(OpCall, 1, 0, 0, 0),
 				makeInst(OpReturn, 1),
 			),
 			),
@@ -654,13 +654,13 @@ func TestOptimizerShadowing(t *testing.T) {
 				compFunc(concatInsts(
 					makeInst(OpGetGlobal, 0),
 					makeInst(OpConstant, 1),
-					makeInst(OpCall, 1, 0),
+					makeInst(OpCall, 1, 0, 0, 0),
 					makeInst(OpReturn, 1),
 				)),
 			},
 			compFunc(concatInsts(
 				makeInst(OpConstant, 2),
-				makeInst(OpCall, 0, 0),
+				makeInst(OpCall, 0, 0, 0, 0),
 				makeInst(OpReturn, 1),
 			),
 			),
@@ -677,7 +677,7 @@ func TestOptimizerShadowing(t *testing.T) {
 				compFunc(concatInsts(
 					makeInst(OpGetLocal, 0),
 					makeInst(OpConstant, 0),
-					makeInst(OpCall, 1, 0),
+					makeInst(OpCall, 1, 0, 0, 0),
 					makeInst(OpReturn, 1),
 				),
 					withArgs(1),
@@ -690,8 +690,7 @@ func TestOptimizerShadowing(t *testing.T) {
 				makeInst(OpPop),
 				makeInst(OpConstant, 2),
 				makeInst(OpReturn, 1),
-			),
-			),
+			)),
 		),
 	)
 

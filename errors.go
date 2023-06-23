@@ -53,6 +53,9 @@ var (
 	// ErrZeroDivision is an error where divisor is zero.
 	ErrZeroDivision = &Error{Name: "ZeroDivisionError"}
 
+	// ErrUnexpectedKwarg is an error where unexpected kwarg.
+	ErrUnexpectedKwarg = &Error{Name: "ErrUnexpectedKwarg"}
+
 	// ErrType represents a type error.
 	ErrType = &Error{Name: "TypeError"}
 )

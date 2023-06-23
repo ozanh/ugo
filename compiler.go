@@ -271,6 +271,7 @@ func (c *Compiler) Bytecode() *Bytecode {
 		NumArgs:      c.symbolTable.numParams,
 		NumKwargs:    c.symbolTable.numKwargs,
 		NumLocals:    c.symbolTable.maxDefinition,
+		Kwargs:       c.symbolTable.kwargs,
 		Instructions: c.instructions,
 		SourceMap:    c.sourceMap,
 	}

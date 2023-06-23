@@ -322,35 +322,14 @@ func (p *Parser) parseCall(x Expr) *CallExpr {
 
 	for p.token != token.RParen && p.token != token.EOF && p.token != token.Semicolon {
 		if p.token == token.Ellipsis {
-			args.Ellipsis = p.pos
+			args.Ellipsis.Pos = p.pos
 			p.next()
-			args.Values = append(args.Values, p.parseExpr())
+			args.Ellipsis.Value = p.parseExpr()
 			goto kw
 		}
 		args.Values = append(args.Values, p.parseExpr())
-		switch p.token {
-		case token.Semicolon:
+		if p.token == token.Semicolon {
 			goto kw
-		case token.Assign: // is kwarg
-			name := args.Values[len(args.Values)-1]
-
-			switch t := name.(type) {
-			case *Ident:
-				args.Values = args.Values[:len(args.Values)-1]
-				kwargs.Names = []KwargNameExpr{{Ident: t}}
-				p.next()
-				kwargs.Values = append(kwargs.Values, p.parseExpr())
-				goto kw
-			case *StringLit:
-				args.Values = args.Values[:len(args.Values)-1]
-				kwargs.Names = []KwargNameExpr{{String: t}}
-				p.next()
-				kwargs.Values = append(kwargs.Values, p.parseExpr())
-				goto kw
-			default:
-				p.errorExpected(name.Pos(), "kwarg name (ident or string)")
-				return nil
-			}
 		}
 		if !p.atComma("call argument", token.RParen) {
 			break
@@ -359,15 +338,15 @@ func (p *Parser) parseCall(x Expr) *CallExpr {
 	}
 
 kw:
-	if p.token == token.Semicolon || p.token == token.Comma {
+	if p.token == token.Semicolon && p.tokenLit == ";" {
 		p.next()
 
 		for {
 			switch p.token {
 			case token.Ellipsis:
-				kwargs.Ellipsis = p.pos
+				kwargs.Ellipsis.Pos = p.pos
 				p.next()
-				kwargs.Var = p.parseExpr()
+				kwargs.Ellipsis.Value = p.parseExpr()
 				goto done
 			case token.RParen, token.EOF:
 				goto done
@@ -379,8 +358,8 @@ kw:
 				case *StringLit:
 					kwargs.Names = append(kwargs.Names, KwargNameExpr{String: t})
 				case *CallExpr, *SelectorExpr:
-					kwargs.Values = append(kwargs.Values, t)
-					kwargs.Ellipsis = p.pos
+					kwargs.Ellipsis.Value = t
+					kwargs.Ellipsis.Pos = p.pos
 					p.expect(token.Ellipsis)
 					if !p.atComma("call argument", token.RParen) {
 						goto done
@@ -688,27 +667,59 @@ func (p *Parser) parseFuncParams() *FuncParams {
 	}
 
 	var (
-		args   ArgsList
-		kwargs KwargsList
+		args       ArgsList
+		kwargs     KwargsList
+		isKwargSep = func() bool {
+			return p.token == token.Semicolon && p.tokenLit == ";"
+		}
+
+		keepSpace = func() {
+			for {
+				switch p.token {
+				case token.Semicolon:
+					if p.tokenLit == ";" {
+						return
+					}
+					p.next()
+				default:
+					return
+				}
+			}
+		}
+
+		next = func() {
+			p.next()
+			keepSpace()
+		}
 	)
 
 	lparen := p.expect(token.LParen)
+	keepSpace()
 	if p.token != token.RParen {
-		if p.token == token.Semicolon {
+		if isKwargSep() {
 			goto kws
 		} else if p.token == token.Ellipsis {
-			p.next()
+			next()
 			args.Var = p.parseIdent()
 			goto kws
 		}
 
 		args.Values = append(args.Values, p.parseIdent())
+		keepSpace()
+
+	parse_arg:
 		for args.Var == nil && p.token == token.Comma {
-			p.next()
-			if p.token == token.Semicolon {
-				goto kws
-			} else if p.token == token.Ellipsis {
-				p.next()
+			next()
+			switch p.token {
+			case token.RParen:
+				goto done
+			case token.Semicolon:
+				if isKwargSep() {
+					goto kws
+				}
+				goto parse_arg
+			case token.Ellipsis:
+				next()
 				args.Var = p.parseIdent()
 				goto kws
 			}
@@ -716,27 +727,36 @@ func (p *Parser) parseFuncParams() *FuncParams {
 		}
 
 	kws:
-		if p.token == token.Semicolon {
-			p.next()
+		keepSpace()
+		switch p.token {
+		case token.Comma:
+			next()
+		case token.Semicolon:
+			next()
 			switch p.token {
-			case token.Semicolon:
-				goto done
 			case token.Ellipsis:
-				p.next()
+				next()
 				kwargs.Var = p.parseIdent()
+				keepSpace()
 			default:
 				kwargs.Names = append(kwargs.Names, p.parseIdent())
 				p.expect(token.Assign)
+				keepSpace()
 				kwargs.Values = append(kwargs.Values, p.parseUnaryExpr())
-
+				keepSpace()
 				for p.token == token.Comma {
-					p.next()
-					if p.token == token.Ellipsis {
-						p.next()
+					next()
+					switch p.token {
+					case token.RParen:
+						goto done
+					case token.Ellipsis:
+						next()
 						kwargs.Var = p.parseIdent()
-						break
-					} else {
+						keepSpace()
+						goto done
+					default:
 						kwargs.Names = append(kwargs.Names, p.parseIdent())
+						keepSpace()
 						p.expect(token.Assign)
 						if p.token == token.LParen {
 							val := p.parseUnaryExpr().(*ParenExpr)

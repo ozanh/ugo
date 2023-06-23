@@ -1083,33 +1083,37 @@ func (c *Compiler) compileSliceExpr(node *parser.SliceExpr) error {
 	return nil
 }
 
-func (c *Compiler) compileCallExpr(node *parser.CallExpr) error {
-	if err := c.Compile(node.Func); err != nil {
+func (c *Compiler) compileCallExpr(node *parser.CallExpr) (err error) {
+	if err = c.Compile(node.Func); err != nil {
 		return err
 	}
 
 	for _, arg := range node.Args.Values {
-		if err := c.Compile(arg); err != nil {
+		if err = c.Compile(arg); err != nil {
 			return err
 		}
 	}
 
 	var (
-		normalValues = node.Kwargs.Values
+		numArgs = len(node.Args.Values)
 		expandArgs,
-		expandKwargs,
-		hasKwargs int
+		expandKwargs int
+		numKwargs = len(node.Kwargs.Values)
 	)
 
-	if node.Args.Ellipsis.IsValid() {
+	if node.Args.Ellipsis.Value != nil {
+		numArgs++
 		expandArgs = 1
+		if err = c.Compile(node.Args.Ellipsis.Value); err != nil {
+			return err
+		}
 	}
 
-	if len(normalValues) > 0 {
-		hasKwargs = 1
-		kwargs := &parser.MapLit{Elements: make([]*parser.MapElementLit, hasKwargs)}
+	if numKwargs > 0 {
+		numKwargs = 1
+		kwargs := &parser.MapLit{Elements: make([]*parser.MapElementLit, numKwargs)}
 
-		for i, arg := range normalValues {
+		for i, arg := range node.Kwargs.Values {
 			kwargs.Elements[i] = &parser.MapElementLit{
 				Key:   node.Kwargs.Names[i].Name(),
 				Value: arg,
@@ -1121,14 +1125,14 @@ func (c *Compiler) compileCallExpr(node *parser.CallExpr) error {
 		}
 	}
 
-	if node.Kwargs.Var != nil {
+	if node.Kwargs.Ellipsis.Value != nil {
 		expandKwargs = 1
-		if err := c.Compile(node.Kwargs.Var); err != nil {
+		if err := c.Compile(node.Kwargs.Ellipsis.Value); err != nil {
 			return err
 		}
 	}
 
-	c.emit(node, OpCall, len(node.Args.Values), expandArgs, hasKwargs, expandKwargs)
+	c.emit(node, OpCall, numArgs, expandArgs, numKwargs, expandKwargs)
 	return nil
 }
 

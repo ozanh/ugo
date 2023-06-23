@@ -91,13 +91,17 @@ type ArgsList struct {
 func (n *ArgsList) Pos() Pos {
 	if len(n.Values) > 0 {
 		return n.Values[0].Pos()
+	} else if n.Var != nil {
+		return n.Var.Pos()
 	}
 	return NoPos
 }
 
 // End returns the position of first character immediately after the node.
 func (n *ArgsList) End() Pos {
-	if l := len(n.Values); l > 0 {
+	if n.Var != nil {
+		return n.Var.End()
+	} else if l := len(n.Values); l > 0 {
 		return n.Values[l-1].End()
 	}
 	return NoPos
@@ -129,16 +133,27 @@ type KwargsList struct {
 	Values []Expr
 }
 
+func (n *KwargsList) Add(name *Ident, value Expr) *KwargsList {
+	n.Names = append(n.Names, name)
+	n.Values = append(n.Values, value)
+	return n
+}
+
 // Pos returns the position of first character belonging to the node.
 func (n *KwargsList) Pos() Pos {
 	if len(n.Names) > 0 {
 		return n.Names[0].Pos()
+	} else if n.Var != nil {
+		return n.Var.Pos()
 	}
 	return NoPos
 }
 
 // End returns the position of first character immediately after the node.
 func (n *KwargsList) End() Pos {
+	if n.Var != nil {
+		return n.Var.End()
+	}
 	if l := len(n.Names); l > 0 {
 		if n.Var != nil {
 			return n.Var.End()
@@ -159,7 +174,7 @@ func (n *KwargsList) NumFields() int {
 func (n *KwargsList) String() string {
 	var list []string
 	for i, e := range n.Names {
-		list = append(list, e.String()+" = "+n.Values[i].String())
+		list = append(list, e.String()+"="+n.Values[i].String())
 	}
 	if n.Var != nil {
 		list = append(list, "..."+n.Var.String())
@@ -169,68 +184,47 @@ func (n *KwargsList) String() string {
 
 // FuncParams represents a function paramsw.
 type FuncParams struct {
-	LParen   Pos
-	Args     ArgsList
-	ArgVar   *Ident
-	Kwargs   KwargsList
-	KwargVar *Ident
-	RParen   Pos
+	LParen Pos
+	Args   ArgsList
+	Kwargs KwargsList
+	RParen Pos
 }
 
 // Pos returns the position of first character belonging to the node.
-func (n *FuncParams) Pos() Pos {
+func (n *FuncParams) Pos() (pos Pos) {
 	if n.LParen.IsValid() {
 		return n.LParen
 	}
-	if len(n.Args.Values) > 0 {
-		return n.Args.Values[0].Pos()
+	if pos = n.Args.Pos(); pos != NoPos {
+		return pos
 	}
-	if n.ArgVar != nil {
-		return n.ArgVar.Pos()
-	}
-	if len(n.Kwargs.Names) > 0 {
-		return n.Kwargs.Names[0].Pos()
-	}
-	if n.KwargVar != nil {
-		return n.KwargVar.Pos()
+	if pos = n.Kwargs.Pos(); pos != NoPos {
+		return pos
 	}
 	return NoPos
 }
 
 // End returns the position of first character immediately after the node.
-func (n *FuncParams) End() Pos {
+func (n *FuncParams) End() (pos Pos) {
 	if n.RParen.IsValid() {
 		return n.RParen + 1
 	}
-	if len(n.Kwargs.Names) > 0 {
-		return n.Kwargs.End()
+	if pos = n.Kwargs.End(); pos != NoPos {
+		return pos
 	}
-	if len(n.Args.Values) > 0 {
-		return n.Args.End()
+	if pos = n.Args.End(); pos != NoPos {
+		return pos
 	}
 	return NoPos
 }
 
 func (n *FuncParams) String() string {
 	buf := bytes.NewBufferString("(")
-	if len(n.Args.Values) > 0 {
-		buf.WriteString(n.Args.String())
-	}
-	if n.ArgVar != nil {
-		buf.WriteString("...")
-		buf.WriteString(n.ArgVar.Name)
-	}
-	if len(n.Kwargs.Names) > 0 {
+	buf.WriteString(n.Args.String())
+	if buf.Len() > 1 && n.Kwargs.Pos() != NoPos {
 		buf.WriteString("; ")
-		buf.WriteString(n.Kwargs.String())
-		if n.KwargVar != nil {
-			buf.WriteString(", ")
-		}
 	}
-	if n.KwargVar != nil {
-		buf.WriteString("...")
-		buf.WriteString(n.KwargVar.Name)
-	}
+	buf.WriteString(n.Kwargs.String())
 	buf.WriteString(")")
 	return buf.String()
 }

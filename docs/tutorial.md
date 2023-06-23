@@ -555,6 +555,7 @@ Note: See [error handling](error-handling.md) for more information about errors.
 * NotCallableError
 * NotImplementedError
 * ZeroDivisionError
+* ErrUnexpectedKwarg
 * TypeError
 
 ### Undefined Values
@@ -683,6 +684,30 @@ f2(1)               // valid; a == 1, b == []
 f2(1, 2)            // valid; a == 1, b == [2]
 f2(1, 2, 3)         // valid; a == 1, b == [2, 3]
 f2(...[1, 2, 3])    // valid; a == 1, b == [2, 3]
+```
+
+
+uGO also supports kwargs in functions: 
+
+
+```go
+// no args, no kwargs
+fn0 = func(;){return 10}
+fn0() // 10
+
+fn1 := func(arg1; kw1=1,kw2=2) {
+  return arg1 + kw1 + kw2
+}
+fn1(1) // 4
+fn1(1; kw1=5) // 8
+// pass map as kwargs
+fn1(1;kw2=4,...{kw1:5}) // 10
+
+// receives variadic of args and kwargs
+fn2 := func(arg1, ...other_args; kw1=1,kw2=2,...other_kwargs) {
+    return [arg1, other_args, kw1, kw2, other_kwargs]
+}
+fn2(-1,2,...[4,5];kw2=10,my_kw=20) // [-1,[2,4,5],1,10,{my_kw: 20}]
 ```
 
 ## Type Conversions

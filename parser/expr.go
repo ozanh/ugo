@@ -125,7 +125,25 @@ func (e *BoolLit) String() string {
 // CallExprArgs represents a call expression arguments.
 type CallExprArgs struct {
 	Values   []Expr
-	Ellipsis Pos
+	Ellipsis struct {
+		Pos   Pos
+		Value Expr
+	}
+}
+
+func (a *CallExprArgs) Valid() bool {
+	return len(a.Values) > 0 || a.Ellipsis.Value != nil
+}
+
+func (a *CallExprArgs) String() string {
+	var s []string
+	for _, v := range a.Values {
+		s = append(s, v.String())
+	}
+	if a.Ellipsis.Value != nil {
+		s = append(s, "..."+a.Ellipsis.Value.String())
+	}
+	return strings.Join(s, ", ")
 }
 
 type KwargNameExpr struct {
@@ -151,8 +169,25 @@ func (e *KwargNameExpr) Expr() Expr {
 type CallExprKwargs struct {
 	Names    []KwargNameExpr
 	Values   []Expr
-	Var      Expr
-	Ellipsis Pos
+	Ellipsis struct {
+		Pos   Pos
+		Value Expr
+	}
+}
+
+func (a *CallExprKwargs) Valid() bool {
+	return len(a.Names) > 0 || a.Ellipsis.Value != nil
+}
+
+func (a *CallExprKwargs) String() string {
+	var s []string
+	for i, name := range a.Names {
+		s = append(s, name.Expr().String()+"="+a.Values[i].String())
+	}
+	if a.Ellipsis.Value != nil {
+		s = append(s, "..."+a.Ellipsis.Value.String())
+	}
+	return strings.Join(s, ", ")
 }
 
 // CallExpr represents a function call expression.
@@ -179,43 +214,12 @@ func (e *CallExpr) End() Pos {
 func (e *CallExpr) String() string {
 	var buf = bytes.NewBufferString(e.Func.String())
 	buf.WriteString("(")
-	if l := len(e.Args.Values); l > 0 {
-		for i, e := range e.Args.Values {
-			if i != 0 {
-				buf.WriteString(", ")
-			}
-			buf.WriteString(e.String())
-		}
-		if e.Args.Ellipsis.IsValid() {
-			buf.WriteString("...")
-		}
+	if e.Args.Valid() {
+		buf.WriteString(e.Args.String())
 	}
-	if l := len(e.Kwargs.Values); l > 0 {
-		if len(e.Args.Values) == 0 {
-			buf.WriteString(";")
-		} else {
-			buf.WriteString(", ")
-		}
-
-		qnt := l
-		if e.Kwargs.Ellipsis.IsValid() {
-			qnt--
-		}
-		for i, n := range e.Kwargs.Names[0:qnt] {
-			if i != 0 {
-				buf.WriteString(", ")
-			}
-			buf.WriteString(n.Expr().String())
-			buf.WriteString(" = ")
-			buf.WriteString(e.Kwargs.Values[i].String())
-		}
-		if e.Kwargs.Ellipsis.IsValid() {
-			if qnt > 0 {
-				buf.WriteString(", ")
-			}
-			buf.WriteString(e.Kwargs.Values[qnt].String())
-			buf.WriteString("...")
-		}
+	if e.Kwargs.Valid() {
+		buf.WriteString("; ")
+		buf.WriteString(e.Kwargs.String())
 	}
 	buf.WriteString(")")
 	return buf.String()

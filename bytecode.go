@@ -71,6 +71,7 @@ type CompiledFunction struct {
 	NumKwargs int
 	VarArgs   bool
 	VarKwargs bool
+	Kwargs    []string
 }
 
 var _ Object = (*CompiledFunction)(nil)

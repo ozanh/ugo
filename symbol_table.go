@@ -44,6 +44,7 @@ type SymbolTable struct {
 	numDefinition    int
 	numParams        int
 	numKwargs        int
+	kwargs           []string
 	varKwargs        bool
 	store            map[string]*Symbol
 	disabledBuiltins map[string]struct{}
@@ -134,6 +135,7 @@ func (st *SymbolTable) SetKeywordParams(names ...string) error {
 		return errors.New("parameters disabled")
 	}
 
+	st.kwargs = names
 	st.numKwargs = len(names)
 
 	for _, param := range names {
