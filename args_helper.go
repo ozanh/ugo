@@ -199,22 +199,19 @@ func (n *NamedArgs) All() (ret Map) {
 // Walk pass over all pairs and call `cb` function.
 // if `cb` function returns any error, stop iterator and return then.
 func (n *NamedArgs) Walk(cb func(key string, val Object) error) (err error) {
-	if n.vargs == nil {
-		return nil
-	}
-	if n.args == nil {
-		return nil
-	}
-
-	for key, val := range n.args {
-		if err = cb(key, val); err != nil {
-			return
+	if n.args != nil {
+		for key, val := range n.args {
+			if err = cb(key, val); err != nil {
+				return
+			}
 		}
 	}
 
-	for key, val := range n.vargs {
-		if err = cb(key, val); err != nil {
-			return
+	if n.vargs != nil {
+		for key, val := range n.vargs {
+			if err = cb(key, val); err != nil {
+				return
+			}
 		}
 	}
 
