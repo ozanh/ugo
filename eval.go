@@ -47,7 +47,7 @@ func (r *Eval) Run(ctx context.Context, script []byte) (Object, *Bytecode, error
 		return nil, nil, err
 	}
 
-	bytecode.Main.NumParams = bytecode.Main.NumLocals
+	bytecode.Main.NumArgs = bytecode.Main.NumLocals
 	r.Opts.Constants = bytecode.Constants
 	r.fixOpPop(bytecode)
 	r.VM.SetBytecode(bytecode)
@@ -81,7 +81,7 @@ func (r *Eval) run(ctx context.Context) (ret Object, err error) {
 	default:
 		go func() {
 			defer close(doneCh)
-			ret, err = r.VM.Run(r.Globals, r.Locals...)
+			ret, err = r.VM.Run(r.Globals, nil, r.Locals...)
 		}()
 
 		select {

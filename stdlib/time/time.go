@@ -103,7 +103,7 @@ func (o *Time) Equal(right ugo.Object) bool {
 func (*Time) CanCall() bool { return false }
 
 // Call implements ugo.Object interface.
-func (*Time) Call(args ...ugo.Object) (ugo.Object, error) {
+func (*Time) Call(*ugo.NamedArgs, ...ugo.Object) (ugo.Object, error) {
 	return nil, ugo.ErrNotCallable
 }
 

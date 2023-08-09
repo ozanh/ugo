@@ -465,7 +465,7 @@ func fieldsFuncInv(c ugo.Call) (ugo.Object, error) {
 					return false
 				}
 				var ret ugo.Object
-				ret, err = inv.Invoke(ugo.Char(r))
+				ret, err = inv.Invoke(nil, ugo.Char(r))
 				if err != nil {
 					return false
 				}
@@ -542,7 +542,7 @@ func mapFuncInv(c ugo.Call) (ugo.Object, error) {
 					return utf8.RuneError
 				}
 				var ret ugo.Object
-				ret, err = inv.Invoke(ugo.Char(r))
+				ret, err = inv.Invoke(nil, ugo.Char(r))
 				if err != nil {
 					return 0
 				}
@@ -626,7 +626,7 @@ func replaceFunc(c ugo.Call) (ugo.Object, error) {
 
 func titleFunc(s string) ugo.Object {
 	//lint:ignore SA1019 Keep it for backward compatibility.
-	return ugo.String(strings.Title(s)) //nolint staticcheck Keep it for backward compatibility
+	return ugo.String(strings.Title(s)) // nolint staticcheck Keep it for backward compatibility
 }
 
 func toLowerFunc(s string) ugo.Object { return ugo.String(strings.ToLower(s)) }
@@ -710,7 +710,7 @@ func newIndexFuncInv(fn func(string, func(rune) bool) int) ugo.CallableExFunc {
 						return false
 					}
 					var ret ugo.Object
-					ret, err = inv.Invoke(ugo.Char(r))
+					ret, err = inv.Invoke(nil, ugo.Char(r))
 					if err != nil {
 						return false
 					}
@@ -732,7 +732,7 @@ func newTrimFuncInv(fn func(string, func(rune) bool) string) ugo.CallableExFunc 
 						return false
 					}
 					var ret ugo.Object
-					ret, err = inv.Invoke(ugo.Char(r))
+					ret, err = inv.Invoke(nil, ugo.Char(r))
 					if err != nil {
 						return false
 					}

@@ -53,7 +53,7 @@ func (o Int) IsFalsy() bool { return o == 0 }
 func (o Int) CanCall() bool { return false }
 
 // Call implements Object interface.
-func (o Int) Call(_ ...Object) (Object, error) {
+func (o Int) Call(*NamedArgs, ...Object) (Object, error) {
 	return nil, ErrNotCallable
 }
 
@@ -199,7 +199,7 @@ func (o Uint) IsFalsy() bool { return o == 0 }
 func (o Uint) CanCall() bool { return false }
 
 // Call implements Object interface.
-func (o Uint) Call(_ ...Object) (Object, error) {
+func (o Uint) Call(*NamedArgs, ...Object) (Object, error) {
 	return nil, ErrNotCallable
 }
 
@@ -348,7 +348,7 @@ func (o Float) IsFalsy() bool {
 func (o Float) CanCall() bool { return false }
 
 // Call implements Object interface.
-func (o Float) Call(_ ...Object) (Object, error) {
+func (o Float) Call(*NamedArgs, ...Object) (Object, error) {
 	return nil, ErrNotCallable
 }
 
@@ -465,7 +465,7 @@ func (o Char) IsFalsy() bool { return o == 0 }
 func (o Char) CanCall() bool { return false }
 
 // Call implements Object interface.
-func (o Char) Call(_ ...Object) (Object, error) {
+func (o Char) Call(*NamedArgs, ...Object) (Object, error) {
 	return nil, ErrNotCallable
 }
 

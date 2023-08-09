@@ -86,20 +86,23 @@ delete(v, "missing") // v == {"key": "value"}
 
 ### copy
 
-Creates a copy of the given variable. `copy` function calls `Copy() Object`
-method if implemented, which is expected to return a deep-copy of the value it
-holds. int, uint, char, float, string, bool types do not implement a
-[`Copier`](tutorial.md#interfaces) interface which wraps `Copy() Object` method.
+Creates a copy of the given variable. `copy` function calls `DeepCopy() Object` 
+(per default) or `Copy() Object` (if `noDeep` arg is `true`)
+method if implemented, which is expected to return a deep-copy or copye of the 
+value it holds. int, uint, char, float, string, bool types do not implement a
+[`DeepCopier`](tutorial.md#interfaces) or [`Copier`](tutorial.md#interfaces) 
+interfaces which wraps `DeepCopy() Object` and `Copy() Object` method.
 Assignment is sufficient to copy these types. array, bytes, map, syncMap can be
-deeply copied with `copy` builtin function.
+deeply copied with `copy(object)` and no deeply copied with `copy(object, true)`.
 
 **Syntax**
 
-> `copy(object)`
+> `copy(object [, noDeep])`
 
 **Parameters**
 
 - > `object`: any object
+- > `noDeep`: bool object, is optional parameter.
 
 **Return Value**
 

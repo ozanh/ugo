@@ -934,7 +934,7 @@ func TestVM_Invoke(t *testing.T) {
 			inv := NewInvoker(c.VM(), c.Get(0))
 			inv.Acquire()
 			defer inv.Release()
-			return inv.Invoke(args...)
+			return inv.Invoke(nil, args...)
 		},
 	}
 	applyNoPool := &Function{
@@ -945,7 +945,7 @@ func TestVM_Invoke(t *testing.T) {
 				args = append(args, c.Get(i))
 			}
 			inv := NewInvoker(c.VM(), c.Get(0))
-			return inv.Invoke(args...)
+			return inv.Invoke(nil, args...)
 		},
 	}
 	for _, apply := range []*Function{applyPool, applyNoPool} {
@@ -1131,7 +1131,7 @@ func (n *nameCaller) CallName(name string, c Call) (Object, error) {
 	for i := 0; i < c.Len(); i++ {
 		args = append(args, c.Get(i))
 	}
-	ret, err := NewInvoker(c.VM(), fn).Invoke(args...)
+	ret, err := NewInvoker(c.VM(), fn).Invoke(c.NamedArgs(), args...)
 	n.counts[name]++
 	return ret, err
 }
@@ -1206,3 +1206,54 @@ return [object.add1(10), object.sub1(10)]
 		})
 	}
 }
+
+func TestVMCallNameWithNamedArgs(t *testing.T) {
+	scr := `
+global object
+return [
+	object.fn(),
+	object.fn(1),
+	object.fn(1,2),
+	object.fn(1,2,...[3,4]),
+	object.fn(...[3,4]; ...{a:5}),
+	object.fn(...{a:5}),
+	object.fn(1,2,...[3,4]; ...{a:5}),
+	object.fn(1,2,...[3,4]; a=5, ...{b:6}),
+]
+`
+	expectRun(t, scr,
+		newOpts().Globals(Map{"object": &nameCallerObject{}}),
+		Array{
+			Array{Array{}, Map{}},
+			Array{Array{Int(1)}, Map{}},
+			Array{Array{Int(1), Int(2)}, Map{}},
+			Array{Array{Int(1), Int(2), Int(3), Int(4)}, Map{}},
+			Array{Array{Int(3), Int(4)}, Map{"a": Int(5)}},
+			Array{Array{}, Map{"a": Int(5)}},
+			Array{Array{Int(1), Int(2), Int(3), Int(4)}, Map{"a": Int(5)}},
+			Array{Array{Int(1), Int(2), Int(3), Int(4)}, Map{"a": Int(5), "b": Int(6)}},
+		},
+	)
+}
+
+type nameCallerObject struct {
+	Map
+}
+
+func (n *nameCallerObject) CanCall() bool {
+	return true
+}
+
+func (n *nameCallerObject) CallName(_ string, c Call) (Object, error) {
+	args := c.Args()
+	nargs := c.NamedArgs().All()
+	if args == nil {
+		args = Array{}
+	}
+	if nargs == nil {
+		nargs = Map{}
+	}
+	return Array{args, nargs}, nil
+}
+
+var _ NameCallerObject = &nameCallerObject{}

@@ -5,6 +5,8 @@
 package ugo
 
 import (
+	"strconv"
+
 	"github.com/ozanh/ugo/parser"
 	"github.com/ozanh/ugo/token"
 )
@@ -224,23 +226,63 @@ func (c *Compiler) compileDeclParam(node *parser.GenDecl) error {
 		return c.errorf(node, "param not allowed in this scope")
 	}
 
-	names := make([]string, 0, len(node.Specs))
-	for _, sp := range node.Specs {
-		spec := sp.(*parser.ParamSpec)
-		names = append(names, spec.Ident.Name)
-		if spec.Variadic {
-			if c.variadic {
-				return c.errorf(node,
-					"multiple variadic param declaration")
+	var (
+		names     = make([]string, 0, len(node.Specs))
+		namedSpec []parser.Spec
+	)
+
+	for i, sp := range node.Specs {
+		if np, _ := sp.(*parser.NamedParamSpec); np != nil {
+			namedSpec = node.Specs[i:]
+			break
+		} else {
+			spec := sp.(*parser.ParamSpec)
+			names = append(names, spec.Ident.Name)
+			if spec.Variadic {
+				if c.variadic {
+					return c.errorf(node,
+						"multiple variadic param declaration")
+				}
+				c.variadic = true
 			}
-			c.variadic = true
 		}
 	}
 
-	if err := c.symbolTable.SetParams(names...); err != nil {
+	if err := c.symbolTable.SetParams(false, names...); err != nil {
 		return c.error(node, err)
 	}
-	return nil
+
+	namedSpecCount := len(namedSpec)
+
+	if namedSpecCount == 0 {
+		return nil
+	}
+
+	names = make([]string, len(namedSpec))
+
+	for i, sp := range namedSpec {
+		spec := sp.(*parser.NamedParamSpec)
+		names[i] = spec.Ident.Name
+		if spec.Value == nil {
+			namedSpecCount--
+			if c.varNamedParams {
+				return c.errorf(node,
+					"multiple variadic named param declaration")
+			}
+			c.varNamedParams = true
+		}
+	}
+
+	if err := c.symbolTable.SetNamedParams(false, names...); err != nil {
+		return c.error(node, err)
+	}
+
+	stmts := c.helperBuildKwargsIfUndefinedStmts(namedSpecCount, func(index int) (name string, value parser.Expr) {
+		spec := namedSpec[index].(*parser.NamedParamSpec)
+		return spec.Ident.Name, spec.Value
+	})
+
+	return c.Compile(&parser.BlockStmt{Stmts: stmts})
 }
 
 func (c *Compiler) compileDeclGlobal(node *parser.GenDecl) error {
@@ -819,18 +861,49 @@ func (c *Compiler) compileForInStmt(stmt *parser.ForInStmt) error {
 }
 
 func (c *Compiler) compileFuncLit(node *parser.FuncLit) error {
-	params := make([]string, len(node.Type.Params.List))
-	for i, ident := range node.Type.Params.List {
+	var (
+		params      = make([]string, len(node.Type.Params.Args.Values))
+		namedParams = make([]string, len(node.Type.Params.NamedArgs.Names))
+		symbolTable = c.symbolTable.Fork(false)
+	)
+
+	for i, ident := range node.Type.Params.Args.Values {
 		params[i] = ident.Name
 	}
 
-	symbolTable := c.symbolTable.Fork(false)
-	if err := symbolTable.SetParams(params...); err != nil {
+	if node.Type.Params.Args.Var != nil {
+		params = append(params, node.Type.Params.Args.Var.Name)
+	}
+
+	if err := symbolTable.SetParams(node.Type.Params.Args.Var != nil, params...); err != nil {
 		return c.error(node, err)
 	}
 
+	for i, name := range node.Type.Params.NamedArgs.Names {
+		namedParams[i] = name.Name
+	}
+
+	if node.Type.Params.NamedArgs.Var != nil {
+		namedParams = append(namedParams, node.Type.Params.NamedArgs.Var.Name)
+	}
+
+	if len(namedParams) > 0 {
+		if err := symbolTable.defineParamsVar([]string{parser.NamedArgsIdent.Name}); err != nil {
+			return c.error(node, err)
+		}
+		if err := symbolTable.SetNamedParams(node.Type.Params.NamedArgs.Var != nil, namedParams...); err != nil {
+			return c.error(node, err)
+		}
+	}
+
+	if count := len(node.Type.Params.NamedArgs.Values); count > 0 {
+		node.Body.Stmts = append(c.helperBuildKwargsStmts(count, func(index int) (name string, value parser.Expr) {
+			return node.Type.Params.NamedArgs.Names[index].Name, node.Type.Params.NamedArgs.Values[index]
+		}), node.Body.Stmts...)
+	}
+
 	fork := c.fork(c.file, c.modulePath, c.moduleMap, symbolTable)
-	fork.variadic = node.Type.Params.VarArgs
+	fork.variadic = node.Type.Params.Args.Var != nil
 	if err := fork.Compile(node.Body); err != nil {
 		return err
 	}
@@ -1000,9 +1073,15 @@ func (c *Compiler) compileSliceExpr(node *parser.SliceExpr) error {
 }
 
 func (c *Compiler) compileCallExpr(node *parser.CallExpr) error {
-	var op = OpCall
-	var selExpr *parser.SelectorExpr
-	var isSelector bool
+	var (
+		selExpr    *parser.SelectorExpr
+		isSelector bool
+		flags      OpCallFlag
+
+		op      = OpCall
+		numArgs = len(node.Args.Values)
+	)
+
 	if node.Func != nil {
 		selExpr, isSelector = node.Func.(*parser.SelectorExpr)
 	}
@@ -1018,8 +1097,39 @@ func (c *Compiler) compileCallExpr(node *parser.CallExpr) error {
 		}
 	}
 
-	for _, arg := range node.Args {
+	for _, arg := range node.Args.Values {
 		if err := c.Compile(arg); err != nil {
+			return err
+		}
+	}
+
+	if node.Args.Ellipsis != nil {
+		numArgs++
+		flags |= OpCallFlagVarArgs
+		if err := c.Compile(node.Args.Ellipsis.Value); err != nil {
+			return err
+		}
+	}
+
+	if numKwargs := len(node.NamedArgs.Names); numKwargs > 0 {
+		flags |= OpCallFlagNamedArgs
+		namedArgs := &parser.MapLit{Elements: make([]*parser.MapElementLit, numKwargs)}
+
+		for i, arg := range node.NamedArgs.Values {
+			namedArgs.Elements[i] = &parser.MapElementLit{
+				Key:   node.NamedArgs.Names[i].Name(),
+				Value: arg,
+			}
+		}
+
+		if err := c.Compile(namedArgs); err != nil {
+			return err
+		}
+	}
+
+	if node.NamedArgs.Ellipsis != nil {
+		flags |= OpCallFlagVarNamedArgs
+		if err := c.Compile(node.NamedArgs.Ellipsis.Value); err != nil {
 			return err
 		}
 	}
@@ -1030,12 +1140,7 @@ func (c *Compiler) compileCallExpr(node *parser.CallExpr) error {
 		}
 	}
 
-	var expand int
-	if node.Ellipsis.IsValid() {
-		expand = 1
-	}
-
-	c.emit(node, op, len(node.Args), expand)
+	c.emit(node, op, numArgs, int(flags))
 	return nil
 }
 
@@ -1088,8 +1193,8 @@ func (c *Compiler) compileImportExpr(node *parser.ImportExpr) error {
 		var numParams int
 		mod := c.constants[module.constantIndex]
 		if cf, ok := mod.(*CompiledFunction); ok {
-			numParams = cf.NumParams
-			if cf.Variadic {
+			numParams = cf.NumArgs
+			if cf.VarArgs {
 				numParams--
 			}
 		}
@@ -1199,4 +1304,81 @@ func (c *Compiler) compileMapLit(node *parser.MapLit) error {
 
 	c.emit(node, OpMap, len(node.Elements)*2)
 	return nil
+}
+
+func (c *Compiler) helperBuildKwargsStmts(count int, get func(index int) (name string, value parser.Expr)) (stmts []parser.Stmt) {
+	var (
+		containsIdent = &parser.Ident{Name: "contains"}
+		deleteIdent   = &parser.Ident{Name: "delete"}
+	)
+	for i := 0; i < count; i++ {
+		name, value := get(i)
+		nameLit := &parser.StringLit{Literal: strconv.Quote(name), Value: name}
+		nameIdent := &parser.Ident{Name: name}
+		stmts = append(stmts, &parser.IfStmt{
+			Cond: &parser.CallExpr{
+				Func: containsIdent,
+				Args: parser.CallExprArgs{
+					Values: []parser.Expr{parser.NamedArgsIdent, nameLit},
+				},
+			},
+			Body: &parser.BlockStmt{
+				Stmts: []parser.Stmt{
+					&parser.AssignStmt{
+						Token: token.Assign,
+						LHS:   []parser.Expr{nameIdent},
+						RHS: []parser.Expr{&parser.IndexExpr{
+							Expr:  parser.NamedArgsIdent,
+							Index: nameLit,
+						}},
+					},
+					&parser.ExprStmt{
+						&parser.CallExpr{
+							Func: deleteIdent,
+							Args: parser.CallExprArgs{
+								Values: []parser.Expr{parser.NamedArgsIdent, nameLit},
+							},
+						},
+					},
+				},
+			},
+			Else: &parser.BlockStmt{
+				Stmts: []parser.Stmt{
+					&parser.AssignStmt{
+						Token: token.Assign,
+						LHS:   []parser.Expr{nameIdent},
+						RHS:   []parser.Expr{value},
+					},
+				},
+			},
+		})
+	}
+
+	return
+}
+
+func (c *Compiler) helperBuildKwargsIfUndefinedStmts(count int, get func(index int) (name string, value parser.Expr)) (stmts []parser.Stmt) {
+	var undefined = &parser.UndefinedLit{}
+	for i := 0; i < count; i++ {
+		name, value := get(i)
+		nameIdent := &parser.Ident{Name: name}
+		stmts = append(stmts, &parser.IfStmt{
+			Cond: &parser.BinaryExpr{
+				Token: token.Equal,
+				LHS:   nameIdent,
+				RHS:   undefined,
+			},
+			Body: &parser.BlockStmt{
+				Stmts: []parser.Stmt{
+					&parser.AssignStmt{
+						Token: token.Assign,
+						LHS:   []parser.Expr{nameIdent},
+						RHS:   []parser.Expr{value},
+					},
+				},
+			},
+		})
+	}
+
+	return
 }

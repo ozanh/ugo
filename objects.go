@@ -54,7 +54,7 @@ type Object interface {
 	// arguments provided and their types in the method. Returned error stops VM
 	// execution if not handled with an error handler and VM.Run returns the
 	// same error as wrapped.
-	Call(args ...Object) (Object, error)
+	Call(namedArgs *NamedArgs, args ...Object) (Object, error)
 
 	// CanCall returns true if type can be called with Call() method.
 	// VM returns an error if one tries to call a noncallable object.
@@ -83,7 +83,12 @@ type Object interface {
 	IndexSet(index, value Object) error
 }
 
-// Copier wraps the Copy method to create a deep copy of the object.
+// DeepCopier wraps the DeepCopy method to create a deep copy of the object.
+type DeepCopier interface {
+	DeepCopy() Object
+}
+
+// Copier wraps the Copy method to create a single copy of the object.
 type Copier interface {
 	Copy() Object
 }
@@ -124,9 +129,10 @@ type NameCallerObject interface {
 // arguments directly. Using Len() and Get() methods is preferred. It is safe to
 // create Call with a nil VM as long as VM is not required by the callee.
 type Call struct {
-	vm    *VM
-	args  []Object
-	vargs []Object
+	vm        *VM
+	args      []Object
+	vargs     []Object
+	namedArgs *NamedArgs
 }
 
 // NewCall creates a new Call struct with the given arguments.
@@ -135,6 +141,16 @@ func NewCall(vm *VM, args []Object, vargs ...Object) Call {
 		vm:    vm,
 		args:  args,
 		vargs: vargs,
+	}
+}
+
+// NewCallWithKwargs creates a new Call struct with the given arguments and keyword arguments.
+func NewCallWithNamedArgs(vm *VM, namedArgs *NamedArgs, args []Object, vargs ...Object) Call {
+	return Call{
+		vm:        vm,
+		args:      args,
+		vargs:     vargs,
+		namedArgs: namedArgs,
 	}
 }
 
@@ -170,6 +186,39 @@ func (c *Call) CheckLen(n int) error {
 	return nil
 }
 
+// CheckMinLen checks the number of arguments and variadic arguments. If the number
+// of arguments is less then to n, it returns an error.
+func (c *Call) CheckMinLen(n int) error {
+	if c.Len() < n {
+		return ErrWrongNumArguments.NewError(
+			fmt.Sprintf("want>=%d got=%d", n, c.Len()),
+		)
+	}
+	return nil
+}
+
+// CheckMaxLen checks the number of arguments and variadic arguments. If the number
+// of arguments is greather then to n, it returns an error.
+func (c *Call) CheckMaxLen(n int) error {
+	if c.Len() > n {
+		return ErrWrongNumArguments.NewError(
+			fmt.Sprintf("want<=%d got=%d", n, c.Len()),
+		)
+	}
+	return nil
+}
+
+// CheckRangeLen checks the number of arguments and variadic arguments. If the number
+// of arguments is less then to min or greather then to max, it returns an error.
+func (c *Call) CheckRangeLen(min, max int) error {
+	if l := c.Len(); l < min || l > max {
+		return ErrWrongNumArguments.NewError(
+			fmt.Sprintf("want[%d...%d] got=%d", min, max, l),
+		)
+	}
+	return nil
+}
+
 // shift returns the first argument and removes it from the arguments.
 // It updates the arguments and variadic arguments accordingly.
 // If it cannot shift, it returns nil and false.
@@ -187,7 +236,32 @@ func (c *Call) shift() (Object, bool) {
 	return v, true
 }
 
-func (c *Call) callArgs() []Object {
+// DestructureArgs shifts argument and set value to dst.
+// If the number of arguments not equals to called args length, it returns an error.
+func (c *Call) DestructureArgs(dst ...*Arg) (err error) {
+	if err = c.CheckLen(len(dst)); err != nil {
+		return
+	}
+	for _, dst := range dst {
+		dst.Value, _ = c.shift()
+	}
+	return
+}
+
+// DestructureArgsVar shifts argument and set value to dst, and returns left arguments.
+// If the number of arguments is less then to called args length, it returns an error.
+func (c *Call) DestructureArgsVar(dst ...*Arg) (other Array, err error) {
+	if err = c.CheckMinLen(len(dst)); err != nil {
+		return
+	}
+	for _, dst := range dst {
+		dst.Value, _ = c.shift()
+	}
+	other = c.Args()
+	return
+}
+
+func (c *Call) Args() Array {
 	if len(c.args) == 0 {
 		return c.vargs
 	}
@@ -195,6 +269,15 @@ func (c *Call) callArgs() []Object {
 	args = append(args, c.args...)
 	args = append(args, c.vargs...)
 	return args
+}
+
+// NamedArgs return kwarg from name and removes it from all map
+func (c *Call) NamedArgs() *NamedArgs {
+	return c.namedArgs
+}
+
+func (c *Call) HasNamed() bool {
+	return c.namedArgs != nil && !c.namedArgs.Empty()
 }
 
 // ObjectImpl is the basic Object implementation and it does not nothing, and
@@ -225,7 +308,7 @@ func (ObjectImpl) IsFalsy() bool { return true }
 func (ObjectImpl) CanCall() bool { return false }
 
 // Call implements Object interface.
-func (ObjectImpl) Call(_ ...Object) (Object, error) {
+func (ObjectImpl) Call(*NamedArgs, ...Object) (Object, error) {
 	return nil, ErrNotCallable
 }
 
@@ -267,7 +350,7 @@ func (o *UndefinedType) String() string {
 }
 
 // Call implements Object interface.
-func (*UndefinedType) Call(_ ...Object) (Object, error) {
+func (*UndefinedType) Call(*NamedArgs, ...Object) (Object, error) {
 	return nil, ErrNotCallable
 }
 
@@ -349,7 +432,7 @@ func (o Bool) IsFalsy() bool { return bool(!o) }
 func (Bool) CanCall() bool { return false }
 
 // Call implements Object interface.
-func (Bool) Call(_ ...Object) (Object, error) {
+func (Bool) Call(*NamedArgs, ...Object) (Object, error) {
 	return nil, ErrNotCallable
 }
 
@@ -541,7 +624,7 @@ func (o String) IsFalsy() bool { return len(o) == 0 }
 func (o String) CanCall() bool { return false }
 
 // Call implements Object interface.
-func (o String) Call(_ ...Object) (Object, error) {
+func (o String) Call(*NamedArgs, ...Object) (Object, error) {
 	return nil, ErrNotCallable
 }
 
@@ -612,6 +695,7 @@ type Bytes []byte
 
 var (
 	_ Object       = Bytes{}
+	_ DeepCopier   = Bytes{}
 	_ Copier       = Bytes{}
 	_ LengthGetter = Bytes{}
 )
@@ -623,6 +707,13 @@ func (Bytes) TypeName() string {
 
 func (o Bytes) String() string {
 	return string(o)
+}
+
+// DeepCopy implements DeepCopier interface.
+func (o Bytes) DeepCopy() Object {
+	cp := make(Bytes, len(o))
+	copy(cp, o)
+	return cp
 }
 
 // Copy implements Copier interface.
@@ -703,7 +794,7 @@ func (o Bytes) IsFalsy() bool { return len(o) == 0 }
 func (o Bytes) CanCall() bool { return false }
 
 // Call implements Object interface.
-func (o Bytes) Call(_ ...Object) (Object, error) {
+func (o Bytes) Call(*NamedArgs, ...Object) (Object, error) {
 	return nil, ErrNotCallable
 }
 
@@ -783,8 +874,8 @@ func (o *Function) String() string {
 	return fmt.Sprintf("<function:%s>", o.Name)
 }
 
-// Copy implements Copier interface.
-func (o *Function) Copy() Object {
+// DeepCopy implements DeepCopier interface.
+func (o *Function) DeepCopy() Object {
 	return &Function{
 		Name:    o.Name,
 		Value:   o.Value,
@@ -808,7 +899,7 @@ func (*Function) IsFalsy() bool { return false }
 func (*Function) CanCall() bool { return true }
 
 // Call implements Object interface.
-func (o *Function) Call(args ...Object) (Object, error) {
+func (o *Function) Call(_ *NamedArgs, args ...Object) (Object, error) {
 	return o.Value(args...)
 }
 
@@ -816,7 +907,7 @@ func (o *Function) CallEx(call Call) (Object, error) {
 	if o.ValueEx != nil {
 		return o.ValueEx(call)
 	}
-	return o.Value(call.callArgs()...)
+	return o.Value(call.Args()...)
 }
 
 // BuiltinFunction represents a builtin function object and implements Object interface.
@@ -839,8 +930,8 @@ func (o *BuiltinFunction) String() string {
 	return fmt.Sprintf("<builtinFunction:%s>", o.Name)
 }
 
-// Copy implements Copier interface.
-func (o *BuiltinFunction) Copy() Object {
+// DeepCopy implements DeepCopier interface.
+func (o *BuiltinFunction) DeepCopy() Object {
 	return &BuiltinFunction{
 		Name:    o.Name,
 		Value:   o.Value,
@@ -864,7 +955,7 @@ func (*BuiltinFunction) IsFalsy() bool { return false }
 func (*BuiltinFunction) CanCall() bool { return true }
 
 // Call implements Object interface.
-func (o *BuiltinFunction) Call(args ...Object) (Object, error) {
+func (o *BuiltinFunction) Call(_ *NamedArgs, args ...Object) (Object, error) {
 	return o.Value(args...)
 }
 
@@ -872,7 +963,7 @@ func (o *BuiltinFunction) CallEx(c Call) (Object, error) {
 	if o.ValueEx != nil {
 		return o.ValueEx(c)
 	}
-	return o.Value(c.callArgs()...)
+	return o.Value(c.Args()...)
 }
 
 // Array represents array of objects and implements Object interface.
@@ -880,6 +971,8 @@ type Array []Object
 
 var (
 	_ Object       = Array{}
+	_ DeepCopier   = Array{}
+	_ Copier       = Array{}
 	_ LengthGetter = Array{}
 )
 
@@ -914,16 +1007,23 @@ func (o Array) String() string {
 	return sb.String()
 }
 
-// Copy implements Copier interface.
-func (o Array) Copy() Object {
+// DeepCopy implements DeepCopier interface.
+func (o Array) DeepCopy() Object {
 	cp := make(Array, len(o))
 	for i, v := range o {
-		if vv, ok := v.(Copier); ok {
-			cp[i] = vv.Copy()
+		if vv, ok := v.(DeepCopier); ok {
+			cp[i] = vv.DeepCopy()
 		} else {
 			cp[i] = v
 		}
 	}
+	return cp
+}
+
+// Copy implements Copier interface.
+func (o Array) Copy() Object {
+	cp := make(Array, len(o))
+	copy(cp, o)
 	return cp
 }
 
@@ -993,7 +1093,7 @@ func (o Array) IsFalsy() bool { return len(o) == 0 }
 func (Array) CanCall() bool { return false }
 
 // Call implements Object interface.
-func (Array) Call(...Object) (Object, error) {
+func (Array) Call(*NamedArgs, ...Object) (Object, error) {
 	return nil, ErrNotCallable
 }
 
@@ -1047,8 +1147,8 @@ type ObjectPtr struct {
 }
 
 var (
-	_ Object = (*ObjectPtr)(nil)
-	_ Copier = (*ObjectPtr)(nil)
+	_ Object     = (*ObjectPtr)(nil)
+	_ DeepCopier = (*ObjectPtr)(nil)
 )
 
 // TypeName implements Object interface.
@@ -1065,7 +1165,12 @@ func (o *ObjectPtr) String() string {
 	return fmt.Sprintf("<objectPtr:%v>", v)
 }
 
-// Copy implements Copier interface.
+// DeepCopy implements DeepCopier interface.
+func (o *ObjectPtr) DeepCopy() Object {
+	return o
+}
+
+// Copy implements DeepCopier interface.
 func (o *ObjectPtr) Copy() Object {
 	return o
 }
@@ -1097,11 +1202,11 @@ func (o *ObjectPtr) CanCall() bool {
 }
 
 // Call implements Object interface.
-func (o *ObjectPtr) Call(args ...Object) (Object, error) {
+func (o *ObjectPtr) Call(kwargs *NamedArgs, args ...Object) (Object, error) {
 	if o.Value == nil {
 		return nil, errors.New("nil pointer")
 	}
-	return (*o.Value).Call(args...)
+	return (*o.Value).Call(kwargs, args...)
 }
 
 // Map represents map of objects and implements Object interface.
@@ -1109,6 +1214,7 @@ type Map map[string]Object
 
 var (
 	_ Object       = Map{}
+	_ DeepCopier   = Map{}
 	_ Copier       = Map{}
 	_ IndexDeleter = Map{}
 	_ LengthGetter = Map{}
@@ -1149,15 +1255,24 @@ func (o Map) String() string {
 	return sb.String()
 }
 
+// DeepCopy implements DeepCopier interface.
+func (o Map) DeepCopy() Object {
+	cp := make(Map, len(o))
+	for k, v := range o {
+		if vv, ok := v.(DeepCopier); ok {
+			cp[k] = vv.DeepCopy()
+		} else {
+			cp[k] = v
+		}
+	}
+	return cp
+}
+
 // Copy implements Copier interface.
 func (o Map) Copy() Object {
 	cp := make(Map, len(o))
 	for k, v := range o {
-		if vv, ok := v.(Copier); ok {
-			cp[k] = vv.Copy()
-		} else {
-			cp[k] = v
-		}
+		cp[k] = v
 	}
 	return cp
 }
@@ -1207,7 +1322,7 @@ func (o Map) IsFalsy() bool { return len(o) == 0 }
 func (Map) CanCall() bool { return false }
 
 // Call implements Object interface.
-func (Map) Call(...Object) (Object, error) {
+func (Map) Call(*NamedArgs, ...Object) (Object, error) {
 	return nil, ErrNotCallable
 }
 
@@ -1260,6 +1375,7 @@ type SyncMap struct {
 
 var (
 	_ Object       = (*SyncMap)(nil)
+	_ DeepCopier   = (*SyncMap)(nil)
 	_ Copier       = (*SyncMap)(nil)
 	_ IndexDeleter = (*SyncMap)(nil)
 	_ LengthGetter = (*SyncMap)(nil)
@@ -1296,6 +1412,16 @@ func (o *SyncMap) String() string {
 	defer o.mu.RUnlock()
 
 	return o.Value.String()
+}
+
+// DeepCopy implements DeepCopier interface.
+func (o *SyncMap) DeepCopy() Object {
+	o.mu.RLock()
+	defer o.mu.RUnlock()
+
+	return &SyncMap{
+		Value: o.Value.DeepCopy().(Map),
+	}
 }
 
 // Copy implements Copier interface.
@@ -1391,7 +1517,7 @@ func (o *SyncMap) BinaryOp(tok token.Token, right Object) (Object, error) {
 func (*SyncMap) CanCall() bool { return false }
 
 // Call implements Object interface.
-func (*SyncMap) Call(...Object) (Object, error) {
+func (*SyncMap) Call(*NamedArgs, ...Object) (Object, error) {
 	return nil, ErrNotCallable
 }
 
@@ -1403,8 +1529,8 @@ type Error struct {
 }
 
 var (
-	_ Object = (*Error)(nil)
-	_ Copier = (*Error)(nil)
+	_ Object     = (*Error)(nil)
+	_ DeepCopier = (*Error)(nil)
 )
 
 func (o *Error) Unwrap() error {
@@ -1421,8 +1547,8 @@ func (o *Error) String() string {
 	return o.Error()
 }
 
-// Copy implements Copier interface.
-func (o *Error) Copy() Object {
+// DeepCopy implements DeepCopier interface.
+func (o *Error) DeepCopy() Object {
 	return &Error{
 		Name:    o.Name,
 		Message: o.Message,
@@ -1485,7 +1611,7 @@ func (o *Error) IndexGet(index Object) (Object, error) {
 
 // NewError creates a new Error and sets original Error as its cause which can be unwrapped.
 func (o *Error) NewError(messages ...string) *Error {
-	cp := o.Copy().(*Error)
+	cp := o.DeepCopy().(*Error)
 	cp.Message = strings.Join(messages, " ")
 	cp.Cause = o
 	return cp
@@ -1505,7 +1631,7 @@ func (o *Error) BinaryOp(tok token.Token, right Object) (Object, error) {
 func (*Error) CanCall() bool { return false }
 
 // Call implements Object interface.
-func (*Error) Call(_ ...Object) (Object, error) {
+func (*Error) Call(*NamedArgs, ...Object) (Object, error) {
 	return nil, ErrNotCallable
 }
 
@@ -1523,8 +1649,8 @@ type RuntimeError struct {
 }
 
 var (
-	_ Object = (*RuntimeError)(nil)
-	_ Copier = (*RuntimeError)(nil)
+	_ Object     = (*RuntimeError)(nil)
+	_ DeepCopier = (*RuntimeError)(nil)
 )
 
 func (o *RuntimeError) Unwrap() error {
@@ -1553,11 +1679,11 @@ func (o *RuntimeError) String() string {
 	return o.Error()
 }
 
-// Copy implements Copier interface.
-func (o *RuntimeError) Copy() Object {
+// DeepCopy implements DeepCopier interface.
+func (o *RuntimeError) DeepCopy() Object {
 	var err *Error
 	if o.Err != nil {
-		err = o.Err.Copy().(*Error)
+		err = o.Err.DeepCopy().(*Error)
 	}
 
 	return &RuntimeError{
@@ -1617,7 +1743,7 @@ func (o *RuntimeError) IndexGet(index Object) (Object, error) {
 
 // NewError creates a new Error and sets original Error as its cause which can be unwrapped.
 func (o *RuntimeError) NewError(messages ...string) *RuntimeError {
-	cp := o.Copy().(*RuntimeError)
+	cp := o.DeepCopy().(*RuntimeError)
 	cp.Err.Message = strings.Join(messages, " ")
 	cp.Err.Cause = o
 	return cp
@@ -1637,7 +1763,7 @@ func (o *RuntimeError) BinaryOp(tok token.Token, right Object) (Object, error) {
 func (*RuntimeError) CanCall() bool { return false }
 
 // Call implements Object interface.
-func (*RuntimeError) Call(_ ...Object) (Object, error) {
+func (*RuntimeError) Call(*NamedArgs, ...Object) (Object, error) {
 	return nil, ErrNotCallable
 }
 

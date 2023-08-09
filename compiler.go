@@ -42,25 +42,26 @@ type (
 
 	// Compiler compiles the AST into a bytecode.
 	Compiler struct {
-		parent        *Compiler
-		file          *parser.SourceFile
-		constants     []Object
-		constsCache   map[Object]int
-		cfuncCache    map[uint32][]int
-		symbolTable   *SymbolTable
-		instructions  []byte
-		sourceMap     map[int]int
-		moduleMap     *ModuleMap
-		moduleStore   *moduleStore
-		modulePath    string
-		variadic      bool
-		loops         []*loopStmts
-		loopIndex     int
-		tryCatchIndex int
-		iotaVal       int
-		opts          CompilerOptions
-		trace         io.Writer
-		indent        int
+		parent         *Compiler
+		file           *parser.SourceFile
+		constants      []Object
+		constsCache    map[Object]int
+		cfuncCache     map[uint32][]int
+		symbolTable    *SymbolTable
+		instructions   []byte
+		sourceMap      map[int]int
+		moduleMap      *ModuleMap
+		moduleStore    *moduleStore
+		modulePath     string
+		variadic       bool
+		varNamedParams bool
+		loops          []*loopStmts
+		loopIndex      int
+		tryCatchIndex  int
+		iotaVal        int
+		opts           CompilerOptions
+		trace          io.Writer
+		indent         int
 	}
 
 	// CompilerOptions represents customizable options for Compile().
@@ -266,16 +267,35 @@ func (c *Compiler) Bytecode() *Bytecode {
 		c.emit(nil, OpReturn, 0)
 	}
 
+	cf := &CompiledFunction{
+		NumArgs:      c.symbolTable.numParams,
+		NumKwargs:    c.symbolTable.numNamedParams,
+		NumLocals:    c.symbolTable.maxDefinition,
+		NamedArgs:    c.symbolTable.namedParams,
+		VarKwargs:    c.symbolTable.varNamedParams,
+		VarArgs:      c.symbolTable.varParams,
+		Instructions: c.instructions,
+		SourceMap:    c.sourceMap,
+	}
+
+	if len(cf.NamedArgs) > 0 {
+		cf.namedArgsMap = make(map[string]interface{})
+		for _, v := range cf.NamedArgs {
+			cf.namedArgsMap[v] = nil
+		}
+	}
+
+	if c.variadic {
+		cf.VarArgs = true
+	}
+	if c.varNamedParams {
+		cf.VarKwargs = true
+	}
+
 	return &Bytecode{
-		FileSet:   c.file.Set(),
-		Constants: c.constants,
-		Main: &CompiledFunction{
-			NumParams:    c.symbolTable.NumParams(),
-			NumLocals:    c.symbolTable.MaxSymbols(),
-			Variadic:     c.variadic,
-			Instructions: c.instructions,
-			SourceMap:    c.sourceMap,
-		},
+		FileSet:    c.file.Set(),
+		Constants:  c.constants,
+		Main:       cf,
 		NumModules: c.moduleStore.count,
 	}
 }

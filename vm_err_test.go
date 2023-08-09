@@ -156,7 +156,7 @@ func TestVMNoPanic(t *testing.T) {
 		c, err := Compile([]byte(`param panic; panic();`), CompilerOptions{})
 		require.NoError(t, err)
 		vm := NewVM(c)
-		v, err := vm.Run(nil, panicFunc)
+		v, err := vm.Run(nil, nil, panicFunc)
 		t.Fatalf("expected panic but got err=%v\nreturn value=%v", err, v)
 	}()
 

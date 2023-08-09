@@ -78,7 +78,7 @@ func main() {
     panic(err)
   }
 
-  retValue, err := ugo.NewVM(bytecode).Run(nil,  ugo.Int(35))
+  retValue, err := ugo.NewVM(bytecode).Run(nil,  nil, ugo.Int(35))
 
   if err != nil {
     panic(err)
@@ -116,11 +116,78 @@ and ensures stack and module cache is cleaned.
 
 ```go
 vm := ugo.NewVM(bytecode)
-retValue, err := vm.Run(nil,  ugo.Int(35))
+retValue, err := vm.Run(nil, nil, ugo.Int(35))
 /* ... */
 // vm.Clear()
-retValue, err := vm.Run(nil,  ugo.Int(34))
+retValue, err := vm.Run(nil, nil, ugo.Int(34))
 /* ... */
+```
+
+Params can be provided to VM which are declared with
+[`param`](#param) keyword. Param are accessible only in main function. 
+
+```go
+script := `
+param num
+return num
+`
+bytecode, err := ugo.Compile([]byte(script), ugo.DefaultCompilerOptions)
+
+if err != nil {
+  panic(err)
+}
+
+namedArgs := ugo.NewNamedArgs(ugo.Map{"upperBound": ugo.Int(1984)})
+retValue, err := ugo.NewVM(bytecode).Run(nil,  nil, ugo.Int(2018))
+// retValue == ugo.Int(2018)
+
+```
+
+Named params example:
+
+```go
+script := `
+param (a=5) // 5 is default value
+return a
+`
+bytecode, err := ugo.Compile([]byte(script), ugo.DefaultCompilerOptions)
+
+if err != nil {
+  panic(err)
+}
+
+namedParams := ugo.Map{} // or nil
+retValue, err := ugo.NewVM(bytecode).Run(nil,  namedParams)
+// retValue == ugo.Int(5)
+
+vm.Clear()
+
+namedParams := ugo.Map{"a": ugo.Int(10)}
+retValue, err := ugo.NewVM(bytecode).Run(nil,  namedParams)
+// retValue == ugo.Int(10)
+```
+
+Other param examples:
+
+```go
+// only args
+param a
+param (a)
+param ...a
+param (a, ...b)
+param (a, b)
+
+// named args
+param (b=2, c=3)
+param (b=2, c=3, ...otherNamedArgs)
+
+param (a=1, ...otherNamedArgs) // is similar to:
+param (; a=1, ...otherNamedArgs)
+
+// mixed of args and named args
+param (a, b=2)
+param (a, b, ...otherArgs, c=1, ...otherNamedArgs)  // is similar to:
+param (a, b, ...otherArgs; c=1, ...otherNamedArgs)
 ```
 
 Global variables can be provided to VM which are declared with
@@ -140,7 +207,7 @@ if err != nil {
 }
 
 g := ugo.Map{"upperBound": ugo.Int(1984)}
-retValue, err := ugo.NewVM(bytecode).Run(g,  ugo.Int(2018))
+retValue, err := ugo.NewVM(bytecode).Run(g,  nil, ugo.Int(2018))
 // retValue == ugo.String("big")
 ```
 
@@ -555,6 +622,7 @@ Note: See [error handling](error-handling.md) for more information about errors.
 * NotCallableError
 * NotImplementedError
 * ZeroDivisionError
+* ErrUnexpectedNamedArg
 * TypeError
 
 ### Undefined Values
@@ -683,6 +751,47 @@ f2(1)               // valid; a == 1, b == []
 f2(1, 2)            // valid; a == 1, b == [2]
 f2(1, 2, 3)         // valid; a == 1, b == [2, 3]
 f2(...[1, 2, 3])    // valid; a == 1, b == [2, 3]
+```
+
+
+uGO also supports named args in functions: 
+
+
+```go
+// no args, no named args
+fn0 = func(;){return 10}
+fn0() // 10
+
+// only named args
+fn1 := func(;kw1=1, kw2=2) {
+    return kw1 + kw2
+}
+fn1() // 3
+fn1(kw1=5) // 7
+fn1(kw1=5, kw2=5) // 10
+fn1(...{kw1: 5}) // 7
+
+// mixin args and named args
+fn1 := func(arg1; kw1=1, kw2=2) {
+  return arg1 + kw1 + kw2
+}
+fn1(1) // 4
+fn1(1; kw1=5) // 8 or:
+fn1(1, kw1=5) // 8
+
+// pass map as named args
+fn1(1; kw2=4, ...{kw1: 5}) // 10 or:
+fn1(1, kw2=4, ...{kw1: 5}) // 10 or:
+fn1(...[1], ...{kw2:4, kw1: 5}) // 10 or
+fn1(1, ...{kw2:4, kw1: 5}) // 10
+
+// receives variadic of args and named args
+fn2 := func(arg1, ...other_args; kw1=5, kw2=2, ...other_kwargs) {
+    return [arg1, other_args, kw1, kw2, other_kwargs]
+}
+fn2(1, 2, ...[3,4]; kw2=6, my_kw=7) // [1,[2,3,4],5,6,{my_kw: 7}]
+fn2(1, 2, ...[3,4], kw2=6, my_kw=7) // [1,[2,3,4],5,6,{my_kw: 7}]
+fn2(1, 2, ...[3,4], kw2=6, ...{my_kw:7}) // [1,[2,3,4],5,6,{my_kw: 7}]
 ```
 
 ## Type Conversions
@@ -1054,7 +1163,7 @@ type Object interface {
   // arguments provided and their types in the method. Returned error stops VM
   // execution if not handled with an error handler and VM.Run returns the
   // same error as wrapped.
-  Call(args ...Object) (Object, error)
+  Call(namedArgs *NamedArgs, args ...Object) (Object, error)
 
   // CanCall returns true if type can be called with Call() method.
   // VM returns an error if one tries to call a noncallable object.
@@ -1103,15 +1212,29 @@ type Iterator interface {
 }
 ```
 
-### Copier interface
+### DeepCopier interface
 
 Assignments to uGO values copy the values except array, map or bytes like Go.
-`copy` builtin function returns the copy of a value if Copier interface is
+`copy` builtin function returns the copy of a value if DeepCopier interface is
 implemented by object. If not implemented, same object is returned which copies
 the value under the hood by Go.
 
 ```go
-// Copier wraps the Copy method to create a deep copy of an object.
+// DeepCopier wraps the DeepCopy method to create a deep copy of an object.
+type DeepCopier interface {
+  DeepCopy() Object
+}
+```
+
+### Copier interface
+
+Assignments to uGO values copy the values except array, map or bytes like Go.
+`copy(object, true)` builtin function returns the copy of a value if Copier interface is
+implemented by object. If not implemented, same object is returned which copies
+the value under the hood by Go.
+
+```go
+// Copier wraps the Copy method to create a no deeply copy of an object.
 type Copier interface {
   Copy() Object
 }

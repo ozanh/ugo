@@ -104,6 +104,12 @@ func ToObject(v interface{}) (ret Object, err error) {
 		} else {
 			ret = Undefined
 		}
+	case CallableExFunc:
+		if v != nil {
+			ret = &Function{ValueEx: v}
+		} else {
+			ret = Undefined
+		}
 	case error:
 		ret = &Error{Message: v.Error(), Cause: v}
 	default:

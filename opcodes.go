@@ -7,6 +7,18 @@ package ugo
 // Opcode represents a single byte operation code.
 type Opcode = byte
 
+const (
+	OpCallFlagVarArgs OpCallFlag = 1 << iota
+	OpCallFlagNamedArgs
+	OpCallFlagVarNamedArgs
+)
+
+type OpCallFlag byte
+
+func (f OpCallFlag) Has(other OpCallFlag) bool {
+	return (f & other) != 0
+}
+
 // List of opcodes
 const (
 	OpNoOp Opcode = iota

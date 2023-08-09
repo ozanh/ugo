@@ -133,7 +133,7 @@ func (m *BuiltinModule) Import(moduleName string) (interface{}, error) {
 		return nil, errors.New("module attributes not set")
 	}
 
-	cp := Map(m.Attrs).Copy()
+	cp := Map(m.Attrs).DeepCopy()
 	cp.(Map)[AttrModuleName] = String(moduleName)
 	return cp, nil
 }

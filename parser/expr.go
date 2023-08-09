@@ -13,6 +13,7 @@
 package parser
 
 import (
+	"bytes"
 	"strings"
 
 	"github.com/ozanh/ugo/token"
@@ -121,13 +122,80 @@ func (e *BoolLit) String() string {
 	return e.Literal
 }
 
+type EllipsisValue struct {
+	Pos   Pos
+	Value Expr
+}
+
+// CallExprArgs represents a call expression arguments.
+type CallExprArgs struct {
+	Values   []Expr
+	Ellipsis *EllipsisValue
+}
+
+func (a *CallExprArgs) Valid() bool {
+	return len(a.Values) > 0 || a.Ellipsis != nil
+}
+
+func (a *CallExprArgs) String() string {
+	var s []string
+	for _, v := range a.Values {
+		s = append(s, v.String())
+	}
+	if a.Ellipsis != nil {
+		s = append(s, "..."+a.Ellipsis.Value.String())
+	}
+	return strings.Join(s, ", ")
+}
+
+type KwargNameExpr struct {
+	String *StringLit
+	Ident  *Ident
+}
+
+func (e *KwargNameExpr) Name() string {
+	if e.String != nil {
+		return e.String.Value
+	}
+	return e.Ident.Name
+}
+
+func (e *KwargNameExpr) Expr() Expr {
+	if e.String != nil {
+		return e.String
+	}
+	return e.Ident
+}
+
+// CallExprNamedArgs represents a call expression keyword arguments.
+type CallExprNamedArgs struct {
+	Names    []KwargNameExpr
+	Values   []Expr
+	Ellipsis *EllipsisValue
+}
+
+func (a *CallExprNamedArgs) Valid() bool {
+	return len(a.Names) > 0 || a.Ellipsis != nil
+}
+
+func (a *CallExprNamedArgs) String() string {
+	var s []string
+	for i, name := range a.Names {
+		s = append(s, name.Expr().String()+"="+a.Values[i].String())
+	}
+	if a.Ellipsis != nil {
+		s = append(s, "..."+a.Ellipsis.Value.String())
+	}
+	return strings.Join(s, ", ")
+}
+
 // CallExpr represents a function call expression.
 type CallExpr struct {
-	Func     Expr
-	LParen   Pos
-	Args     []Expr
-	Ellipsis Pos
-	RParen   Pos
+	Func      Expr
+	LParen    Pos
+	Args      CallExprArgs
+	NamedArgs CallExprNamedArgs
+	RParen    Pos
 }
 
 func (e *CallExpr) exprNode() {}
@@ -143,14 +211,17 @@ func (e *CallExpr) End() Pos {
 }
 
 func (e *CallExpr) String() string {
-	var args []string
-	for _, e := range e.Args {
-		args = append(args, e.String())
+	var buf = bytes.NewBufferString(e.Func.String())
+	buf.WriteString("(")
+	if e.Args.Valid() {
+		buf.WriteString(e.Args.String())
 	}
-	if len(args) > 0 && e.Ellipsis.IsValid() {
-		args[len(args)-1] = args[len(args)-1] + "..."
+	if e.NamedArgs.Valid() {
+		buf.WriteString("; ")
+		buf.WriteString(e.NamedArgs.String())
 	}
-	return e.Func.String() + "(" + strings.Join(args, ", ") + ")"
+	buf.WriteString(")")
+	return buf.String()
 }
 
 // CharLit represents a character literal.
@@ -250,7 +321,7 @@ func (e *FuncLit) String() string {
 // FuncType represents a function type definition.
 type FuncType struct {
 	FuncPos Pos
-	Params  *IdentList
+	Params  *FuncParams
 }
 
 func (e *FuncType) exprNode() {}
@@ -585,4 +656,46 @@ func (e *UndefinedLit) End() Pos {
 
 func (e *UndefinedLit) String() string {
 	return "undefined"
+}
+
+// CalledArgsLit represents an literal called arguments.
+type CalledArgsLit struct {
+	TokenPos Pos
+}
+
+func (e *CalledArgsLit) exprNode() {}
+
+// Pos returns the position of first character belonging to the node.
+func (e *CalledArgsLit) Pos() Pos {
+	return e.TokenPos
+}
+
+// End returns the position of first character immediately after the node.
+func (e *CalledArgsLit) End() Pos {
+	return e.TokenPos + 4 // len("argv") == 4
+}
+
+func (e *CalledArgsLit) String() string {
+	return "argv"
+}
+
+// CalledArgsLit represents an literal called arguments.
+type CalledNamedArgsLit struct {
+	TokenPos Pos
+}
+
+func (e *CalledNamedArgsLit) exprNode() {}
+
+// Pos returns the position of first character belonging to the node.
+func (e *CalledNamedArgsLit) Pos() Pos {
+	return e.TokenPos
+}
+
+// End returns the position of first character immediately after the node.
+func (e *CalledNamedArgsLit) End() Pos {
+	return e.TokenPos + 6 // len("kwargv") == 6
+}
+
+func (e *CalledNamedArgsLit) String() string {
+	return "kwargv"
 }

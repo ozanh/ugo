@@ -60,15 +60,22 @@ func (bc *Bytecode) putConstants(w io.Writer) {
 
 // CompiledFunction holds the constants and instructions to pass VM.
 type CompiledFunction struct {
-	// number of parameters
-	NumParams int
 	// number of local variabls including parameters NumLocals>=NumParams
 	NumLocals    int
 	Instructions []byte
-	Variadic     bool
 	Free         []*ObjectPtr
 	// SourceMap holds the index of instruction and token's position.
 	SourceMap map[int]int
+
+	NumArgs   int
+	NumKwargs int
+	VarArgs   bool
+	VarKwargs bool
+	NamedArgs []string
+
+	// namedArgsMap is a set of NamedArgs
+	// this value allow to perform named args validation.
+	namedArgsMap map[string]interface{}
 }
 
 var _ Object = (*CompiledFunction)(nil)
@@ -82,8 +89,8 @@ func (o *CompiledFunction) String() string {
 	return "<compiledFunction>"
 }
 
-// Copy implements the Copier interface.
-func (o *CompiledFunction) Copy() Object {
+// DeepCopy implements the DeepCopier interface.
+func (o *CompiledFunction) DeepCopy() Object {
 	var insts []byte
 	if o.Instructions != nil {
 		insts = make([]byte, len(o.Instructions))
@@ -92,7 +99,7 @@ func (o *CompiledFunction) Copy() Object {
 
 	var free []*ObjectPtr
 	if o.Free != nil {
-		// DO NOT Copy() elements; these are variable pointers
+		// DO NOT DeepCopy() elements; these are variable pointers
 		free = make([]*ObjectPtr, len(o.Free))
 		copy(free, o.Free)
 	}
@@ -106,13 +113,21 @@ func (o *CompiledFunction) Copy() Object {
 	}
 
 	return &CompiledFunction{
-		NumParams:    o.NumParams,
 		NumLocals:    o.NumLocals,
 		Instructions: insts,
-		Variadic:     o.Variadic,
 		Free:         free,
 		SourceMap:    sourceMap,
+		NumArgs:      o.NumArgs,
+		NumKwargs:    o.NumKwargs,
+		VarArgs:      o.VarArgs,
+		VarKwargs:    o.VarKwargs,
 	}
+}
+
+// Copy implements the Copier interface.
+func (o *CompiledFunction) Copy() Object {
+	cp := *o
+	return &cp
 }
 
 // CanIterate implements Object interface.
@@ -137,7 +152,7 @@ func (*CompiledFunction) CanCall() bool { return true }
 // Call implements Object interface. CompiledFunction is not directly callable.
 // You should use Invoker to call it with a Virtual Machine. Because of this, it
 // always returns an error.
-func (*CompiledFunction) Call(...Object) (Object, error) {
+func (*CompiledFunction) Call(*NamedArgs, ...Object) (Object, error) {
 	return Undefined, ErrNotCallable
 }
 
@@ -170,14 +185,15 @@ begin:
 
 // Fprint writes constants and instructions to given Writer in a human readable form.
 func (o *CompiledFunction) Fprint(w io.Writer) {
-	_, _ = fmt.Fprintf(w, "Params:%d Variadic:%t Locals:%d\n", o.NumParams, o.Variadic, o.NumLocals)
+	_, _ = fmt.Fprintf(w, "Locals: %d\n", o.NumLocals)
+	_, _ = fmt.Fprintf(w, "Args: %d VarArgs: %v\n", o.NumArgs, o.VarArgs)
+	_, _ = fmt.Fprintf(w, "NamedArgs: %d VarKwargs: %v\n", o.NumKwargs, o.VarKwargs)
 	_, _ = fmt.Fprintf(w, "Instructions:\n")
 
 	i := 0
 	var operands []int
 
 	for i < len(o.Instructions) {
-
 		op := o.Instructions[i]
 		numOperands := OpcodeOperands[op]
 		operands, offset := ReadOperands(numOperands, o.Instructions[i+1:], operands)
@@ -200,14 +216,17 @@ func (o *CompiledFunction) Fprint(w io.Writer) {
 }
 
 func (o *CompiledFunction) identical(other *CompiledFunction) bool {
-	if o.NumParams != other.NumParams ||
+	if o.NumArgs != other.NumArgs ||
+		o.NumKwargs != other.NumKwargs ||
 		o.NumLocals != other.NumLocals ||
-		o.Variadic != other.Variadic ||
+		o.VarArgs != other.VarArgs ||
+		o.VarKwargs != other.VarKwargs ||
 		len(o.Instructions) != len(other.Instructions) ||
 		len(o.Free) != len(other.Free) ||
 		string(o.Instructions) != string(other.Instructions) {
 		return false
 	}
+
 	for i := range o.Free {
 		if o.Free[i].Equal(other.Free[i]) {
 			return false
@@ -230,9 +249,14 @@ func (o *CompiledFunction) equalSourceMap(other *CompiledFunction) bool {
 }
 
 func (o *CompiledFunction) hash32() uint32 {
-	hash := hashData32(2166136261, []byte{byte(o.NumParams)})
+	hash := hashData32(2166136261, []byte{byte(o.NumArgs), byte(o.NumKwargs)})
 	hash = hashData32(hash, []byte{byte(o.NumLocals)})
-	if o.Variadic {
+	if o.VarArgs {
+		hash = hashData32(hash, []byte{1})
+	} else {
+		hash = hashData32(hash, []byte{0})
+	}
+	if o.VarKwargs {
 		hash = hashData32(hash, []byte{1})
 	} else {
 		hash = hashData32(hash, []byte{0})

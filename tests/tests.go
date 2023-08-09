@@ -8,14 +8,24 @@ import (
 )
 
 func Sdump(value interface{}) string {
+	var sb strings.Builder
+	sdump("", &sb, value)
+	return sb.String()
+}
+func sdump(prefix string, sb *strings.Builder, value interface{}) {
+	const indent = "  "
 	if value == nil {
-		return fmt.Sprintf("(%[1]T) %[1]v\n", value)
+		sb.WriteString(fmt.Sprintf("(%[1]T) %[1]v\n", value))
+		return
 	}
 	typ := reflect.TypeOf(value)
 	switch typ.Kind() {
 	case reflect.Slice:
 		val := reflect.ValueOf(value)
-		var sb strings.Builder
+		if val.IsNil() {
+			sb.WriteString(fmt.Sprintf("(%+v nil)\n", typ))
+			return
+		}
 		sb.WriteString(fmt.Sprintf("(%+v len=%d cap=%d) {",
 			typ, val.Len(), val.Cap()))
 		sz := val.Len()
@@ -23,15 +33,15 @@ func Sdump(value interface{}) string {
 			sb.WriteString("\n")
 		} else {
 			sb.WriteString("}\n")
-			return sb.String()
+			return
 		}
 		for i := 0; i < sz; i++ {
-			sb.WriteString("#")
+			sb.WriteString(prefix + indent + "#")
 			sb.WriteString(strconv.Itoa(i))
-			sb.WriteString("  | ")
+			sb.WriteString(" ")
 			index := val.Index(i)
 			if index.Kind() != reflect.Interface && index.Kind() != reflect.Ptr {
-				sb.WriteString(Sdump(index.Interface()))
+				sdump(prefix+indent, sb, index.Interface())
 				continue
 			}
 			elem := val.Index(i).Elem()
@@ -39,23 +49,24 @@ func Sdump(value interface{}) string {
 			if elem.IsValid() && elem.CanInterface() {
 				iface = elem.Interface()
 			}
-			sb.WriteString(Sdump(iface))
+			sdump(prefix+indent, sb, iface)
 		}
-		sb.WriteString(fmt.Sprintf("= %#v\n", value))
-		sb.WriteString("}\n")
-		return sb.String()
+		sb.WriteString(prefix + "}\n")
 	case reflect.Map:
 		val := reflect.ValueOf(value)
+		if val.IsNil() {
+			sb.WriteString(fmt.Sprintf("(%+v nil)\n", typ))
+			return
+		}
 		keys := val.MapKeys()
-		var sb strings.Builder
-		sb.WriteString(fmt.Sprintf("(%+v len=%d) {", typ, len(keys)))
+		fmt.Fprintf(sb, "(%+v len=%d) {", typ, len(keys))
 		if len(keys) == 0 {
 			sb.WriteString("}\n")
-			return sb.String()
+			return
 		}
 		sb.WriteString("\n")
 		for _, k := range keys {
-			sb.WriteString(fmt.Sprintf("%#v:", k))
+			sb.WriteString(prefix + indent + fmt.Sprintf("%#v: ", k))
 			var iface interface{}
 			vkind := val.MapIndex(k).Kind()
 			if vkind == reflect.Ptr || vkind == reflect.Interface {
@@ -63,16 +74,15 @@ func Sdump(value interface{}) string {
 				if elem.IsValid() && elem.CanInterface() {
 					iface = elem.Interface()
 				}
-				sb.WriteString(Sdump(iface))
+				sdump(prefix+indent, sb, iface)
 			} else {
 				v := val.MapIndex(k).Interface()
-				sb.WriteString(Sdump(v))
+				sdump(prefix+indent, sb, v)
 			}
 		}
-		sb.WriteString(fmt.Sprintf("= %#v\n", value))
-		sb.WriteString("}\n")
-		return sb.String()
+		sb.WriteString(prefix + "}\n")
+		return
 	default:
-		return fmt.Sprintf("(%+v) %+v\n", typ, value)
+		fmt.Fprintf(sb, "(%+v) %+v\n", typ, value)
 	}
 }

@@ -148,7 +148,7 @@ func TestOptimizer(t *testing.T) {
 				consts = Array{tC.c}
 			}
 
-			f := tC.cf.Copy().(*CompiledFunction)
+			f := tC.cf.DeepCopy().(*CompiledFunction)
 			f.Instructions = append(f.Instructions, makeInst(OpPop)...)
 			f.Instructions = append(f.Instructions, makeInst(OpReturn, 0)...)
 
@@ -171,7 +171,7 @@ func TestOptimizer(t *testing.T) {
 				consts = Array{tC.c}
 			}
 
-			f := tC.cf.Copy().(*CompiledFunction)
+			f := tC.cf.DeepCopy().(*CompiledFunction)
 			f.Instructions = append(f.Instructions, makeInst(OpReturn, 1)...)
 
 			expectEval(t, tC.s, bytecode(consts, f))
@@ -208,7 +208,7 @@ func TestOptimizer(t *testing.T) {
 			} else {
 				cf = callF0
 			}
-			sub := tC.cf.Copy().(*CompiledFunction)
+			sub := tC.cf.DeepCopy().(*CompiledFunction)
 			sub.Instructions = append(sub.Instructions, makeInst(OpReturn, 1)...)
 			consts = append(consts, sub)
 
@@ -231,7 +231,7 @@ func TestOptimizer(t *testing.T) {
 				consts = append(consts, tC.c)
 			}
 
-			f := tC.cf.Copy().(*CompiledFunction)
+			f := tC.cf.DeepCopy().(*CompiledFunction)
 			f.Instructions = append(f.Instructions, makeInst(OpDefineLocal, 0)...)
 			f.Instructions = append(f.Instructions, makeInst(OpReturn, 0)...)
 			f.NumLocals = 1
@@ -254,7 +254,7 @@ func TestOptimizer(t *testing.T) {
 				consts = append(consts, tC.c)
 			}
 
-			f := tC.cf.Copy().(*CompiledFunction)
+			f := tC.cf.DeepCopy().(*CompiledFunction)
 			f.Instructions = append(f.Instructions, makeInst(OpDefineLocal, 0)...)
 			f.Instructions = append(f.Instructions, makeInst(OpReturn, 0)...)
 			f.NumLocals = 1
@@ -560,7 +560,7 @@ func TestOptimizerShadowing(t *testing.T) {
 				makeInst(OpCall, 1, 0),
 				makeInst(OpReturn, 1),
 			),
-				withParams(1),
+				withArgs(1),
 				withLocals(1),
 			),
 		))
@@ -608,7 +608,7 @@ func TestOptimizerShadowing(t *testing.T) {
 	opts.OptimizeExpr = true
 
 	st := NewSymbolTable()
-	require.NoError(t, st.SetParams("int"))
+	require.NoError(t, st.SetParams(false, "int"))
 	opts.SymbolTable = st
 	expectCompileWithOpts(t, `return int("1")`, opts,
 		bytecode(
@@ -619,7 +619,7 @@ func TestOptimizerShadowing(t *testing.T) {
 				makeInst(OpCall, 1, 0),
 				makeInst(OpReturn, 1),
 			),
-				withParams(1),
+				withArgs(1),
 				withLocals(1),
 			),
 		),
@@ -680,7 +680,7 @@ func TestOptimizerShadowing(t *testing.T) {
 					makeInst(OpCall, 1, 0),
 					makeInst(OpReturn, 1),
 				),
-					withParams(1),
+					withArgs(1),
 					withLocals(1),
 				),
 				Int(1),
@@ -690,8 +690,7 @@ func TestOptimizerShadowing(t *testing.T) {
 				makeInst(OpPop),
 				makeInst(OpConstant, 2),
 				makeInst(OpReturn, 1),
-			),
-			),
+			)),
 		),
 	)
 

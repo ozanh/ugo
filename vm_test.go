@@ -93,6 +93,25 @@ func TestVMDecl(t *testing.T) {
 		newOpts().Args(Int(1), Int(2)), Array{Int(2), Int(1)})
 	expectRun(t, `param ...a; return a`,
 		newOpts().Args(Int(1), Int(2)), Array{Int(1), Int(2)})
+
+	expectRun(t, `param (a, b=2); return [a, b]`, newOpts().Args(Int(1)),
+		Array{Int(1), Int(2)})
+	expectRun(t, `param (a=-1,...namedArgs); return [a, namedArgs]`, newOpts().
+		NamedArgs(Map{"b": Int(2)}),
+		Array{Int(-1), Map{"b": Int(2)}})
+	expectRun(t, `param (;a=-1,...namedArgs); return [a, namedArgs]`, newOpts().
+		NamedArgs(Map{"a": Int(1), "b": Int(2)}),
+		Array{Int(1), Map{"b": Int(2)}})
+	expectRun(t, `param (;...namedArgs); return namedArgs`, newOpts().
+		NamedArgs(Map{"a": Int(100)}),
+		Map{"a": Int(100)})
+	expectRun(t, `param (a, b=100,...namedArgs); return [a, b, namedArgs]`, newOpts().Args(Int(1)).
+		NamedArgs(Map{"b": Int(2), "c": Int(3)}),
+		Array{Int(1), Int(2), Map{"c": Int(3)}})
+	expectRun(t, `param (a, b=100,...namedArgs); return [a, b, namedArgs]`, newOpts().Args(Int(1)).
+		NamedArgs(Map{"c": Int(2), "d": Int(3)}),
+		Array{Int(1), Int(100), Map{"c": Int(2), "d": Int(3)}})
+
 	expectErrHas(t, `func(){ param x; }`, newOpts().CompilerError(),
 		`Compile Error: param not allowed in this scope`)
 
@@ -692,8 +711,16 @@ func TestVMBuiltinFunction(t *testing.T) {
 		nil, Bytes{1})
 	expectRun(t, `a := bytes(1); b := copy(a); return a == b`,
 		nil, True)
+
+	expectRun(t, `a := [1]; b := copy(a); return a == b`,
+		nil, True)
 	expectErrIs(t, `copy()`, nil, ErrWrongNumArguments)
-	expectErrIs(t, `copy(1, 2)`, nil, ErrWrongNumArguments)
+	expectErrStrIs(t, `copy(1, 2)`, nil, NewArgumentTypeError("1st", "bool", "int").Error())
+
+	expectRun(t, `a := {x: [1]}; b := copy(a); a.x[0] = 2; b.y = true; return [a, b]`,
+		nil, Array{Map{"x": Array{Int(2)}}, Map{"x": Array{Int(1)}, "y": True}})
+	expectRun(t, `a := {x: [1]}; b := copy(a, true); a.x[0] = 2; b.y = true; return [a, b]`,
+		nil, Array{Map{"x": Array{Int(2)}}, Map{"x": Array{Int(2)}, "y": True}})
 
 	expectRun(t, `return repeat("abc", 3)`, nil, String("abcabcabc"))
 	expectRun(t, `return repeat("abc", 2)`, nil, String("abcabc"))
@@ -1237,7 +1264,7 @@ func TestBytes(t *testing.T) {
 	expectRun(t, `return "Hello " + bytes("World!")`,
 		nil, String("Hello World!"))
 
-	//slice
+	// slice
 	expectRun(t, `return bytes("")[:]`, nil, Bytes{})
 	expectRun(t, `return bytes("abcde")[:]`, nil, Bytes(String("abcde")))
 	expectRun(t, `return bytes("abcde")[0:]`, nil, Bytes(String("abcde")))
@@ -3023,6 +3050,17 @@ func TestVMTailCall(t *testing.T) {
 	}
 	iter(0, 9999)
 	return c`, nil, Int(9999))
+
+	// tail call with namedArgs
+	expectRun(t, `
+	var fac
+	fac = func(n, a;kw1=2,...namedArgs) {
+		if n == 1 {
+			return a
+		}
+		return fac(n-1, n*a;...{x:5})
+	}
+	return fac(5, 1;kw1=6)`, nil, Int(120))
 }
 
 func TestVMTailCallFreeVars(t *testing.T) {
@@ -3044,13 +3082,6 @@ func TestVMTailCallFreeVars(t *testing.T) {
 
 func TestVMCall(t *testing.T) {
 	var invErr *RuntimeError
-	expectErrAs(t, `f := func() {}; return f(...{})`, nil, &invErr, nil)
-	require.NotNil(t, invErr)
-	require.NotNil(t, invErr.Err)
-	require.Equal(t, ErrType, invErr.Err.Cause)
-	require.Equal(t, "invalid type for argument 'last': expected array, found map", invErr.Err.Message)
-
-	invErr = nil
 	expectErrAs(t, `f := func() {}; return f(..."")`, nil, &invErr, nil)
 	require.NotNil(t, invErr)
 	require.NotNil(t, invErr.Err)
@@ -3199,6 +3230,30 @@ func TestVMCall(t *testing.T) {
 		nil, Map{"a": make(Bytes, 4096)})
 }
 
+func TestVMCallWithNamedArgs(t *testing.T) {
+	expectRun(t, `return func(;a=2) { return a }(;a=3)`, nil, Int(3))
+	expectRun(t, `return func(x;a=2) { return x+a }(1)`, nil, Int(3))
+	expectRun(t, `return func(x;a=2,b=3) { return x+a+b }(1)`, nil, Int(6))
+	expectRun(t, `return func(x;a=2) { return x+a }(1;a=3)`, nil, Int(4))
+	expectRun(t, `return func(x;a=2) { return x+a }(1;a=3,...{"a":4})`, nil, Int(4))
+	expectRun(t, `return func(x;a=2) { return x+a }(1;a=4,...{"a":90})`, nil, Int(5))
+	expectRun(t, `return func(x;a=2) { return x+a }(1;a=3,...{})`, nil, Int(4))
+	expectRun(t, `return func(...z;a="A", b="B", ...c) { return [z,a,b,c] }(5,...[6,7,8,9];...{"a":"na", "b":"nb", "c":"C", "d":"D"})`,
+		nil, Array{Array{Int(5), Int(6), Int(7), Int(8), Int(9)}, String("na"), String("nb"), Map{"c": String("C"), "d": String("D")}})
+	expectRun(t, `return func(...z;a=false, b="B", ...c) { return [a,b,c] }(5,...[6,7,8,9];a=true,...{"a":"na", "b":"nb", "c":"C", "d":"D"})`,
+		nil, Array{True, String("nb"), Map{"c": String("C"), "d": String("D")}})
+	expectRun(t, `return func(...z;a=false, b="B", ...c) { return [a,b,c] }(5,...[6,7,8,9];a=true,...{"b":"nb", "c":"C", "d":"D"})`,
+		nil, Array{True, String("nb"), Map{"c": String("C"), "d": String("D")}})
+	expectRun(t, `return func(x, y, ...z;a="A", b="B", ...c) { return [x,y,z,a,b,c] }(5,...[6,7,8,9];...{"a":"na", "b":"nb", "c":"C", "d":"D"})`,
+		nil, Array{Int(5), Int(6), Array{Int(7), Int(8), Int(9)}, String("na"), String("nb"), Map{"c": String("C"), "d": String("D")}})
+	expectRun(t, `return func(x, y, ...z;a="A", b="B", ...c) { return [x,y,z,a,b,c] }(5,...[6,7,8,9];...{})`,
+		nil, Array{Int(5), Int(6), Array{Int(7), Int(8), Int(9)}, String("A"), String("B"), Map{}})
+	expectRun(t, `truncate := func(text; limit=3) {if len(text) > limit { return text[:limit]+"..." }; return text}
+return [ truncate("abcd"), truncate("abc"), truncate("ab"),	truncate("abcd";limit=2) ]
+`, nil, Array{String("abc..."), String("abc"), String("ab"), String("ab...")})
+
+}
+
 func TestVMCallCompiledFunction(t *testing.T) {
 	script := `
 	var v = 0
@@ -3222,19 +3277,19 @@ func TestVMCallCompiledFunction(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	//locals := vm.GetLocals(nil)
+	// locals := vm.GetLocals(nil)
 	// t.Log(f)
 	require.Contains(t, f.(Map), "add")
 	require.Contains(t, f.(Map), "sub")
 	add := f.(Map)["add"].(*CompiledFunction)
-	ret, err := vm.RunCompiledFunction(add, nil, Int(10))
+	ret, err := vm.RunCompiledFunction(add, nil, nil, Int(10))
 	if err != nil {
 		t.Fatal(err)
 	}
 	// t.Log(ret)
 	require.Equal(t, Int(10), ret.(Int))
 
-	ret, err = vm.RunCompiledFunction(add, nil, Int(10))
+	ret, err = vm.RunCompiledFunction(add, nil, nil, Int(10))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -3242,14 +3297,14 @@ func TestVMCallCompiledFunction(t *testing.T) {
 	require.Equal(t, Int(20), ret.(Int))
 
 	sub := f.(Map)["sub"].(*CompiledFunction)
-	ret, err = vm.RunCompiledFunction(sub, nil, Int(1))
+	ret, err = vm.RunCompiledFunction(sub, nil, nil, Int(1))
 	if err != nil {
 		t.Fatal(err)
 	}
 	// t.Log(ret)
 	require.Equal(t, Int(19), ret.(Int))
 
-	ret, err = vm.RunCompiledFunction(sub, nil, Int(1))
+	ret, err = vm.RunCompiledFunction(sub, nil, nil, Int(1))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -3260,6 +3315,102 @@ func TestVMCallCompiledFunction(t *testing.T) {
 	// 	fmt.Printf("%#v\n", *locals[i].(*ObjectPtr).Value)
 	// }
 }
+
+func TestVMCallExFunctionWithNamedArgs(t *testing.T) {
+	scr := `
+global fn
+return [
+	fn(),
+	fn(1),
+	fn(1,2),
+	fn(1,2,...[3,4]),
+	fn(...[3,4]; ...{a:5}),
+	fn(...{a:5}),
+	fn(1,2,...[3,4]; ...{a:5}),
+	fn(1,2,...[3,4]; a=5, ...{b:6}),
+]
+`
+	expectRun(t, scr,
+		newOpts().Globals(Map{"fn": &Function{
+			Name: "fn",
+			ValueEx: func(c Call) (Object, error) {
+				args := c.Args()
+				nargs := c.NamedArgs().All()
+				if args == nil {
+					args = Array{}
+				}
+				if nargs == nil {
+					nargs = Map{}
+				}
+				return Array{args, nargs}, nil
+			},
+		}}),
+		Array{
+			Array{Array{}, Map{}},
+			Array{Array{Int(1)}, Map{}},
+			Array{Array{Int(1), Int(2)}, Map{}},
+			Array{Array{Int(1), Int(2), Int(3), Int(4)}, Map{}},
+			Array{Array{Int(3), Int(4)}, Map{"a": Int(5)}},
+			Array{Array{}, Map{"a": Int(5)}},
+			Array{Array{Int(1), Int(2), Int(3), Int(4)}, Map{"a": Int(5)}},
+			Array{Array{Int(1), Int(2), Int(3), Int(4)}, Map{"a": Int(5), "b": Int(6)}},
+		},
+	)
+}
+
+func TestVMCallFunctionWithNamedArgs(t *testing.T) {
+	scr := `
+global fn
+return [
+	fn(),
+	fn(1),
+	fn(1,2),
+	fn(1,2,...[3,4]),
+	fn(...[3,4]; ...{a:5}),
+	fn(...{a:5}),
+	fn(1,2,...[3,4]; ...{a:5}),
+	fn(1,2,...[3,4]; a=5, ...{b:6}),
+	fn(...[1,2], ...{a:3}),
+	fn(...[1,2], a=3, ...{b:4}),
+]
+`
+	expectRun(t, scr,
+		newOpts().Globals(Map{"fn": &callerObject{}}),
+		Array{
+			Array{Array{}, Map{}},
+			Array{Array{Int(1)}, Map{}},
+			Array{Array{Int(1), Int(2)}, Map{}},
+			Array{Array{Int(1), Int(2), Int(3), Int(4)}, Map{}},
+			Array{Array{Int(3), Int(4)}, Map{"a": Int(5)}},
+			Array{Array{}, Map{"a": Int(5)}},
+			Array{Array{Int(1), Int(2), Int(3), Int(4)}, Map{"a": Int(5)}},
+			Array{Array{Int(1), Int(2), Int(3), Int(4)}, Map{"a": Int(5), "b": Int(6)}},
+			Array{Array{Int(1), Int(2)}, Map{"a": Int(3)}},
+			Array{Array{Int(1), Int(2)}, Map{"a": Int(3), "b": Int(4)}},
+		},
+	)
+}
+
+type callerObject struct {
+	Map
+}
+
+func (n *callerObject) CanCall() bool {
+	return true
+}
+
+func (*callerObject) Call(n *NamedArgs, args ...Object) (Object, error) {
+	if args == nil {
+		args = Array{}
+	}
+	nargs := n.All()
+	if nargs == nil {
+		nargs = Map{}
+	}
+	return Array{Array(args).Copy(), nargs}, nil
+}
+
+var _ Object = &callerObject{}
 
 func TestVMClosure(t *testing.T) {
 	expectRun(t, `
@@ -3321,6 +3472,7 @@ func TestVMClosure(t *testing.T) {
 type testopts struct {
 	globals       Object
 	args          []Object
+	namedArgs     Map
 	moduleMap     *ModuleMap
 	skip2pass     bool
 	isCompilerErr bool
@@ -3338,6 +3490,11 @@ func (t *testopts) Globals(globals Object) *testopts {
 
 func (t *testopts) Args(args ...Object) *testopts {
 	t.args = args
+	return t
+}
+
+func (t *testopts) NamedArgs(namedArgs Map) *testopts {
+	t.namedArgs = namedArgs
 	return t
 }
 
@@ -3396,6 +3553,17 @@ func expectErrIs(t *testing.T, script string, opts *testopts, expectErr error) {
 	expectErrorGen(t, script, opts, func(t *testing.T, retErr error) {
 		t.Helper()
 		if !errors.Is(retErr, expectErr) {
+			require.Failf(t, "expectErrorIs Failed",
+				"expected error: %v, got: %v", expectErr, retErr)
+		}
+	})
+}
+
+func expectErrStrIs(t *testing.T, script string, opts *testopts, expectErr string) {
+	t.Helper()
+	expectErrorGen(t, script, opts, func(t *testing.T, retErr error) {
+		t.Helper()
+		if retErr == nil || retErr.Error() != expectErr {
 			require.Failf(t, "expectErrorIs Failed",
 				"expected error: %v, got: %v", expectErr, retErr)
 		}
@@ -3467,7 +3635,7 @@ func expectErrorGen(
 				return
 			}
 			require.NoError(t, err)
-			_, err = NewVM(compiled).SetRecover(opts.noPanic).Run(opts.globals, opts.args...)
+			_, err = NewVM(compiled).SetRecover(opts.noPanic).Run(opts.globals, NewNamedArgs(opts.namedArgs), opts.args...)
 			require.Error(t, err)
 			callback(t, err)
 		})
@@ -3517,8 +3685,8 @@ func expectRun(t *testing.T, script string, opts *testopts, expect Object) {
 			// create a copy of the bytecode before execution to test bytecode
 			// change after execution
 			expectBc := *gotBc
-			expectBc.Main = gotBc.Main.Copy().(*CompiledFunction)
-			expectBc.Constants = Array(gotBc.Constants).Copy().(Array)
+			expectBc.Main = gotBc.Main.DeepCopy().(*CompiledFunction)
+			expectBc.Constants = Array(gotBc.Constants).DeepCopy().(Array)
 			vm := NewVM(gotBc)
 			defer func() {
 				if r := recover(); r != nil {
@@ -3528,8 +3696,17 @@ func expectRun(t *testing.T, script string, opts *testopts, expect Object) {
 					panic(r)
 				}
 			}()
+
+			var namedArgs Map
+			if opts.namedArgs != nil {
+				namedArgs = Map{}
+				for k, v := range opts.namedArgs {
+					namedArgs[k] = v
+				}
+			}
 			got, err := vm.SetRecover(opts.noPanic).Run(
 				opts.globals,
+				NewNamedArgs(namedArgs),
 				opts.args...,
 			)
 			if !assert.NoErrorf(t, err, "Code:\n%s\n", script) {

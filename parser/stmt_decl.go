@@ -38,10 +38,19 @@ type (
 		Ident    *Ident
 		Variadic bool
 	}
+
+	// A NamedParamSpec node represents a named parameter declaration
+	NamedParamSpec struct {
+		Ident *Ident
+		Value Expr
+	}
 )
 
 // Pos returns the position of first character belonging to the spec.
 func (s *ParamSpec) Pos() Pos { return s.Ident.Pos() }
+
+// Pos returns the position of first character belonging to the spec.
+func (s *NamedParamSpec) Pos() Pos { return s.Ident.Pos() }
 
 // Pos returns the position of first character belonging to the spec.
 func (s *ValueSpec) Pos() Pos { return s.Idents[0].Pos() }
@@ -49,6 +58,14 @@ func (s *ValueSpec) Pos() Pos { return s.Idents[0].Pos() }
 // End returns the position of first character immediately after the spec.
 func (s *ParamSpec) End() Pos {
 	return s.Ident.End()
+}
+
+// End returns the position of first character immediately after the spec.
+func (s *NamedParamSpec) End() Pos {
+	if s.Value == nil {
+		return s.Ident.End()
+	}
+	return s.Value.End()
 }
 
 // End returns the position of first character immediately after the spec.
@@ -66,6 +83,15 @@ func (s *ParamSpec) String() string {
 	}
 	return str
 }
+
+func (s *NamedParamSpec) String() string {
+	str := s.Ident.String()
+	if s.Value == nil {
+		return token.Ellipsis.String() + str
+	}
+	return str + "=" + s.Value.String()
+}
+
 func (s *ValueSpec) String() string {
 	vals := make([]string, 0, len(s.Idents))
 	for i := range s.Idents {
@@ -80,6 +106,9 @@ func (s *ValueSpec) String() string {
 
 // specNode() ensures that only spec nodes can be assigned to a Spec.
 func (*ParamSpec) specNode() {}
+
+// specNode() ensures that only spec nodes can be assigned to a Spec.
+func (*NamedParamSpec) specNode() {}
 
 // specNode() ensures that only spec nodes can be assigned to a Spec.
 func (*ValueSpec) specNode() {}
@@ -147,10 +176,18 @@ func (d *GenDecl) String() string {
 	} else {
 		sb.WriteString(" ")
 	}
+
 	last := len(d.Specs) - 1
+
 	for i := range d.Specs {
 		sb.WriteString(d.Specs[i].String())
 		if i != last {
+			if _, ok := d.Specs[i].(*ParamSpec); ok {
+				if _, ok := d.Specs[i+1].(*NamedParamSpec); ok {
+					sb.WriteString("; ")
+					continue
+				}
+			}
 			sb.WriteString(", ")
 		}
 	}

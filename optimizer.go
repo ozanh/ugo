@@ -250,7 +250,7 @@ func (so *SimpleOptimizer) slowEvalExpr(expr parser.Expr) (parser.Expr, bool) {
 		return nil, false
 	}
 
-	obj, err := so.vm.SetBytecode(bytecode).Clear().Run(nil)
+	obj, err := so.vm.SetBytecode(bytecode).Clear().Run(nil, nil)
 	if err != nil {
 		if so.trace != nil {
 			so.printTraceMsgf("eval error: %s", err)
@@ -781,7 +781,10 @@ func (so *SimpleOptimizer) optimize(node parser.Node) (parser.Expr, bool) {
 	case *parser.FuncLit:
 		so.enterScope()
 		defer so.leaveScope()
-		for _, ident := range node.Type.Params.List {
+		for _, ident := range node.Type.Params.Args.Values {
+			so.scope.define(ident.Name)
+		}
+		for _, ident := range node.Type.Params.NamedArgs.Names {
 			so.scope.define(ident.Name)
 		}
 		if node.Body != nil {
@@ -800,12 +803,20 @@ func (so *SimpleOptimizer) optimize(node parser.Node) (parser.Expr, bool) {
 		if node.Func != nil {
 			_, _ = so.optimize(node.Func)
 		}
-		for i := range node.Args {
-			if expr, ok = so.optimize(node.Args[i]); ok {
-				node.Args[i] = expr
+		for i := range node.Args.Values {
+			if expr, ok = so.optimize(node.Args.Values[i]); ok {
+				node.Args.Values[i] = expr
 			}
-			if expr, ok = so.evalExpr(node.Args[i]); ok {
-				node.Args[i] = expr
+			if expr, ok = so.evalExpr(node.Args.Values[i]); ok {
+				node.Args.Values[i] = expr
+			}
+		}
+		for i := range node.NamedArgs.Values {
+			if expr, ok = so.optimize(node.NamedArgs.Values[i]); ok {
+				node.NamedArgs.Values[i] = expr
+			}
+			if expr, ok = so.evalExpr(node.NamedArgs.Values[i]); ok {
+				node.NamedArgs.Values[i] = expr
 			}
 		}
 	case *parser.CondExpr:

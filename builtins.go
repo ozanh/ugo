@@ -159,7 +159,7 @@ var BuiltinObjects = [...]Object{
 	BuiltinCopy: &BuiltinFunction{
 		Name:    "copy",
 		Value:   funcPORO(builtinCopyFunc),
-		ValueEx: funcPOROEx(builtinCopyFunc),
+		ValueEx: builtinCopyExFunc,
 	},
 	BuiltinRepeat: &BuiltinFunction{
 		Name:    "repeat",
@@ -329,7 +329,7 @@ var BuiltinObjects = [...]Object{
 	BuiltinIsCallable: &BuiltinFunction{
 		Name:  "isCallable",
 		Value: funcPORO(builtinIsCallableFunc),
-		//ValueEx: funcPOROEx(builtinIsCallableFunc),
+		// ValueEx: funcPOROEx(builtinIsCallableFunc),
 	},
 	BuiltinIsIterable: &BuiltinFunction{
 		Name:    "isIterable",
@@ -438,10 +438,42 @@ func builtinDeleteFunc(arg Object, key string) (err error) {
 }
 
 func builtinCopyFunc(arg Object) Object {
-	if v, ok := arg.(Copier); ok {
-		return v.Copy()
+	if v, ok := arg.(DeepCopier); ok {
+		return v.DeepCopy()
 	}
 	return arg
+}
+
+func builtinCopyExFunc(c Call) (cp Object, err error) {
+	if err = c.CheckRangeLen(1, 2); err != nil {
+		return
+	}
+
+	var (
+		arg      Arg
+		other, _ = c.DestructureArgsVar(&arg)
+	)
+
+	if len(other) == 1 {
+		switch noDeep := other[0].(type) {
+		case Bool:
+			if noDeep {
+				if v, ok := arg.Value.(Copier); ok {
+					return v.Copy(), nil
+				}
+			}
+		default:
+			return nil, NewArgumentTypeError(
+				"1st",
+				"bool",
+				noDeep.TypeName(),
+			)
+		}
+	}
+	if v, ok := arg.Value.(DeepCopier); ok {
+		return v.DeepCopy(), nil
+	}
+	return arg.Value, nil
 }
 
 func builtinRepeatFunc(arg Object, count int) (ret Object, err error) {

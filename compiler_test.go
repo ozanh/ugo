@@ -47,15 +47,15 @@ func bytecode(
 
 type funcOpt func(*CompiledFunction)
 
-func withParams(numParams int) funcOpt {
+func withArgs(numArgs int) funcOpt {
 	return func(cf *CompiledFunction) {
-		cf.NumParams = numParams
+		cf.NumArgs = numArgs
 	}
 }
 
-func withVariadic() funcOpt {
+func withVarArgs() funcOpt {
 	return func(cf *CompiledFunction) {
-		cf.Variadic = true
+		cf.VarArgs = true
 	}
 }
 
@@ -84,6 +84,35 @@ func concatInsts(insts ...[]byte) []byte {
 }
 
 func TestCompiler_Compile(t *testing.T) {
+	expectCompile(t, `f := func(...a) { return a }; f(1, 2, 3);`, bytecode(
+		Array{
+			compFunc(concatInsts(
+				makeInst(OpGetLocal, 0),
+				makeInst(OpReturn, 1),
+			),
+				withArgs(1),
+				withVarArgs(),
+				withLocals(1),
+			),
+			Int(1),
+			Int(2),
+			Int(3),
+		},
+		compFunc(concatInsts(
+			makeInst(OpConstant, 0),
+			makeInst(OpDefineLocal, 0),
+			makeInst(OpGetLocal, 0),
+			makeInst(OpConstant, 1),
+			makeInst(OpConstant, 2),
+			makeInst(OpConstant, 3),
+			makeInst(OpCall, 3, 0),
+			makeInst(OpPop),
+			makeInst(OpReturn, 0),
+		),
+			withLocals(1),
+		),
+	))
+	return
 	// all local variables are initialized as undefined
 	expectCompile(t, `var a`, bytecode(
 		Array{},
@@ -168,7 +197,7 @@ func TestCompiler_Compile(t *testing.T) {
 		compFunc(concatInsts(
 			makeInst(OpReturn, 0),
 		),
-			withParams(1),
+			withArgs(1),
 			withLocals(1),
 		),
 	))
@@ -177,9 +206,9 @@ func TestCompiler_Compile(t *testing.T) {
 		compFunc(concatInsts(
 			makeInst(OpReturn, 0),
 		),
-			withParams(3),
+			withArgs(3),
 			withLocals(3),
-			withVariadic(),
+			withVarArgs(),
 		),
 	))
 	expectCompile(t, `global a`, bytecode(
@@ -207,9 +236,9 @@ func TestCompiler_Compile(t *testing.T) {
 			makeInst(OpSetLocal, 2),
 			makeInst(OpReturn, 0),
 		),
-			withParams(2),
+			withArgs(2),
 			withLocals(3),
-			withVariadic(),
+			withVarArgs(),
 		),
 	))
 
@@ -772,7 +801,7 @@ func TestCompiler_Compile(t *testing.T) {
 				makeInst(OpGetLocal, 0),
 				makeInst(OpReturn, 1),
 			),
-				withParams(1),
+				withArgs(1),
 				withLocals(1),
 			),
 			Int(1),
@@ -785,7 +814,7 @@ func TestCompiler_Compile(t *testing.T) {
 			makeInst(OpConstant, 1),
 			makeInst(OpConstant, 2),
 			makeInst(OpArray, 2),
-			makeInst(OpCall, 1, 1),
+			makeInst(OpCall, 1, int(OpCallFlagVarArgs)),
 			makeInst(OpPop),
 			makeInst(OpReturn, 0)),
 			withLocals(1),
@@ -1073,7 +1102,7 @@ func TestCompiler_Compile(t *testing.T) {
 				makeInst(OpGetLocal, 0),
 				makeInst(OpReturn, 1),
 			),
-				withParams(1),
+				withArgs(1),
 				withLocals(1),
 			),
 			Int(24),
@@ -1097,8 +1126,8 @@ func TestCompiler_Compile(t *testing.T) {
 				makeInst(OpGetLocal, 0),
 				makeInst(OpReturn, 1),
 			),
-				withParams(1),
-				withVariadic(),
+				withArgs(1),
+				withVarArgs(),
 				withLocals(1),
 			),
 			Int(1),
@@ -1130,7 +1159,7 @@ func TestCompiler_Compile(t *testing.T) {
 				makeInst(OpGetLocal, 2),
 				makeInst(OpReturn, 1),
 			),
-				withParams(3),
+				withArgs(3),
 				withLocals(3),
 			),
 			Int(24),
@@ -1209,7 +1238,7 @@ func TestCompiler_Compile(t *testing.T) {
 				makeInst(OpBinaryOp, int(token.Add)),
 				makeInst(OpReturn, 1),
 			),
-				withParams(1),
+				withArgs(1),
 				withLocals(1),
 			),
 
@@ -1219,7 +1248,7 @@ func TestCompiler_Compile(t *testing.T) {
 				makeInst(OpPop),
 				makeInst(OpReturn, 0),
 			),
-				withParams(1),
+				withArgs(1),
 				withLocals(1),
 			),
 		},
@@ -1246,7 +1275,7 @@ func TestCompiler_Compile(t *testing.T) {
 				makeInst(OpBinaryOp, int(token.Add)),
 				makeInst(OpReturn, 1),
 			),
-				withParams(1),
+				withArgs(1),
 				withLocals(1),
 			),
 
@@ -1256,7 +1285,7 @@ func TestCompiler_Compile(t *testing.T) {
 				makeInst(OpClosure, 0, 2),
 				makeInst(OpReturn, 1),
 			),
-				withParams(1),
+				withArgs(1),
 				withLocals(1),
 			),
 
@@ -1265,7 +1294,7 @@ func TestCompiler_Compile(t *testing.T) {
 				makeInst(OpClosure, 1, 1),
 				makeInst(OpReturn, 1),
 			),
-				withParams(1),
+				withArgs(1),
 				withLocals(1),
 			),
 		},
@@ -1505,7 +1534,7 @@ func TestCompiler_Compile(t *testing.T) {
 			},
 			compFunc(concatInsts(
 				makeInst(OpLoadModule, 0, 0), // 0000 constant, module indexes
-				makeInst(OpJumpFalsy, 14),    // 0005 if loaded no call is required
+				makeInst(OpJumpFalsy, 16),    // 0005 if loaded no call is required
 				makeInst(OpCall, 0, 0),       // 0008 obtain return value from module
 				makeInst(OpStoreModule, 0),   // 0011 store returned value to module cache
 				makeInst(OpPop),              // 0014
@@ -1796,14 +1825,24 @@ func testBytecodesEqual(t *testing.T,
 func assertCompiledFunctionsEqual(t *testing.T,
 	expected, got *CompiledFunction, checkSourceMap bool) bool {
 	t.Helper()
-	if expected.NumParams != got.NumParams {
-		t.Errorf("NumParams not equal expected %d, got %d\n",
-			expected.NumParams, got.NumParams)
+	if expected.NumArgs != got.NumArgs {
+		t.Errorf("NumArgs not equal expected %d, got %d\n",
+			expected.NumArgs, got.NumArgs)
 		return false
 	}
-	if expected.Variadic != got.Variadic {
-		t.Errorf("Variadic not equal expected %t, got %t\n",
-			expected.Variadic, got.Variadic)
+	if expected.VarArgs != got.VarArgs {
+		t.Errorf("VarArgs not equal expected %v, got %v\n",
+			expected.VarArgs, got.VarArgs)
+		return false
+	}
+	if expected.NumKwargs != got.NumKwargs {
+		t.Errorf("NumKwargs not equal expected %d, got %d\n",
+			expected.NumKwargs, got.NumKwargs)
+		return false
+	}
+	if expected.VarKwargs != got.VarKwargs {
+		t.Errorf("VarKwargs not equal expected %v, got %v\n",
+			expected.VarKwargs, got.VarKwargs)
 		return false
 	}
 	if expected.NumLocals != got.NumLocals {

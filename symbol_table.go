@@ -43,6 +43,10 @@ type SymbolTable struct {
 	maxDefinition    int
 	numDefinition    int
 	numParams        int
+	numNamedParams   int
+	namedParams      []string
+	varNamedParams   bool
+	varParams        bool
 	store            map[string]*Symbol
 	disabledBuiltins map[string]struct{}
 	frees            []*Symbol
@@ -87,7 +91,7 @@ func (st *SymbolTable) InBlock() bool {
 }
 
 // SetParams sets parameters defined in the scope. This can be called only once.
-func (st *SymbolTable) SetParams(params ...string) error {
+func (st *SymbolTable) SetParams(varParams bool, params ...string) (err error) {
 	if len(params) == 0 {
 		return nil
 	}
@@ -96,12 +100,39 @@ func (st *SymbolTable) SetParams(params ...string) error {
 		return errors.New("parameters already defined")
 	}
 
+	if err = st.defineParamsVar(params); err == nil {
+		st.numParams = len(params)
+		st.varParams = varParams
+	}
+
+	return
+}
+
+// SetNamedParams sets parameters defined in the scope. This can be called only once.
+func (st *SymbolTable) SetNamedParams(varParams bool, params ...string) (err error) {
+	if len(params) == 0 {
+		return nil
+	}
+
+	if st.numNamedParams > 0 {
+		return errors.New("named parameters already defined")
+	}
+
+	if err = st.defineParamsVar(params); err == nil {
+		st.namedParams = params
+		st.numNamedParams = len(params)
+		st.varNamedParams = varParams
+	}
+
+	return
+}
+
+func (st *SymbolTable) defineParamsVar(names []string) error {
 	if st.disableParams {
 		return errors.New("parameters disabled")
 	}
 
-	st.numParams = len(params)
-	for _, param := range params {
+	for _, param := range names {
 		if _, ok := st.store[param]; ok {
 			return fmt.Errorf("%q redeclared in this block", param)
 		}
@@ -255,6 +286,11 @@ func (st *SymbolTable) MaxSymbols() int {
 // NumParams returns number of parameters for the scope.
 func (st *SymbolTable) NumParams() int {
 	return st.numParams
+}
+
+// NumKwargs returns number of parameters for the scope.
+func (st *SymbolTable) NumKwargs() int {
+	return st.numNamedParams
 }
 
 // FreeSymbols returns registered free symbols for the scope.
