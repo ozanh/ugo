@@ -11,7 +11,8 @@ import (
 
 // Arg is a struct to destructure arguments from Call object.
 type Arg struct {
-	Value Object
+	Value       Object
+	AcceptTypes []string
 }
 
 // NamedArg is a struct to destructure named arguments from Call object.
@@ -88,24 +89,24 @@ func (n *NamedArgs) Get(dst ...*NamedArg) (err error) {
 read:
 	for i, d := range dst {
 		if v, ok := vargs[d.Name]; ok && v != Undefined {
-			if len(d.AcceptTypes) > 0 {
-				for _, t := range d.AcceptTypes {
-					if v.TypeName() == t {
-						d.Value = v
-						delete(vargs, d.Name)
-						continue read
-					}
-				}
-				return NewArgumentTypeError(
-					strconv.Itoa(i)+"st",
-					strings.Join(d.AcceptTypes, "|"),
-					v.TypeName(),
-				)
-			} else {
+			if len(d.AcceptTypes) == 0 {
 				d.Value = v
 				delete(vargs, d.Name)
 				continue
 			}
+
+			for _, t := range d.AcceptTypes {
+				if v.TypeName() == t {
+					d.Value = v
+					delete(vargs, d.Name)
+					continue read
+				}
+			}
+			return NewArgumentTypeError(
+				strconv.Itoa(i)+"st",
+				strings.Join(d.AcceptTypes, "|"),
+				v.TypeName(),
+			)
 		}
 
 		if d.ValueF != nil {
@@ -138,24 +139,25 @@ func (n *NamedArgs) GetVar(dst ...*NamedArg) (vargs Map, err error) {
 dst:
 	for i, d := range dst {
 		if v, ok := vargs[d.Name]; ok && v != Undefined {
-			if len(d.AcceptTypes) > 0 {
-				for _, t := range d.AcceptTypes {
-					if v.TypeName() == t {
-						d.Value = v
-						delete(vargs, d.Name)
-						continue dst
-					}
-				}
-				return nil, NewArgumentTypeError(
-					strconv.Itoa(i)+"st",
-					strings.Join(d.AcceptTypes, "|"),
-					v.TypeName(),
-				)
-			} else {
+			if len(d.AcceptTypes) == 0 {
 				d.Value = v
 				delete(vargs, d.Name)
 				continue
 			}
+
+			for _, t := range d.AcceptTypes {
+				if v.TypeName() == t {
+					d.Value = v
+					delete(vargs, d.Name)
+					continue dst
+				}
+			}
+
+			return nil, NewArgumentTypeError(
+				strconv.Itoa(i)+"st",
+				strings.Join(d.AcceptTypes, "|"),
+				v.TypeName(),
+			)
 		}
 
 		if d.ValueF != nil {

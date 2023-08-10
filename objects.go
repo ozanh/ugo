@@ -133,6 +133,7 @@ type Call struct {
 	args      []Object
 	vargs     []Object
 	namedArgs *NamedArgs
+	shifts    int
 }
 
 // NewCall creates a new Call struct with the given arguments.
@@ -227,35 +228,99 @@ func (c *Call) shift() (Object, bool) {
 		if len(c.vargs) == 0 {
 			return nil, false
 		}
+		c.shifts++
 		v := c.vargs[0]
 		c.vargs = c.vargs[1:]
 		return v, true
 	}
+	c.shifts++
 	v := c.args[0]
 	c.args = c.args[1:]
 	return v, true
 }
 
+// ShiftArg shifts argument and set value to dst.
+// If is empty, retun ok as false.
+// If type check of arg is fails, returns ArgumentTypeError.
+func (c *Call) ShiftArg(dst *Arg) (ok bool, err error) {
+	if dst.Value, ok = c.shift(); !ok {
+		return
+	}
+
+	if len(dst.AcceptTypes) == 0 {
+		return
+	}
+
+	for _, t := range dst.AcceptTypes {
+		if dst.Value.TypeName() == t {
+			return
+		}
+	}
+
+	return false, NewArgumentTypeError(
+		strconv.Itoa(c.shifts)+"st",
+		strings.Join(dst.AcceptTypes, "|"),
+		dst.Value.TypeName(),
+	)
+}
+
 // DestructureArgs shifts argument and set value to dst.
 // If the number of arguments not equals to called args length, it returns an error.
+// If type check of arg is fails, returns ArgumentTypeError.
 func (c *Call) DestructureArgs(dst ...*Arg) (err error) {
 	if err = c.CheckLen(len(dst)); err != nil {
 		return
 	}
-	for _, dst := range dst {
-		dst.Value, _ = c.shift()
+
+args:
+	for i, d := range dst {
+		d.Value, _ = c.shift()
+
+		if len(d.AcceptTypes) == 0 {
+			continue
+		}
+
+		for _, t := range d.AcceptTypes {
+			if d.Value.TypeName() == t {
+				continue args
+			}
+		}
+		return NewArgumentTypeError(
+			strconv.Itoa(i)+"st",
+			strings.Join(d.AcceptTypes, "|"),
+			d.Value.TypeName(),
+		)
 	}
 	return
 }
 
 // DestructureArgsVar shifts argument and set value to dst, and returns left arguments.
 // If the number of arguments is less then to called args length, it returns an error.
+// If type check of arg is fails, returns ArgumentTypeError.
 func (c *Call) DestructureArgsVar(dst ...*Arg) (other Array, err error) {
 	if err = c.CheckMinLen(len(dst)); err != nil {
 		return
 	}
-	for _, dst := range dst {
-		dst.Value, _ = c.shift()
+
+args:
+	for i, d := range dst {
+		d.Value, _ = c.shift()
+
+		if len(d.AcceptTypes) == 0 {
+			continue
+		}
+
+		for _, t := range d.AcceptTypes {
+			if d.Value.TypeName() == t {
+				continue args
+			}
+		}
+
+		return nil, NewArgumentTypeError(
+			strconv.Itoa(i)+"st",
+			strings.Join(d.AcceptTypes, "|"),
+			d.Value.TypeName(),
+		)
 	}
 	other = c.Args()
 	return
