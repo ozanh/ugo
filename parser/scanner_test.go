@@ -38,6 +38,11 @@ func TestScanner_Scan(t *testing.T) {
 		{token.Ident, "bar９８７６"},
 		{token.Ident, "ŝ"},
 		{token.Ident, "ŝfoo"},
+		{token.Ident, "$"},
+		{token.Ident, "$$$"},
+		{token.Ident, "_"},
+		{token.Ident, "__"},
+		{token.Ident, "$_"},
 		{token.Int, "0"},
 		{token.Int, "1"},
 		{token.Int, "123456789012345678890"},
@@ -170,7 +175,7 @@ func TestScanner_Scan(t *testing.T) {
 			expectedLiteral = string(parser.StripCR([]byte(tc.literal),
 				tc.literal[1] == '*'))
 
-			//-style comment literal doesn't contain newline
+			// -style comment literal doesn't contain newline
 			if expectedLiteral[1] == '/' {
 				expectedLiteral = expectedLiteral[:len(expectedLiteral)-1]
 			}

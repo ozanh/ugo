@@ -232,6 +232,9 @@ b)`, func(p pfn) []Stmt {
 	expectParseString(t, "global (x,\ny)", "global (x, y)")
 	expectParseString(t, "global (x\ny)", "global (x, y)")
 
+	expectParseString(t, `var (_, _a, $_a, a, A, $b, $, a1, $1, $b1, $$, ŝ, $ŝ)`,
+		`var (_, _a, $_a, a, A, $b, $, a1, $1, $b1, $$, ŝ, $ŝ)`)
+
 	expectParse(t, `var a`, func(p pfn) []Stmt {
 		return stmts(
 			declStmt(

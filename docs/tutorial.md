@@ -123,6 +123,30 @@ retValue, err := vm.Run(nil,  ugo.Int(34))
 /* ... */
 ```
 
+Valid identifiers start with `isLetter(char)` and followed by 
+`isLetter(char) || isDigit(char)`:
+
+```go
+func isLetter(ch rune) bool {
+    return '$' == ch || 
+		'a' <= ch && ch <= 'z' || 
+		'A' <= ch && ch <= 'Z' || 
+		ch == '_' ||
+        ch >= utf8.RuneSelf && unicode.IsLetter(ch)
+}
+
+func isDigit(ch rune) bool {
+    return '0' <= ch && ch <= '9' || 
+		ch >= utf8.RuneSelf && unicode.IsDigit(ch)
+}
+```
+
+Valid identifier examples:
+
+```go
+var (_, _a, $_a, a, A, $b, $, a1, $1, $b1, $$, ŝ, $ŝ)
+```
+
 Global variables can be provided to VM which are declared with
 [`global`](#global) keyword. Globals are accessible to source modules as well.
 Map like objects should be used to get/set global variables as below.

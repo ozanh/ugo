@@ -95,6 +95,16 @@ func TestCompiler_Compile(t *testing.T) {
 			withLocals(1),
 		),
 	))
+	expectCompile(t, `var $a`, bytecode(
+		Array{},
+		compFunc(concatInsts(
+			makeInst(OpNull),
+			makeInst(OpDefineLocal, 0),
+			makeInst(OpReturn, 0),
+		),
+			withLocals(1),
+		),
+	))
 	expectCompile(t, `var (a, b, c)`, bytecode(
 		Array{},
 		compFunc(concatInsts(
