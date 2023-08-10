@@ -123,12 +123,13 @@ retValue, err := vm.Run(nil,  ugo.Int(34))
 /* ... */
 ```
 
-Valid identifiers start with `isLetter(char)` and followed by `isLetter(char) || isDigit(char)`:
+Valid identifiers start with `isLetter(char)` and followed by `isLetter(char)`
+or `isDigit(char)`:
 
 ```go
 func isLetter(ch rune) bool {
-    return '$' == ch || 'a' <= ch && ch <= 'z' || 'A' <= ch && ch <= 'Z' || ch == '_' ||
-        ch >= utf8.RuneSelf && unicode.IsLetter(ch)
+    return '$' == ch || 'a' <= ch && ch <= 'z' || 'A' <= ch && ch <= 'Z' || 
+		ch == '_' || ch >= utf8.RuneSelf && unicode.IsLetter(ch)
 }
 
 func isDigit(ch rune) bool {
