@@ -129,7 +129,7 @@ or `isDigit(char)`:
 ```go
 func isLetter(ch rune) bool {
     return '$' == ch || 'a' <= ch && ch <= 'z' || 'A' <= ch && ch <= 'Z' || 
-		ch == '_' || ch >= utf8.RuneSelf && unicode.IsLetter(ch)
+        ch == '_' || ch >= utf8.RuneSelf && unicode.IsLetter(ch)
 }
 
 func isDigit(ch rune) bool {
