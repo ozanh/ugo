@@ -248,7 +248,7 @@ func (c *Compiler) compileDeclParam(node *parser.GenDecl) error {
 		}
 	}
 
-	if err := c.symbolTable.SetParams(false, names...); err != nil {
+	if err := c.symbolTable.SetParams(c.variadic, names...); err != nil {
 		return c.error(node, err)
 	}
 
@@ -273,7 +273,7 @@ func (c *Compiler) compileDeclParam(node *parser.GenDecl) error {
 		}
 	}
 
-	if err := c.symbolTable.SetNamedParams(false, names...); err != nil {
+	if err := c.symbolTable.SetNamedParams(c.varNamedParams, false, names...); err != nil {
 		return c.error(node, err)
 	}
 
@@ -891,7 +891,7 @@ func (c *Compiler) compileFuncLit(node *parser.FuncLit) error {
 		if err := symbolTable.defineParamsVar([]string{parser.NamedArgsIdent.Name}); err != nil {
 			return c.error(node, err)
 		}
-		if err := symbolTable.SetNamedParams(node.Type.Params.NamedArgs.Var != nil, namedParams...); err != nil {
+		if err := symbolTable.SetNamedParams(true, node.Type.Params.NamedArgs.Var != nil, namedParams...); err != nil {
 			return c.error(node, err)
 		}
 	}
@@ -1113,13 +1113,15 @@ func (c *Compiler) compileCallExpr(node *parser.CallExpr) error {
 
 	if numKwargs := len(node.NamedArgs.Names); numKwargs > 0 {
 		flags |= OpCallFlagNamedArgs
-		namedArgs := &parser.MapLit{Elements: make([]*parser.MapElementLit, numKwargs)}
+		namedArgs := &parser.ArrayLit{Elements: make([]parser.Expr, numKwargs)}
 
-		for i, arg := range node.NamedArgs.Values {
-			namedArgs.Elements[i] = &parser.MapElementLit{
-				Key:   node.NamedArgs.Names[i].Name(),
-				Value: arg,
+		for i, name := range node.NamedArgs.Names {
+			value := node.NamedArgs.Values[i]
+			if value == nil {
+				// is flag
+				value = &parser.BoolLit{Value: true}
 			}
+			namedArgs.Elements[i] = &parser.ArrayLit{Elements: []parser.Expr{name.NameString(), value}}
 		}
 
 		if err := c.Compile(namedArgs); err != nil {
@@ -1306,10 +1308,33 @@ func (c *Compiler) compileMapLit(node *parser.MapLit) error {
 	return nil
 }
 
+func (c *Compiler) compileKeyValueArrayLit(node *parser.KeyValueArrayLit) (err error) {
+	for _, elt := range node.Elements {
+		// key
+		switch t := elt.Key.(type) {
+		case *parser.Ident:
+			c.emit(node, OpConstant, c.addConstant(String(t.Name)))
+		default:
+			if err = c.Compile(elt.Key); err != nil {
+				return
+			}
+		}
+
+		// value
+		if elt.Value == nil {
+			c.emit(node, OpConstant, c.addConstant(True))
+		} else if err = c.Compile(elt.Value); err != nil {
+			return err
+		}
+	}
+
+	c.emit(node, OpKeyValueArray, len(node.Elements)*2)
+	return nil
+}
+
 func (c *Compiler) helperBuildKwargsStmts(count int, get func(index int) (name string, value parser.Expr)) (stmts []parser.Stmt) {
 	var (
 		containsIdent = &parser.Ident{Name: "contains"}
-		deleteIdent   = &parser.Ident{Name: "delete"}
 	)
 	for i := 0; i < count; i++ {
 		name, value := get(i)
@@ -1327,18 +1352,12 @@ func (c *Compiler) helperBuildKwargsStmts(count int, get func(index int) (name s
 					&parser.AssignStmt{
 						Token: token.Assign,
 						LHS:   []parser.Expr{nameIdent},
-						RHS: []parser.Expr{&parser.IndexExpr{
-							Expr:  parser.NamedArgsIdent,
-							Index: nameLit,
-						}},
-					},
-					&parser.ExprStmt{
-						&parser.CallExpr{
-							Func: deleteIdent,
+						RHS: []parser.Expr{&parser.CallExpr{
+							Func: parser.NamedArgsIdent,
 							Args: parser.CallExprArgs{
-								Values: []parser.Expr{parser.NamedArgsIdent, nameLit},
+								Values: []parser.Expr{nameLit},
 							},
-						},
+						}},
 					},
 				},
 			},

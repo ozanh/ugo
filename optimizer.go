@@ -250,7 +250,7 @@ func (so *SimpleOptimizer) slowEvalExpr(expr parser.Expr) (parser.Expr, bool) {
 		return nil, false
 	}
 
-	obj, err := so.vm.SetBytecode(bytecode).Clear().Run(nil, nil)
+	obj, err := so.vm.SetBytecode(bytecode).Clear().Run(nil)
 	if err != nil {
 		if so.trace != nil {
 			so.printTraceMsgf("eval error: %s", err)

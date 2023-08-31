@@ -14,8 +14,6 @@ import (
 	"strconv"
 	"strings"
 	"unicode/utf8"
-
-	"github.com/ozanh/ugo/token"
 )
 
 var (
@@ -80,6 +78,12 @@ const (
 
 	BuiltinMakeArray
 	BuiltinCap
+
+	BuiltinKeys
+	BuiltinValues
+	BuiltinItems
+	BuiltinKeyValue
+	BuiltinKeyValueArray
 )
 
 // BuiltinsMap is list of builtin types, exported for REPL.
@@ -136,6 +140,12 @@ var BuiltinsMap = map[string]BuiltinType{
 
 	":makeArray": BuiltinMakeArray,
 	"cap":        BuiltinCap,
+
+	"keys":          BuiltinKeys,
+	"values":        BuiltinValues,
+	"items":         BuiltinItems,
+	"keyValue":      BuiltinKeyValue,
+	"keyValueArray": BuiltinKeyValueArray,
 }
 
 // BuiltinObjects is list of builtins, exported for REPL.
@@ -180,6 +190,33 @@ var BuiltinObjects = [...]Object{
 		Name:    "cap",
 		Value:   funcPORO(builtinCapFunc),
 		ValueEx: funcPOROEx(builtinCapFunc),
+	},
+	BuiltinKeys: &BuiltinFunction{
+		Name:    "keys",
+		Value:   funcPORO(builtinKeysFunc),
+		ValueEx: funcPOROEx(builtinKeysFunc),
+	},
+	BuiltinValues: &BuiltinFunction{
+		Name:    "values",
+		Value:   funcPORO(builtinValuesFunc),
+		ValueEx: funcPOROEx(builtinValuesFunc),
+	},
+	BuiltinItems: &BuiltinFunction{
+		Name:    "items",
+		Value:   funcPORO(builtinItemsFunc),
+		ValueEx: funcPOROEx(builtinItemsFunc),
+	},
+	BuiltinKeyValue: &BuiltinFunction{
+		Name:    "keyValue",
+		Value:   funcPOOROe(builtinKeyValueFunc),
+		ValueEx: funcPOOROeEx(builtinKeyValueFunc),
+	},
+	BuiltinKeyValueArray: &BuiltinFunction{
+		Name:  "keyValueArray",
+		Value: builtinKeyValueArrayFunc,
+		ValueEx: func(call Call) (Object, error) {
+			return builtinKeyValueArrayFunc(call.args...)
+		},
 	},
 	BuiltinSort: &BuiltinFunction{
 		Name:    "sort",
@@ -388,6 +425,34 @@ func builtinAppendFunc(c Call) (Object, error) {
 		obj = append(obj, c.args...)
 		obj = append(obj, c.vargs...)
 		return obj, nil
+	case KeyValueArray:
+		var (
+			err error
+			i   = 1
+		)
+		for _, arg := range c.args {
+			if obj, err = obj.AppendObject(arg); err != nil {
+				err = NewArgumentTypeError(
+					strconv.Itoa(i)+"st",
+					err.Error(),
+					arg.TypeName(),
+				)
+				return nil, err
+			}
+			i++
+		}
+		for _, arg := range c.vargs {
+			if obj, err = obj.AppendObject(arg); err != nil {
+				err = NewArgumentTypeError(
+					strconv.Itoa(i)+"st",
+					err.Error(),
+					arg.TypeName(),
+				)
+				return nil, err
+			}
+			i++
+		}
+		return obj, nil
 	case Bytes:
 		n := 0
 		for _, args := range [][]Object{c.args, c.vargs} {
@@ -541,6 +606,8 @@ func builtinContainsFunc(arg0, arg1 Object) (Object, error) {
 				arg1.TypeName(),
 			)
 		}
+	case *NamedArgs:
+		ok = obj.Contains(arg1.String())
 	case *UndefinedType:
 	default:
 		return Undefined, NewArgumentTypeError(
@@ -571,21 +638,62 @@ func builtinCapFunc(arg Object) Object {
 	return Int(n)
 }
 
+func builtinKeysFunc(arg Object) Object {
+	var arr Array
+	switch v := arg.(type) {
+	case KeysGetter:
+		arr = v.Keys()
+	}
+	return arr
+}
+
+func builtinValuesFunc(arg Object) Object {
+	var arr Array
+	switch v := arg.(type) {
+	case Array:
+		arr = v
+	case ValuesGetter:
+		arr = v.Values()
+	}
+	return arr
+}
+
+func builtinItemsFunc(arg Object) Object {
+	var arr KeyValueArray
+	switch v := arg.(type) {
+	case ItemsGetter:
+		arr = v.Items()
+	}
+	return arr
+}
+
+func builtinKeyValueFunc(key, value Object) (ret Object, err error) {
+	return KeyValue{key, value}, nil
+}
+
+func builtinKeyValueArrayFunc(arg ...Object) (Object, error) {
+	var arr KeyValueArray
+	for _, a := range arg {
+		switch t := a.(type) {
+		case KeyValueArray:
+			arr = append(arr, t...)
+		case KeyValue:
+			arr = append(arr, t)
+		case Array:
+			if len(t) == 2 {
+				arr = append(arr, KeyValue{t[0], t[1]})
+			}
+		case ItemsGetter:
+			arr = append(arr, t.Items()...)
+		}
+	}
+	return arr, nil
+}
+
 func builtinSortFunc(arg Object) (ret Object, err error) {
 	switch obj := arg.(type) {
-	case Array:
-		sort.Slice(obj, func(i, j int) bool {
-			v, e := obj[i].BinaryOp(token.Less, obj[j])
-			if e != nil && err == nil {
-				err = e
-				return false
-			}
-			if v != nil {
-				return !v.IsFalsy()
-			}
-			return false
-		})
-		ret = arg
+	case Sorter:
+		ret, err = obj.Sort()
 	case String:
 		s := []rune(obj)
 		sort.Slice(s, func(i, j int) bool {
@@ -612,24 +720,8 @@ func builtinSortFunc(arg Object) (ret Object, err error) {
 
 func builtinSortReverseFunc(arg Object) (Object, error) {
 	switch obj := arg.(type) {
-	case Array:
-		var err error
-		sort.Slice(obj, func(i, j int) bool {
-			v, e := obj[j].BinaryOp(token.Less, obj[i])
-			if e != nil && err == nil {
-				err = e
-				return false
-			}
-			if v != nil {
-				return !v.IsFalsy()
-			}
-			return false
-		})
-
-		if err != nil {
-			return nil, err
-		}
-		return obj, nil
+	case ReverseSorter:
+		return obj.SortReverse()
 	case String:
 		s := []rune(obj)
 		sort.Slice(s, func(i, j int) bool {

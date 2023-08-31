@@ -109,7 +109,7 @@ func (st *SymbolTable) SetParams(varParams bool, params ...string) (err error) {
 }
 
 // SetNamedParams sets parameters defined in the scope. This can be called only once.
-func (st *SymbolTable) SetNamedParams(varParams bool, params ...string) (err error) {
+func (st *SymbolTable) SetNamedParams(definedNamedVar, varParams bool, params ...string) (err error) {
 	if len(params) == 0 {
 		return nil
 	}
@@ -121,7 +121,7 @@ func (st *SymbolTable) SetNamedParams(varParams bool, params ...string) (err err
 	if err = st.defineParamsVar(params); err == nil {
 		st.namedParams = params
 		st.numNamedParams = len(params)
-		st.varNamedParams = varParams
+		st.varNamedParams = definedNamedVar
 	}
 
 	return

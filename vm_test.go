@@ -96,19 +96,19 @@ func TestVMDecl(t *testing.T) {
 
 	expectRun(t, `param (a, b=2); return [a, b]`, newOpts().Args(Int(1)),
 		Array{Int(1), Int(2)})
-	expectRun(t, `param (a=-1,...namedArgs); return [a, namedArgs]`, newOpts().
+	expectRun(t, `param (a=-1,...namedArgs); return [a, namedArgs.map]`, newOpts().
 		NamedArgs(Map{"b": Int(2)}),
 		Array{Int(-1), Map{"b": Int(2)}})
-	expectRun(t, `param (;a=-1,...namedArgs); return [a, namedArgs]`, newOpts().
+	expectRun(t, `param (;a=-1,...namedArgs); return [a, namedArgs.map]`, newOpts().
 		NamedArgs(Map{"a": Int(1), "b": Int(2)}),
 		Array{Int(1), Map{"b": Int(2)}})
-	expectRun(t, `param (;...namedArgs); return namedArgs`, newOpts().
+	expectRun(t, `param (;...namedArgs); return namedArgs.map`, newOpts().
 		NamedArgs(Map{"a": Int(100)}),
 		Map{"a": Int(100)})
-	expectRun(t, `param (a, b=100,...namedArgs); return [a, b, namedArgs]`, newOpts().Args(Int(1)).
+	expectRun(t, `param (a, b=100,...namedArgs); return [a, b, namedArgs.map]`, newOpts().Args(Int(1)).
 		NamedArgs(Map{"b": Int(2), "c": Int(3)}),
 		Array{Int(1), Int(2), Map{"c": Int(3)}})
-	expectRun(t, `param (a, b=100,...namedArgs); return [a, b, namedArgs]`, newOpts().Args(Int(1)).
+	expectRun(t, `param (a, b=100,...namedArgs); return [a, b, namedArgs.map]`, newOpts().Args(Int(1)).
 		NamedArgs(Map{"c": Int(2), "d": Int(3)}),
 		Array{Int(1), Int(100), Map{"c": Int(2), "d": Int(3)}})
 
@@ -667,6 +667,11 @@ func TestVMBuiltinFunction(t *testing.T) {
 		nil, Bytes{})
 	expectRun(t, `return append(bytes(), 1, 2)`,
 		nil, Bytes{1, 2})
+	expectRun(t, `return append((;))`, nil, KeyValueArray{})
+	expectRun(t, `return append((;),(;a=1))`, nil, KeyValueArray{KeyValue{String("a"), Int(1)}})
+	expectRun(t, `return append((;a=1),(;b=2),{c:3},[["d", 4]])`, nil, KeyValueArray{
+		KeyValue{String("a"), Int(1)}, KeyValue{String("b"), Int(2)}, KeyValue{String("c"), Int(3)},
+		KeyValue{String("d"), Int(4)}})
 	expectErrIs(t, `append()`, nil, ErrWrongNumArguments)
 	expectErrIs(t, `append({})`, nil, ErrType)
 
@@ -870,6 +875,9 @@ func TestVMBuiltinFunction(t *testing.T) {
 	expectRun(t, `return typeName(bytes())`, nil, String("bytes"))
 	expectRun(t, `return typeName(func(){})`, nil, String("compiledFunction"))
 	expectRun(t, `return typeName(append)`, nil, String("builtinFunction"))
+	expectRun(t, `return typeName((;))`, nil, String("keyValueArray"))
+	expectRun(t, `return typeName((;a,b=2))`, nil, String("keyValueArray"))
+	expectRun(t, `return typeName(func(;...na){return na}(;a,b=2))`, nil, String("namedArgs"))
 	expectErrIs(t, `typeName()`, nil, ErrWrongNumArguments)
 	expectErrIs(t, `typeName("", "")`, nil, ErrWrongNumArguments)
 
@@ -1253,6 +1261,33 @@ func TestVMBuiltinFunction(t *testing.T) {
 
 	expectErrIs(t, `printf()`, nil, ErrWrongNumArguments)
 	expectErrIs(t, `sprintf()`, nil, ErrWrongNumArguments)
+
+	expectRun(t, `return string(keyValue("a",1))`,
+		nil, String("a=1"))
+	expectRun(t, `return string(keyValue("a b",1))`,
+		nil, String(`"a b"=1`))
+	expectRun(t, `return string(keyValueArray(undefined,keyValue("a",1),{b:2},["c",3],
+keyValueArray(keyValue("d",4))))`,
+		nil, String("(;a=1, b=2, c=3, d=4)"))
+
+	expectRun(t, `return sort(keys({a:1,b:2}))`,
+		nil, Array{String("a"), String("b")})
+	expectRun(t, `return string(keys([5,6]))`,
+		nil, String("[0, 1]"))
+	expectRun(t, `return string(keys(keyValueArray(keyValue("a",1),keyValue("b",2))))`,
+		nil, String(`["a", "b"]`))
+
+	expectRun(t, `return sort(items({a:1,b:2}))`,
+		nil, KeyValueArray{KeyValue{String("a"), Int(1)}, KeyValue{String("b"), Int(2)}})
+	expectRun(t, `return string(items([3, 2, 1]))`, nil, String("(;0=3, 1=2, 2=1)"))
+	expectRun(t, `return string(items(keyValueArray(keyValue("a",1),keyValue("b",2))))`,
+		nil, String(`(;a=1, b=2)`))
+
+	expectRun(t, `return sort(values({a:1,b:2}))`,
+		nil, Array{Int(1), Int(2)})
+	expectRun(t, `return string(values(keyValueArray(keyValue("a",1),keyValue("b",2))))`,
+		nil, String(`[1, 2]`))
+
 }
 
 func TestBytes(t *testing.T) {
@@ -2354,6 +2389,26 @@ func TestVMLogical(t *testing.T) {
 		nil, Int(7))
 }
 
+func TestVMKeyValueArray(t *testing.T) {
+	expectRun(t, `return (;flag)`, nil, KeyValueArray{KeyValue{String("flag"), True}})
+	expectRun(t, `return string((;flag))`, nil, String("(;flag)"))
+	expectRun(t, `return (;disabled).flag("disabled")`, nil, True)
+	expectRun(t, `return (;x=1).flag("x")`, nil, True)
+	expectRun(t, `return (;x=undefined).flag("x")`, nil, False)
+	expectRun(t, `return (;x=1,x=2,y=3).values("x")`, nil, Array{Int(1), Int(2)})
+	expectRun(t, `return (;x=1,x=2,y=3).values()`, nil, Array{Int(1), Int(2), Int(3)})
+	expectRun(t, `return (;x=1,x=2,y=3,z=4).values("x", "y")`, nil, Array{Int(1), Int(2), Int(3)})
+	expectRun(t, `return string((;a=1,a=2,b=3).delete())`, nil, String("(;a=1, a=2, b=3)"))
+	expectRun(t, `return string((;a=1,a=2,b=3).delete("b"))`, nil, String("(;a=1, a=2)"))
+	expectRun(t, `return string((;a=1,a=2,b=3,c=4).delete("a","b"))`, nil, String("(;c=4)"))
+	expectRun(t, `return (;a=1)[0]`, nil, KeyValue{String("a"), Int(1)})
+	expectRun(t, `return (;a=1)[0][0]`, nil, String("a"))
+	expectRun(t, `return (;a=1)[0].k`, nil, String("a"))
+	expectRun(t, `return (;a=1)[0][1]`, nil, Int(1))
+	expectRun(t, `return (;a=1)[0].v`, nil, Int(1))
+	expectRun(t, `return (;a=1)[0].array`, nil, Array{String("a"), Int(1)})
+}
+
 func TestVMMap(t *testing.T) {
 	expectRun(t, `
 	return {
@@ -3231,6 +3286,7 @@ func TestVMCall(t *testing.T) {
 }
 
 func TestVMCallWithNamedArgs(t *testing.T) {
+	expectRun(t, `return func(;a=2) { return a }(;"a"=3)`, nil, Int(3))
 	expectRun(t, `return func(;a=2) { return a }(;a=3)`, nil, Int(3))
 	expectRun(t, `return func(x;a=2) { return x+a }(1)`, nil, Int(3))
 	expectRun(t, `return func(x;a=2,b=3) { return x+a+b }(1)`, nil, Int(6))
@@ -3238,20 +3294,41 @@ func TestVMCallWithNamedArgs(t *testing.T) {
 	expectRun(t, `return func(x;a=2) { return x+a }(1;a=3,...{"a":4})`, nil, Int(4))
 	expectRun(t, `return func(x;a=2) { return x+a }(1;a=4,...{"a":90})`, nil, Int(5))
 	expectRun(t, `return func(x;a=2) { return x+a }(1;a=3,...{})`, nil, Int(4))
-	expectRun(t, `return func(...z;a="A", b="B", ...c) { return [z,a,b,c] }(5,...[6,7,8,9];...{"a":"na", "b":"nb", "c":"C", "d":"D"})`,
+	expectRun(t, `return func(...z;a="A", b="B", ...c) { return [z,a,b,c.map] }(5,...[6,7,8,9];...{"a":"na", "b":"nb", "c":"C", "d":"D"})`,
 		nil, Array{Array{Int(5), Int(6), Int(7), Int(8), Int(9)}, String("na"), String("nb"), Map{"c": String("C"), "d": String("D")}})
-	expectRun(t, `return func(...z;a=false, b="B", ...c) { return [a,b,c] }(5,...[6,7,8,9];a=true,...{"a":"na", "b":"nb", "c":"C", "d":"D"})`,
+	expectRun(t, `return func(...z;a=false, b="B", ...c) { return [a,b,c.map] }(5,...[6,7,8,9];a=true,...{"a":"na", "b":"nb", "c":"C", "d":"D"})`,
 		nil, Array{True, String("nb"), Map{"c": String("C"), "d": String("D")}})
-	expectRun(t, `return func(...z;a=false, b="B", ...c) { return [a,b,c] }(5,...[6,7,8,9];a=true,...{"b":"nb", "c":"C", "d":"D"})`,
+	expectRun(t, `return func(...z;a=false, b="B", ...c) { return [a,b,c.map] }(5,...[6,7,8,9];a=true,...{"b":"nb", "c":"C", "d":"D"})`,
 		nil, Array{True, String("nb"), Map{"c": String("C"), "d": String("D")}})
-	expectRun(t, `return func(x, y, ...z;a="A", b="B", ...c) { return [x,y,z,a,b,c] }(5,...[6,7,8,9];...{"a":"na", "b":"nb", "c":"C", "d":"D"})`,
+	expectRun(t, `return func(x, y, ...z;a="A", b="B", ...c) { return [x,y,z,a,b,c.map] }(5,...[6,7,8,9];...{"a":"na", "b":"nb", "c":"C", "d":"D"})`,
 		nil, Array{Int(5), Int(6), Array{Int(7), Int(8), Int(9)}, String("na"), String("nb"), Map{"c": String("C"), "d": String("D")}})
-	expectRun(t, `return func(x, y, ...z;a="A", b="B", ...c) { return [x,y,z,a,b,c] }(5,...[6,7,8,9];...{})`,
+	expectRun(t, `return func(x, y, ...z;a="A", b="B", ...c) { return [x,y,z,a,b,c.map] }(5,...[6,7,8,9];...{})`,
 		nil, Array{Int(5), Int(6), Array{Int(7), Int(8), Int(9)}, String("A"), String("B"), Map{}})
 	expectRun(t, `truncate := func(text; limit=3) {if len(text) > limit { return text[:limit]+"..." }; return text}
 return [ truncate("abcd"), truncate("abc"), truncate("ab"),	truncate("abcd";limit=2) ]
 `, nil, Array{String("abc..."), String("abc"), String("ab"), String("ab...")})
+	expectRun(t, `
+f1 := func(;b=1,...c) { return c }
+f2 := func(;a=5,...c) {
+	z := f1(;flag, ...c)
+	return string([c,z])
+}
+return f2(;a=1,b=2,c=3,d=4,e=5)
+`, nil, String("[(;b=2, c=3, d=4, e=5), (;flag, c=3, d=4, e=5)]"))
 
+	expectRun(t, `return func(;a=2) { return a }(;...(;a=3))`, nil, Int(3))
+	expectRun(t, `f := func(;...kw){return kw};return string(f(;x=1,x=2))`, nil, String("(;x=1, x=2)"))
+	expectRun(t, `f := func(;...kw){return kw};return string(f(;x=2).map)`, nil, String(`{"x": 2}`))
+	expectRun(t, `f := func(;...kw){return kw};return string(f(;x=1,x=2).array)`, nil, String(`(;x=1, x=2)`))
+	expectRun(t, `f := func(;x=1,...kw){return kw};return string(f(;x=1,x=2).ready)`, nil, String(`(;x=1, x=2)`))
+	expectRun(t, `f := func(;x=1,...kw){return kw};return string(f(;x=1,x=2).readyNames)`, nil, String(`["x"]`))
+	expectRun(t, `f := func(;x=1,...kw){return [1, kw]};_, ret := f(;x=1,x=2); return string(ret.ready)`, nil, String(`(;x=1, x=2)`))
+	expectRun(t, `f := func(;x=1,...kw){return kw};return string(f(;x=1,x=2,y=3,...{x:4}).src)`, nil, String(`[(;x=1, x=2, y=3), (;x=4)]`))
+	expectRun(t, `f := func(;...kw){return kw};return string(f(;...[["x",1],["x", 2]]))`, nil, String(`(;x=1, x=2)`))
+	expectRun(t, `f := func(;...kw){return kw};return string(f(;...[[100,1],["x", 2]]))`, nil, String(`(;100=1, x=2)`))
+	expectRun(t, `f := func(;...kw){return kw};return string(f(;...(func() {return [[100,1],["x", 2]]})()))`, nil, String(`(;100=1, x=2)`))
+	expectRun(t, `f := func(;...kw){return kw};return string(f(;...(;100=1,x=2,flag,x=4,"a b"=7)))`, nil, String(`(;100=1, x=2, flag, x=4, "a b"=7)`))
+	expectRun(t, `f := func(;...kw){return kw};return string(f(;"x y"=2,"user.name"="the user",abc="de"))`, nil, String(`(;"x y"=2, "user.name"="the user", abc="de")`))
 }
 
 func TestVMCallCompiledFunction(t *testing.T) {
@@ -3273,7 +3350,7 @@ func TestVMCallCompiledFunction(t *testing.T) {
 		t.Fatal(err)
 	}
 	vm := NewVM(c)
-	f, err := vm.Run(nil, nil)
+	f, err := vm.Run(nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -3335,7 +3412,7 @@ return [
 			Name: "fn",
 			ValueEx: func(c Call) (Object, error) {
 				args := c.Args()
-				nargs := c.NamedArgs().All()
+				nargs := c.NamedArgs().Map()
 				if args == nil {
 					args = Array{}
 				}
@@ -3403,7 +3480,7 @@ func (*callerObject) Call(n *NamedArgs, args ...Object) (Object, error) {
 	if args == nil {
 		args = Array{}
 	}
-	nargs := n.All()
+	nargs := n.Map()
 	if nargs == nil {
 		nargs = Map{}
 	}
@@ -3635,7 +3712,7 @@ func expectErrorGen(
 				return
 			}
 			require.NoError(t, err)
-			_, err = NewVM(compiled).SetRecover(opts.noPanic).Run(opts.globals, NewNamedArgs(opts.namedArgs), opts.args...)
+			_, err = NewVM(compiled).SetRecover(opts.noPanic).RunArgs(opts.globals, NewNamedArgs(opts.namedArgs.Items()), opts.args)
 			require.Error(t, err)
 			callback(t, err)
 		})
@@ -3704,10 +3781,10 @@ func expectRun(t *testing.T, script string, opts *testopts, expect Object) {
 					namedArgs[k] = v
 				}
 			}
-			got, err := vm.SetRecover(opts.noPanic).Run(
+			got, err := vm.SetRecover(opts.noPanic).RunArgs(
 				opts.globals,
-				NewNamedArgs(namedArgs),
-				opts.args...,
+				NewNamedArgs(namedArgs.Items()),
+				opts.args,
 			)
 			if !assert.NoErrorf(t, err, "Code:\n%s\n", script) {
 				gotBc.Fprint(os.Stderr)

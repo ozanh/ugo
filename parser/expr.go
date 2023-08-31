@@ -160,6 +160,13 @@ func (e *KwargNameExpr) Name() string {
 	return e.Ident.Name
 }
 
+func (e *KwargNameExpr) NameString() *StringLit {
+	if e.String != nil {
+		return e.String
+	}
+	return &StringLit{Value: e.Ident.Name, ValuePos: e.Ident.NamePos}
+}
+
 func (e *KwargNameExpr) Expr() Expr {
 	if e.String != nil {
 		return e.String
@@ -181,7 +188,11 @@ func (a *CallExprNamedArgs) Valid() bool {
 func (a *CallExprNamedArgs) String() string {
 	var s []string
 	for i, name := range a.Names {
-		s = append(s, name.Expr().String()+"="+a.Values[i].String())
+		if a.Values[i] == nil {
+			s = append(s, name.Expr().String())
+		} else {
+			s = append(s, name.Expr().String()+"="+a.Values[i].String())
+		}
 	}
 	if a.Ellipsis != nil {
 		s = append(s, "..."+a.Ellipsis.Value.String())
@@ -512,6 +523,60 @@ func (e *MapLit) String() string {
 		elements = append(elements, m.String())
 	}
 	return "{" + strings.Join(elements, ", ") + "}"
+}
+
+// KeyValueLit represents a key value element.
+type KeyValueLit struct {
+	Key      Expr
+	KeyPos   Pos
+	ColonPos Pos
+	Value    Expr
+}
+
+func (e *KeyValueLit) exprNode() {}
+
+// Pos returns the position of first character belonging to the node.
+func (e *KeyValueLit) Pos() Pos {
+	return e.KeyPos
+}
+
+// End returns the position of first character immediately after the node.
+func (e *KeyValueLit) End() Pos {
+	return e.Value.End()
+}
+
+func (e *KeyValueLit) String() string {
+	if e.Value == nil {
+		return e.Key.String()
+	}
+	return e.Key.String() + "=" + e.Value.String()
+}
+
+// KeyValueArrayLit represents a key value array literal.
+type KeyValueArrayLit struct {
+	LBrace   Pos
+	Elements []*KeyValueLit
+	RBrace   Pos
+}
+
+func (e *KeyValueArrayLit) exprNode() {}
+
+// Pos returns the position of first character belonging to the node.
+func (e *KeyValueArrayLit) Pos() Pos {
+	return e.LBrace
+}
+
+// End returns the position of first character immediately after the node.
+func (e *KeyValueArrayLit) End() Pos {
+	return e.RBrace + 1
+}
+
+func (e *KeyValueArrayLit) String() string {
+	var elements []string
+	for _, m := range e.Elements {
+		elements = append(elements, m.String())
+	}
+	return "(;" + strings.Join(elements, ", ") + ")"
 }
 
 // ParenExpr represents a parenthesis wrapped expression.

@@ -88,7 +88,7 @@ f2(...[5,6],...{kw4:10,kw5:11})
 	}()
 	if *update {
 		require.NoError(t, f.Close())
-		f, err = os.OpenFile(goldenFile, os.O_CREATE|os.O_WRONLY, 0644)
+		f, err = os.OpenFile(goldenFile, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
 		require.NoError(t, err)
 		parse(sample, f)
 		require.NoError(t, f.Close())
@@ -120,6 +120,25 @@ func TestParserErrorList(t *testing.T) {
 	list.Sort()
 	require.Equal(t, "Parse Error: error 1\n\tat 1:10 (and 2 more errors)",
 		list.Error())
+}
+
+func TestParseKeyValueArray(t *testing.T) {
+	expectParseString(t, `(;)`, `(;)`)
+	expectParseString(t, `(
+;
+)`, `(;)`)
+	expectParseString(t, `(;a=1)`, `(;a=1)`)
+	expectParseString(t, `(;flag)`, `(;flag)`)
+	expectParseString(t, `(;
+flag
+)`, `(;flag)`)
+	expectParseString(t, `(;a=1,b=2,"c"=3,4=5,true=false, myflag)`, `(;a=1, b=2, "c"=3, 4=5, true=false, myflag)`)
+	expectParseString(t, `(;a=1,b=2,
+"c"
+=
+3,4=5,
+true=false, 
+myflag)`, `(;a=1, b=2, "c"=3, 4=5, true=false, myflag)`)
 }
 
 func TestParseDecl(t *testing.T) {
@@ -162,15 +181,15 @@ func TestParseDecl(t *testing.T) {
 			),
 		)
 	})
-	expectParse(t, `param (a, ...b;c=1, d=2, ...e)`, func(p pfn) []Stmt {
+	expectParse(t, `param (a, ...b; c=1, d=2, ...e)`, func(p pfn) []Stmt {
 		return stmts(
 			declStmt(
-				genDecl(token.Param, p(1, 1), p(1, 7), p(1, 30),
+				genDecl(token.Param, p(1, 1), p(1, 7), p(1, 31),
 					paramSpec(false, ident("a", p(1, 8))),
 					paramSpec(true, ident("b", p(1, 14))),
-					nparamSpec(ident("c", p(1, 16)), &IntLit{1, 18, "1"}),
-					nparamSpec(ident("d", p(1, 21)), &IntLit{2, 23, "2"}),
-					nparamSpec(ident("e", p(1, 29)), nil),
+					nparamSpec(ident("c", p(1, 17)), &IntLit{1, 19, "1"}),
+					nparamSpec(ident("d", p(1, 22)), &IntLit{2, 24, "2"}),
+					nparamSpec(ident("e", p(1, 30)), nil),
 				),
 			),
 		)
@@ -211,6 +230,7 @@ func TestParseDecl(t *testing.T) {
 	expectParseString(t, "param (c=1, d=2, ...e)", "param (c=1, d=2, ...e)")
 	expectParseString(t, "param (;c=1, d=2, ...e)", "param (c=1, d=2, ...e)")
 	expectParseString(t, "param (a, ...b;c=1, d=2, ...e)", "param (a, ...b; c=1, d=2, ...e)")
+	expectParseString(t, "param (a\n...b\n; c=2\nx=5)", "param (a, ...b; c=2, x=5)")
 
 	expectParse(t, `global a`, func(p pfn) []Stmt {
 		return stmts(
@@ -899,6 +919,7 @@ func TestParseCall(t *testing.T) {
 						intLit(2, p(1, 8)),
 					))))
 	})
+
 	expectParse(t, "add(1, 2, 3)", func(p pfn) []Stmt {
 		return stmts(
 			exprStmt(
@@ -1119,7 +1140,7 @@ func TestParseCallWithNamedArgs(t *testing.T) {
 				callExpr(
 					ident("add", p(1, 1)),
 					p(1, 4), p(1, 15),
-					namedArgs(Pos(10), mapLit(13, 14),
+					namedArgs(Pos(12), mapLit(10, 11),
 						[]KwargNameExpr{{Ident: ident("x", p(1, 6))}},
 						[]Expr{intLit(2, p(1, 8))},
 					))))
@@ -1139,6 +1160,7 @@ func TestParseCallWithNamedArgs(t *testing.T) {
 	expectParseString(t, "fn(...{y:5})", "fn(; ...{y: 5})")
 	expectParseString(t, "fn(;...{y:5})", "fn(; ...{y: 5})")
 	expectParseString(t, "fn(1, ...[2,3]; x=4, ...{y:5})", "fn(1, ...[2, 3]; x=4, ...{y: 5})")
+	expectParseString(t, "fn(;y,...{z:5})", "fn(; y, ...{z: 5})")
 }
 
 func TestParseChar(t *testing.T) {
@@ -1448,11 +1470,10 @@ func TestParseFunction(t *testing.T) {
 	expectParseString(t, "func(a\n,...b){}", "func(a, ...b) {}")
 	expectParseString(t, "func(a\n,...b){}", "func(a, ...b) {}")
 	expectParseString(t, "func(\na\n,...b){}", "func(a, ...b) {}")
+	expectParseString(t, "func(...a,\n...b){}", "func(...a; ...b) {}")
 
 	expectParseError(t, "func(,){}")
 	expectParseError(t, "func(,a){}")
-	expectParseError(t, "func(...a,...b){}")
-	expectParseError(t, "func(...a,\n...b){}")
 	expectParseError(t, "func(...a,b){}")
 	expectParseError(t, "func(a,...b;c=1,...d,...e){}")
 }
@@ -2577,10 +2598,6 @@ func funcArgs(variadic *Ident, args ...*Ident) *ArgsList {
 	return &ArgsList{variadic, args}
 }
 
-func funcNamedArgs(variadic *Ident) *NamedArgsList {
-	return &NamedArgsList{Var: variadic}
-}
-
 func funcType(pos, lparen, rparen Pos, args *ArgsList, namedArgs *NamedArgsList) *FuncType {
 	p := &FuncParams{LParen: lparen, RParen: rparen}
 	if args != nil {
@@ -2692,19 +2709,6 @@ func funcLit(funcType *FuncType, body *BlockStmt) *FuncLit {
 
 func parenExpr(x Expr, lparen, rparen Pos) *ParenExpr {
 	return &ParenExpr{Expr: x, LParen: lparen, RParen: rparen}
-}
-
-func kwarg(name interface{}) *KwargNameExpr {
-	l := &KwargNameExpr{}
-	switch n := name.(type) {
-	case *StringLit:
-		l.String = n
-	case *Ident:
-		l.Ident = n
-	default:
-		panic("unexpected type")
-	}
-	return l
 }
 
 func namedArgs(ellipsis Pos, ellipsesValue Expr, names []KwargNameExpr, values []Expr) (kw CallExprNamedArgs) {
@@ -2985,27 +2989,50 @@ func equalExpr(t *testing.T, expected, actual Expr) {
 		equalStmt(t, expected.Body,
 			actual.(*FuncLit).Body)
 	case *CallExpr:
+		actual := actual.(*CallExpr)
 		equalExpr(t, expected.Func,
-			actual.(*CallExpr).Func)
+			actual.Func)
 		require.Equal(t, expected.LParen,
-			actual.(*CallExpr).LParen)
+			actual.LParen)
 		require.Equal(t, expected.RParen,
-			actual.(*CallExpr).RParen)
+			actual.RParen)
 		equalExprs(t, expected.Args.Values,
-			actual.(*CallExpr).Args.Values)
-		require.Equal(t, expected.Args.Ellipsis.Pos,
-			actual.(*CallExpr).Args.Ellipsis.Pos)
-		equalExpr(t, expected.Args.Ellipsis.Value,
-			actual.(*CallExpr).Args.Ellipsis.Value)
+			actual.Args.Values)
 
-		require.Equal(t, expected.NamedArgs.Ellipsis.Pos,
-			actual.(*CallExpr).NamedArgs.Ellipsis.Pos)
-		equalExpr(t, expected.NamedArgs.Ellipsis.Value,
-			actual.(*CallExpr).NamedArgs.Ellipsis.Value)
+		if expected.Args.Ellipsis == nil && actual.Args.Ellipsis != nil {
+			require.Nil(t, expected.Args.Ellipsis)
+		}
+
+		if expected.Args.Ellipsis != nil && actual.Args.Ellipsis == nil {
+			require.NotNil(t, expected.Args.Ellipsis)
+		}
+
+		if expected.Args.Ellipsis != nil && actual.Args.Ellipsis != nil {
+			require.Equal(t, expected.Args.Ellipsis.Pos,
+				actual.Args.Ellipsis.Pos)
+			equalExpr(t, expected.Args.Ellipsis.Value,
+				actual.Args.Ellipsis.Value)
+		}
+
+		if expected.NamedArgs.Ellipsis == nil && actual.NamedArgs.Ellipsis != nil {
+			require.Nil(t, expected.NamedArgs.Ellipsis)
+		}
+
+		if expected.NamedArgs.Ellipsis != nil && actual.NamedArgs.Ellipsis == nil {
+			require.NotNil(t, expected.NamedArgs.Ellipsis)
+		}
+
+		if expected.NamedArgs.Ellipsis != nil && actual.NamedArgs.Ellipsis != nil {
+			require.Equal(t, expected.NamedArgs.Ellipsis.Pos,
+				actual.NamedArgs.Ellipsis.Pos)
+			equalExpr(t, expected.NamedArgs.Ellipsis.Value,
+				actual.NamedArgs.Ellipsis.Value)
+		}
+
 		equalKwargNames(t, expected.NamedArgs.Names,
-			actual.(*CallExpr).NamedArgs.Names)
+			actual.NamedArgs.Names)
 		equalExprs(t, expected.NamedArgs.Values,
-			actual.(*CallExpr).NamedArgs.Values)
+			actual.NamedArgs.Values)
 	case *ParenExpr:
 		equalExpr(t, expected.Expr,
 			actual.(*ParenExpr).Expr)

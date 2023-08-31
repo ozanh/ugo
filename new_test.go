@@ -934,7 +934,7 @@ func TestVM_Invoke(t *testing.T) {
 			inv := NewInvoker(c.VM(), c.Get(0))
 			inv.Acquire()
 			defer inv.Release()
-			return inv.Invoke(nil, args...)
+			return inv.Invoke(c.NamedArgs(), args...)
 		},
 	}
 	applyNoPool := &Function{
@@ -945,7 +945,7 @@ func TestVM_Invoke(t *testing.T) {
 				args = append(args, c.Get(i))
 			}
 			inv := NewInvoker(c.VM(), c.Get(0))
-			return inv.Invoke(nil, args...)
+			return inv.Invoke(c.NamedArgs(), args...)
 		},
 	}
 	for _, apply := range []*Function{applyPool, applyNoPool} {
@@ -1246,7 +1246,7 @@ func (n *nameCallerObject) CanCall() bool {
 
 func (n *nameCallerObject) CallName(_ string, c Call) (Object, error) {
 	args := c.Args()
-	nargs := c.NamedArgs().All()
+	nargs := c.NamedArgs().Map()
 	if args == nil {
 		args = Array{}
 	}

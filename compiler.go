@@ -269,10 +269,10 @@ func (c *Compiler) Bytecode() *Bytecode {
 
 	cf := &CompiledFunction{
 		NumArgs:      c.symbolTable.numParams,
-		NumKwargs:    c.symbolTable.numNamedParams,
+		NumNamedArgs: c.symbolTable.numNamedParams,
 		NumLocals:    c.symbolTable.maxDefinition,
 		NamedArgs:    c.symbolTable.namedParams,
-		VarKwargs:    c.symbolTable.varNamedParams,
+		VarNamedArgs: c.symbolTable.varNamedParams,
 		VarArgs:      c.symbolTable.varParams,
 		Instructions: c.instructions,
 		SourceMap:    c.sourceMap,
@@ -289,7 +289,7 @@ func (c *Compiler) Bytecode() *Bytecode {
 		cf.VarArgs = true
 	}
 	if c.varNamedParams {
-		cf.VarKwargs = true
+		cf.VarNamedArgs = true
 	}
 
 	return &Bytecode{
@@ -391,6 +391,8 @@ func (c *Compiler) Compile(node parser.Node) error {
 		return c.compileArrayLit(node)
 	case *parser.MapLit:
 		return c.compileMapLit(node)
+	case *parser.KeyValueArrayLit:
+		return c.compileKeyValueArrayLit(node)
 	case *parser.SelectorExpr: // selector on RHS side
 		return c.compileSelectorExpr(node)
 	case *parser.IndexExpr:
@@ -724,7 +726,7 @@ func MakeInstruction(buf []byte, op Opcode, args ...int) ([]byte, error) {
 	buf = append(buf[:0], op)
 	switch op {
 	case OpConstant, OpMap, OpArray, OpGetGlobal, OpSetGlobal, OpJump,
-		OpJumpFalsy, OpAndJump, OpOrJump, OpStoreModule:
+		OpJumpFalsy, OpAndJump, OpOrJump, OpStoreModule, OpKeyValueArray:
 		buf = append(buf, byte(args[0]>>8))
 		buf = append(buf, byte(args[0]))
 		return buf, nil

@@ -928,10 +928,10 @@ func (o *SyncMap) UnmarshalBinary(data []byte) error {
 func (o *CompiledFunction) MarshalBinary() ([]byte, error) {
 	var tmpBuf bytes.Buffer
 	var vi varintConv
-	if o.NumParams > 0 {
-		// NumParams field #0
+	if o.NumArgs > 0 {
+		// NumArgs field #0
 		tmpBuf.WriteByte(0)
-		b := vi.toBytes(int64(o.NumParams))
+		b := vi.toBytes(int64(o.NumArgs))
 		tmpBuf.Write(b)
 	}
 
@@ -953,7 +953,7 @@ func (o *CompiledFunction) MarshalBinary() ([]byte, error) {
 	}
 
 	// Variadic field #3
-	if o.Variadic {
+	if o.VarArgs {
 		tmpBuf.WriteByte(3)
 	}
 
@@ -1009,7 +1009,7 @@ func (o *CompiledFunction) UnmarshalBinary(data []byte) error {
 			if err != nil {
 				return err
 			}
-			o.NumParams = int(v)
+			o.NumArgs = int(v)
 		case 1:
 			v, err := vi.read()
 			if err != nil {
@@ -1023,7 +1023,7 @@ func (o *CompiledFunction) UnmarshalBinary(data []byte) error {
 			}
 			o.Instructions = obj.(ugo.Bytes)
 		case 3:
-			o.Variadic = true
+			o.VarArgs = true
 		case 4:
 			return errors.New("unexpected field #4")
 		case 5:

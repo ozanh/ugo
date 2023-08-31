@@ -112,7 +112,7 @@ func TestCompiler_Compile(t *testing.T) {
 			withLocals(1),
 		),
 	))
-	return
+
 	// all local variables are initialized as undefined
 	expectCompile(t, `var a`, bytecode(
 		Array{},
@@ -1534,7 +1534,7 @@ func TestCompiler_Compile(t *testing.T) {
 			},
 			compFunc(concatInsts(
 				makeInst(OpLoadModule, 0, 0), // 0000 constant, module indexes
-				makeInst(OpJumpFalsy, 16),    // 0005 if loaded no call is required
+				makeInst(OpJumpFalsy, 14),    // 0005 if loaded no call is required
 				makeInst(OpCall, 0, 0),       // 0008 obtain return value from module
 				makeInst(OpStoreModule, 0),   // 0011 store returned value to module cache
 				makeInst(OpPop),              // 0014
@@ -1835,14 +1835,14 @@ func assertCompiledFunctionsEqual(t *testing.T,
 			expected.VarArgs, got.VarArgs)
 		return false
 	}
-	if expected.NumKwargs != got.NumKwargs {
-		t.Errorf("NumKwargs not equal expected %d, got %d\n",
-			expected.NumKwargs, got.NumKwargs)
+	if expected.NumNamedArgs != got.NumNamedArgs {
+		t.Errorf("NumNamedArgs not equal expected %d, got %d\n",
+			expected.NumNamedArgs, got.NumNamedArgs)
 		return false
 	}
-	if expected.VarKwargs != got.VarKwargs {
-		t.Errorf("VarKwargs not equal expected %v, got %v\n",
-			expected.VarKwargs, got.VarKwargs)
+	if expected.VarNamedArgs != got.VarNamedArgs {
+		t.Errorf("VarNamedArgs not equal expected %v, got %v\n",
+			expected.VarNamedArgs, got.VarNamedArgs)
 		return false
 	}
 	if expected.NumLocals != got.NumLocals {

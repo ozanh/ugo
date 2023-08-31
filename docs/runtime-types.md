@@ -11,6 +11,10 @@
 - **map**: objects map with string keys (`map[string]Object` in Go)
 - **error**: an error with a string Name and Message
 - **undefined**: undefined
+- **keyValue**: is a pair of objects (`KeyValue` in Go)
+- **keyValueArray**: array of key values (`KeyValueArray` in Go)
+- **keyValueArrays**: array of key values (`KeyValueArrays` in Go)
+- **namedArgs**: special type with called named arguments (`NamedArgs` in Go)
 
 Note: uGO does not have `byte` type. `uint`, `int` or `string` values can be
 used to create/modify `bytes` values.
@@ -89,6 +93,26 @@ type Map map[string]Object
 type SyncMap struct {
   mu sync.RWMutex
   Map
+}
+```
+
+```go
+type KeyValue [2]Object
+```
+
+```go
+type KeyValueArray []KeyValue
+```
+
+```go
+type KeyValueArrays []KeyValueArray
+```
+
+```go
+type NamedArgs struct {
+	sources KeyValueArrays
+	m       Map
+	ready   Map
 }
 ```
 

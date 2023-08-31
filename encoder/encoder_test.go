@@ -484,7 +484,7 @@ func testBytecodeConstants(t *testing.T, expected, decoded []ugo.Object) {
 		t.Fatalf("constants length not equal want %d, got %d", len(decoded), len(expected))
 	}
 	Len := func(v ugo.Object) ugo.Object {
-		ret, err := ugo.BuiltinObjects[ugo.BuiltinLen].Call(v)
+		ret, err := ugo.BuiltinObjects[ugo.BuiltinLen].Call(nil, v)
 		if err != nil {
 			t.Fatalf("%v: length error for '%v'", err, v)
 		}
@@ -538,7 +538,7 @@ type funcOpt func(*ugo.CompiledFunction)
 
 func withParams(numParams int) funcOpt {
 	return func(cf *ugo.CompiledFunction) {
-		cf.NumParams = numParams
+		cf.NumArgs = numParams
 	}
 }
 
@@ -550,7 +550,7 @@ func withLocals(numLocals int) funcOpt {
 
 func withVariadic() funcOpt {
 	return func(cf *ugo.CompiledFunction) {
-		cf.Variadic = true
+		cf.VarArgs = true
 	}
 }
 

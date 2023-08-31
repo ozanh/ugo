@@ -78,7 +78,7 @@ func main() {
     panic(err)
   }
 
-  retValue, err := ugo.NewVM(bytecode).Run(nil,  nil, ugo.Int(35))
+  retValue, err := ugo.NewVM(bytecode).Run(nil,  ugo.Int(35))
 
   if err != nil {
     panic(err)
@@ -116,10 +116,10 @@ and ensures stack and module cache is cleaned.
 
 ```go
 vm := ugo.NewVM(bytecode)
-retValue, err := vm.Run(nil, nil, ugo.Int(35))
+retValue, err := vm.Run(nil, ugo.Int(35))
 /* ... */
 // vm.Clear()
-retValue, err := vm.Run(nil, nil, ugo.Int(34))
+retValue, err := vm.Run(nil, ugo.Int(34))
 /* ... */
 ```
 
@@ -137,8 +137,7 @@ if err != nil {
   panic(err)
 }
 
-namedArgs := ugo.NewNamedArgs(ugo.Map{"upperBound": ugo.Int(1984)})
-retValue, err := ugo.NewVM(bytecode).Run(nil,  nil, ugo.Int(2018))
+retValue, err := ugo.NewVM(bytecode).Run(nil,  ugo.Int(2018))
 // retValue == ugo.Int(2018)
 
 ```
@@ -156,14 +155,14 @@ if err != nil {
   panic(err)
 }
 
-namedParams := ugo.Map{} // or nil
-retValue, err := ugo.NewVM(bytecode).Run(nil,  namedParams)
+namedParams := ugo.NewNamedParams() // or nil
+retValue, err := ugo.NewVM(bytecode).RunArgs(nil,  namedParams, nil)
 // retValue == ugo.Int(5)
 
 vm.Clear()
 
-namedParams := ugo.Map{"a": ugo.Int(10)}
-retValue, err := ugo.NewVM(bytecode).Run(nil,  namedParams)
+namedParams := ugo.NewNamedParams(ugo.Map{"a": ugo.Int(10)}.Items())
+retValue, err := ugo.NewVM(bytecode).RunArgs(nil,  namedParams, nil)
 // retValue == ugo.Int(10)
 ```
 
@@ -207,7 +206,7 @@ if err != nil {
 }
 
 g := ugo.Map{"upperBound": ugo.Int(1984)}
-retValue, err := ugo.NewVM(bytecode).Run(g,  nil, ugo.Int(2018))
+retValue, err := ugo.NewVM(bytecode).Run(g,  ugo.Int(2018))
 // retValue == ugo.String("big")
 ```
 
@@ -265,6 +264,8 @@ statement.
 
 ```go
 func (vm *VM) Run(globals Object, args ...Object) (Object, error)
+
+func (vm *VM) RunArgs(globals Object, namedArgs *NamedArgs, args []Object) (Object, error)
 ```
 
 ## Variables Declaration and Scopes
@@ -789,9 +790,73 @@ fn1(1, ...{kw2:4, kw1: 5}) // 10
 fn2 := func(arg1, ...other_args; kw1=5, kw2=2, ...other_kwargs) {
     return [arg1, other_args, kw1, kw2, other_kwargs]
 }
-fn2(1, 2, ...[3,4]; kw2=6, my_kw=7) // [1,[2,3,4],5,6,{my_kw: 7}]
-fn2(1, 2, ...[3,4], kw2=6, my_kw=7) // [1,[2,3,4],5,6,{my_kw: 7}]
-fn2(1, 2, ...[3,4], kw2=6, ...{my_kw:7}) // [1,[2,3,4],5,6,{my_kw: 7}]
+fn2(1, 2, ...[3,4]; kw2=6, my_kw=7) // [1,[2,3,4],5,6,(;my_kw=7)]
+fn2(1, 2, ...[3,4], kw2=6, my_kw=7) // [1,[2,3,4],5,6,(;my_kw=7)]
+fn2(1, 2, ...[3,4], kw2=6, ...{my_kw:7}) // [1,[2,3,4],5,6,(;my_kw=7)]
+
+// named args with flags
+// calling with flags also simplify pass boolen true value.
+fn3 := func(;enabled=false,...other){
+	return [enabled, other]
+}
+
+fn3(;enabled) // [true, (;)]
+fn3(;enabled,x=5) // [true, (;x=5)]
+fn3(;y=1,enabled,x=2) // [true, (;x=2, y=1)]
+fn3(;enabled=10,x=5) // [10, (;x=5)]
+fn3(;myflag,x=5) // [10, (;myflag, x=5)]
+
+
+fn4 := func(;...kw){ return kw }
+// complex arg name
+fn4(;"x y"=2,"user.name"="the user",abc="de") // (;"x y"=2,"user.name"="the user",abc="de")
+
+// convert named args to map
+fn4(;x=2).map // {x:2}
+
+// convert named args to keyValue array
+fn4(;x=2).array // (;x=2)
+fn4(;x=2).array[0] // x=2
+
+// get key and value
+fn4(;x=2).array[0].k // "x"
+fn4(;x=2).array[0][0] // "x"
+
+fn4(;x=2).array[0].v // 2
+fn4(;x=2).array[0][1] // 2
+
+// converts keyValue as array
+fn4(;x=2).array[0].array // ["x", 2]
+
+// repeating named arg name (its preserves call order)}
+fn4(;x=1,x=2) // (;x=2,x=4)
+
+fn5 := func(;x=8, ...kw){
+    return [x, kw]
+}
+fn5(;x=1,x=2,y=3,y=4) // [2,(;y=3,y=4)] - x receives last passed value
+
+// get read passed values
+fn5(;x=1,x=2,y=3,y=4).ready // (;x=1,x=2)
+// get read passed values names 
+fn5(;x=1,x=2,y=3,y=4).readyNames // ["x"]
+
+// get all passed values, including ready
+fn4(;x=1, x=2, y=3, ...{x:4}).src // [(;x=1, x=2, y=3), (;x=4)]
+
+// create new named args object with unread keys
+fn6 := func(;x=8, ...kw){ return kw }
+fn6(;x=1, x=2, y=3, ...{z:4}).unread // [2, [(;y=3), (;z=4)]]
+
+// pass array of pairs
+fn4(;...[["x",1],["x", 2]]) // (;x=1,x=2)
+fn4(;...[[100,1],["x", 2]]) // (;100=1,x=2)
+
+// pass key value array as named args 
+fn4(;...(;100=1,x=2,flag,x=4,"a b"=7)) // (;100=1,x=2,flag,x=4,"a b"=7)
+
+// pass named args from call
+fn4(;...(func() {return [[100,1],["x", 2]]})()) // (;100=1,x=2)
 ```
 
 ## Type Conversions

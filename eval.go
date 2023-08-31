@@ -13,11 +13,13 @@ import (
 // omitted, it returns last value on stack.
 // Warning: Eval is not safe to use concurrently.
 type Eval struct {
+	Args         []Object
 	Locals       []Object
 	Globals      Object
 	Opts         CompilerOptions
 	VM           *VM
 	ModulesCache []Object
+	NamedArgs    *NamedArgs
 }
 
 // NewEval returns new Eval object.
@@ -33,11 +35,16 @@ func NewEval(opts CompilerOptions, globals Object, args ...Object) *Eval {
 	}
 
 	return &Eval{
-		Locals:  args,
+		Args:    args,
 		Globals: globals,
 		Opts:    opts,
 		VM:      NewVM(nil).SetRecover(true),
 	}
+}
+
+func (r *Eval) WithNamedArgs(na *NamedArgs) *Eval {
+	r.NamedArgs = na
+	return r
 }
 
 // Run compiles, runs given script and returns last value on stack.
@@ -47,7 +54,6 @@ func (r *Eval) Run(ctx context.Context, script []byte) (Object, *Bytecode, error
 		return nil, nil, err
 	}
 
-	bytecode.Main.NumArgs = bytecode.Main.NumLocals
 	r.Opts.Constants = bytecode.Constants
 	r.fixOpPop(bytecode)
 	r.VM.SetBytecode(bytecode)
@@ -81,7 +87,10 @@ func (r *Eval) run(ctx context.Context) (ret Object, err error) {
 	default:
 		go func() {
 			defer close(doneCh)
-			ret, err = r.VM.Run(r.Globals, nil, r.Locals...)
+			for i, v := range r.Locals {
+				r.VM.stack[i] = v
+			}
+			ret, err = r.VM.RunArgs(r.Globals, r.NamedArgs, r.Args)
 		}()
 
 		select {

@@ -67,11 +67,12 @@ type CompiledFunction struct {
 	// SourceMap holds the index of instruction and token's position.
 	SourceMap map[int]int
 
-	NumArgs   int
-	NumKwargs int
-	VarArgs   bool
-	VarKwargs bool
-	NamedArgs []string
+	NumArgs int
+	VarArgs bool
+
+	NumNamedArgs int
+	VarNamedArgs bool
+	NamedArgs    []string
 
 	// namedArgsMap is a set of NamedArgs
 	// this value allow to perform named args validation.
@@ -118,9 +119,9 @@ func (o *CompiledFunction) DeepCopy() Object {
 		Free:         free,
 		SourceMap:    sourceMap,
 		NumArgs:      o.NumArgs,
-		NumKwargs:    o.NumKwargs,
+		NumNamedArgs: o.NumNamedArgs,
 		VarArgs:      o.VarArgs,
-		VarKwargs:    o.VarKwargs,
+		VarNamedArgs: o.VarNamedArgs,
 	}
 }
 
@@ -187,7 +188,7 @@ begin:
 func (o *CompiledFunction) Fprint(w io.Writer) {
 	_, _ = fmt.Fprintf(w, "Locals: %d\n", o.NumLocals)
 	_, _ = fmt.Fprintf(w, "Args: %d VarArgs: %v\n", o.NumArgs, o.VarArgs)
-	_, _ = fmt.Fprintf(w, "NamedArgs: %d VarKwargs: %v\n", o.NumKwargs, o.VarKwargs)
+	_, _ = fmt.Fprintf(w, "NamedArgs: %d VarNamedArgs: %v\n", o.NumNamedArgs, o.VarNamedArgs)
 	_, _ = fmt.Fprintf(w, "Instructions:\n")
 
 	i := 0
@@ -217,10 +218,10 @@ func (o *CompiledFunction) Fprint(w io.Writer) {
 
 func (o *CompiledFunction) identical(other *CompiledFunction) bool {
 	if o.NumArgs != other.NumArgs ||
-		o.NumKwargs != other.NumKwargs ||
+		o.NumNamedArgs != other.NumNamedArgs ||
 		o.NumLocals != other.NumLocals ||
 		o.VarArgs != other.VarArgs ||
-		o.VarKwargs != other.VarKwargs ||
+		o.VarNamedArgs != other.VarNamedArgs ||
 		len(o.Instructions) != len(other.Instructions) ||
 		len(o.Free) != len(other.Free) ||
 		string(o.Instructions) != string(other.Instructions) {
@@ -249,14 +250,14 @@ func (o *CompiledFunction) equalSourceMap(other *CompiledFunction) bool {
 }
 
 func (o *CompiledFunction) hash32() uint32 {
-	hash := hashData32(2166136261, []byte{byte(o.NumArgs), byte(o.NumKwargs)})
+	hash := hashData32(2166136261, []byte{byte(o.NumArgs), byte(o.NumNamedArgs)})
 	hash = hashData32(hash, []byte{byte(o.NumLocals)})
 	if o.VarArgs {
 		hash = hashData32(hash, []byte{1})
 	} else {
 		hash = hashData32(hash, []byte{0})
 	}
-	if o.VarKwargs {
+	if o.VarNamedArgs {
 		hash = hashData32(hash, []byte{1})
 	} else {
 		hash = hashData32(hash, []byte{0})
