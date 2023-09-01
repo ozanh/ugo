@@ -104,9 +104,54 @@ LHS: left hand side, RHS: right hand side
 Logical operators apply to all types and yield a result of the same type as the
 operands. The right operand is evaluated conditionally.
 
-| Symbol | Operation                                           |
-|:------:|-----------------------------------------------------|
-|   &&   | Logical AND  `p && q  is  "if p then q else false"` |
-|   \|\| | Logical OR  `p \|\| q  is  "if p then true else q"` |
+| Symbol | Operation                                                                                                                                                                                                                     |
+|:------:|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+|   &&   | Logical AND  `p && q  is  "if p then q else false"`                                                                                                                                                                           |
+|  \|\|  | Logical OR  `p \|\| q  is  "if p then true else q"`                                                                                                                                                                           |
+|   ??   | Logical NULLISH. The nullish coalescing (??) operator is a logical operator that returns its right-hand side operand when its left-hand side operand is null or undefined, and otherwise returns its left-hand side operand.  |
+
+### Nullish coalescing examples
+
+```go
+undefined ?? 1 // 1
+0 ?? 1 // 0
+
+a := undefined
+b := undefined
+a ?? b ?? 2 // 2
+
+b = 1
+a ?? b ?? 2 // 1
+```
+
+**Assign to undefined variable value**
+
+```go
+a := undefined
+a ??= 2 // set a to 2
+a // 2
+
+a ??= 3 // don't set a, a isn't undefined
+a // 2
+```
+
+**Assign to FALSYS variable value**
+
+```go
+a := undefined
+a ||= 2 // set a because undefined is a falsy value
+a // 2
+
+a ||= 3 // don't set a, a isn't falsy
+a // 2
+
+a = 0
+a ||= 3 // set a because 0 is a falsy value
+a // 3
+
+a = ""
+a ||= 4 // set a because "" is a falsy value
+a // 4
+```
 
 _See [builtins](builtins.md) for conversion and type checking functions_

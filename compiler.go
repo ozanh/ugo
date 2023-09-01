@@ -254,7 +254,7 @@ func (c *Compiler) Bytecode() *Bytecode {
 		)
 
 		if lastOp == OpJump || lastOp == OpJumpFalsy ||
-			lastOp == OpAndJump || lastOp == OpOrJump {
+			lastOp == OpAndJump || lastOp == OpOrJump || lastOp == OpJumpNull {
 			jumpPos[operands[0]] = struct{}{}
 		}
 
@@ -318,7 +318,7 @@ func (c *Compiler) Compile(node parser.Node) error {
 	case *parser.ParenExpr:
 		return c.Compile(node.Expr)
 	case *parser.BinaryExpr:
-		if node.Token == token.LAnd || node.Token == token.LOr {
+		if node.Token == token.LAnd || node.Token == token.LOr || node.Token == token.NullCoalesce {
 			return c.compileLogical(node)
 		}
 		return c.compileBinaryExpr(node)
@@ -704,7 +704,7 @@ func MakeInstruction(buf []byte, op Opcode, args ...int) ([]byte, error) {
 	buf = append(buf[:0], op)
 	switch op {
 	case OpConstant, OpMap, OpArray, OpGetGlobal, OpSetGlobal, OpJump,
-		OpJumpFalsy, OpAndJump, OpOrJump, OpStoreModule:
+		OpJumpFalsy, OpAndJump, OpOrJump, OpStoreModule, OpJumpNull:
 		buf = append(buf, byte(args[0]>>8))
 		buf = append(buf, byte(args[0]))
 		return buf, nil

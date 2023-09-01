@@ -1417,6 +1417,88 @@ func TestCompiler_Compile(t *testing.T) {
 		),
 	))
 
+	expectCompile(t, `undefined || 1`, bytecode(
+		Array{Int(1)},
+		compFunc(concatInsts(
+			makeInst(OpNull),
+			makeInst(OpOrJump, 7),   // 0020
+			makeInst(OpConstant, 0), // 0025
+			makeInst(OpPop),         // 0030
+			makeInst(OpReturn, 0),   // 0031
+		)),
+	))
+
+	expectCompile(t, `undefined ?? 1`, bytecode(
+		Array{Int(1)},
+		compFunc(concatInsts(
+			makeInst(OpNull),
+			makeInst(OpJumpNull, 7), // 0020
+			makeInst(OpConstant, 0), // 0025
+			makeInst(OpPop),         // 0030
+			makeInst(OpReturn, 0),   // 0031
+		)),
+	))
+
+	expectCompile(t, `a := 1; a ??= 2`, bytecode(
+		Array{Int(1), Int(2)},
+		compFunc(concatInsts(
+			makeInst(OpConstant, 0),
+			makeInst(OpDefineLocal, 0),
+			makeInst(OpGetLocal, 0),
+			makeInst(OpJumpNull, 15),
+			makeInst(OpConstant, 1),
+			makeInst(OpSetLocal, 0),
+			makeInst(OpReturn, 0),
+		),
+			withLocals(1),
+		)))
+
+	expectCompile(t, `a := 1; b := 2; a ??= b`, bytecode(
+		Array{Int(1), Int(2)},
+		compFunc(concatInsts(
+			makeInst(OpConstant, 0),
+			makeInst(OpDefineLocal, 0),
+			makeInst(OpConstant, 1),
+			makeInst(OpDefineLocal, 1),
+			makeInst(OpGetLocal, 0),
+			makeInst(OpJumpNull, 19),
+			makeInst(OpGetLocal, 1),
+			makeInst(OpSetLocal, 0),
+			makeInst(OpReturn, 0),
+		),
+			withLocals(2),
+		)))
+
+	expectCompile(t, `a := 1; a ||= 2`, bytecode(
+		Array{Int(1), Int(2)},
+		compFunc(concatInsts(
+			makeInst(OpConstant, 0),
+			makeInst(OpDefineLocal, 0),
+			makeInst(OpGetLocal, 0),
+			makeInst(OpOrJump, 15),
+			makeInst(OpConstant, 1),
+			makeInst(OpSetLocal, 0),
+			makeInst(OpReturn, 0),
+		),
+			withLocals(1),
+		)))
+
+	expectCompile(t, `a := 1; b := 2; a ||= b`, bytecode(
+		Array{Int(1), Int(2)},
+		compFunc(concatInsts(
+			makeInst(OpConstant, 0),
+			makeInst(OpDefineLocal, 0),
+			makeInst(OpConstant, 1),
+			makeInst(OpDefineLocal, 1),
+			makeInst(OpGetLocal, 0),
+			makeInst(OpOrJump, 19),
+			makeInst(OpGetLocal, 1),
+			makeInst(OpSetLocal, 0),
+			makeInst(OpReturn, 0),
+		),
+			withLocals(2),
+		)))
+
 	expectCompile(t, `try { a:=0 } catch err { } finally { err; a; }; x:=1`, bytecode(
 		Array{Int(0), Int(1)},
 		compFunc(concatInsts(

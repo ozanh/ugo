@@ -804,6 +804,52 @@ func TestParseAssignment(t *testing.T) {
 				token.MulAssign,
 				p(1, 3)))
 	})
+
+	expectParse(t, "a ||= 5", func(p pfn) []Stmt {
+		return stmts(
+			assignStmt(
+				exprs(ident("a", p(1, 1))),
+				exprs(intLit(5, p(1, 7))),
+				token.LOrAssign,
+				p(1, 3)))
+	})
+
+	expectParse(t, "a ||= 5 + 10", func(p pfn) []Stmt {
+		return stmts(
+			assignStmt(
+				exprs(ident("a", p(1, 1))),
+				exprs(
+					binaryExpr(
+						intLit(5, p(1, 7)),
+						intLit(10, p(1, 11)),
+						token.Add,
+						p(1, 9))),
+				token.LOrAssign,
+				p(1, 3)))
+	})
+
+	expectParse(t, "a ??= 5", func(p pfn) []Stmt {
+		return stmts(
+			assignStmt(
+				exprs(ident("a", p(1, 1))),
+				exprs(intLit(5, p(1, 7))),
+				token.NullCoalesceAssign,
+				p(1, 3)))
+	})
+
+	expectParse(t, "a ??= 5 + 10", func(p pfn) []Stmt {
+		return stmts(
+			assignStmt(
+				exprs(ident("a", p(1, 1))),
+				exprs(
+					binaryExpr(
+						intLit(5, p(1, 7)),
+						intLit(10, p(1, 11)),
+						token.Add,
+						p(1, 9))),
+				token.NullCoalesceAssign,
+				p(1, 3)))
+	})
 }
 
 func TestParseBoolean(t *testing.T) {
@@ -1721,6 +1767,60 @@ func TestParseIndex(t *testing.T) {
 }
 
 func TestParseLogical(t *testing.T) {
+	expectParse(t, "undefined ?? 1", func(p pfn) []Stmt {
+		return stmts(
+			exprStmt(
+				binaryExpr(
+					undefinedLit(p(1, 1)),
+					intLit(1, p(1, 14)),
+					token.NullCoalesce,
+					p(1, 11))))
+	})
+
+	expectParse(t, "a && 5 ?? true", func(p pfn) []Stmt {
+		return stmts(
+			exprStmt(
+				binaryExpr(
+					binaryExpr(
+						ident("a", p(1, 1)),
+						intLit(5, p(1, 6)),
+						token.LAnd,
+						p(1, 3)),
+					boolLit(true, p(1, 11)),
+					token.NullCoalesce,
+					p(1, 8))))
+	})
+
+	expectParse(t, "a ?? 5 && true", func(p pfn) []Stmt {
+		return stmts(
+			exprStmt(
+				binaryExpr(
+					ident("a", p(1, 1)),
+					binaryExpr(
+						intLit(5, p(1, 6)),
+						boolLit(true, p(1, 11)),
+						token.LAnd,
+						p(1, 8)),
+					token.NullCoalesce,
+					p(1, 3))))
+	})
+
+	expectParse(t, "a && (5 ?? true)", func(p pfn) []Stmt {
+		return stmts(
+			exprStmt(
+				binaryExpr(
+					ident("a", p(1, 1)),
+					parenExpr(
+						binaryExpr(
+							intLit(5, p(1, 7)),
+							boolLit(true, p(1, 12)),
+							token.NullCoalesce,
+							p(1, 9)),
+						p(1, 6), p(1, 16)),
+					token.LAnd,
+					p(1, 3))))
+	})
+
 	expectParse(t, "a && 5 || true", func(p pfn) []Stmt {
 		return stmts(
 			exprStmt(
@@ -2477,6 +2577,10 @@ func importExpr(moduleName string, pos Pos) *ImportExpr {
 
 func exprs(list ...Expr) []Expr {
 	return list
+}
+
+func undefinedLit(pos Pos) *UndefinedLit {
+	return &UndefinedLit{pos}
 }
 
 func intLit(value int64, pos Pos) *IntLit {

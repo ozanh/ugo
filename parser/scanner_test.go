@@ -88,6 +88,8 @@ func TestScanner_Scan(t *testing.T) {
 		{token.ShlAssign, "<<="},
 		{token.ShrAssign, ">>="},
 		{token.AndNotAssign, "&^="},
+		{token.LOrAssign, "||="},
+		{token.NullCoalesceAssign, "??="},
 		{token.LAnd, "&&"},
 		{token.LOr, "||"},
 		{token.Inc, "++"},
@@ -101,6 +103,7 @@ func TestScanner_Scan(t *testing.T) {
 		{token.LessEq, "<="},
 		{token.GreaterEq, ">="},
 		{token.Define, ":="},
+		{token.NullCoalesce, "??"},
 		{token.Ellipsis, "..."},
 		{token.LParen, "("},
 		{token.LBrack, "["},
@@ -170,7 +173,7 @@ func TestScanner_Scan(t *testing.T) {
 			expectedLiteral = string(parser.StripCR([]byte(tc.literal),
 				tc.literal[1] == '*'))
 
-			//-style comment literal doesn't contain newline
+			// -style comment literal doesn't contain newline
 			if expectedLiteral[1] == '/' {
 				expectedLiteral = expectedLiteral[:len(expectedLiteral)-1]
 			}

@@ -1181,7 +1181,7 @@ func (p *Parser) parseSimpleStmt(forIn bool) Stmt {
 					p.errorExpected(x[1].Pos(), "identifier")
 					value = &Ident{Name: "_", NamePos: x[1].Pos()}
 				}
-				//TODO: no more than 2 idents
+				// TODO: no more than 2 idents
 			}
 			return &ForInStmt{
 				Key:      key,
@@ -1200,7 +1200,8 @@ func (p *Parser) parseSimpleStmt(forIn bool) Stmt {
 	case token.Define,
 		token.AddAssign, token.SubAssign, token.MulAssign, token.QuoAssign,
 		token.RemAssign, token.AndAssign, token.OrAssign, token.XorAssign,
-		token.ShlAssign, token.ShrAssign, token.AndNotAssign:
+		token.ShlAssign, token.ShrAssign, token.AndNotAssign,
+		token.NullCoalesceAssign, token.LOrAssign:
 		pos, tok := p.pos, p.token
 		p.next()
 		y := p.parseExpr()

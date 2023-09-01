@@ -487,6 +487,19 @@ func TestVMAssignment(t *testing.T) {
 	d[f()] = [g(), h()]
 	return d
 	`, nil, Map{"40": Array{Int(2), Int(4)}})
+
+	expectRun(t, `a := undefined; a ||= 1; return a`, nil, Int(1))
+	expectRun(t, `a := 0; a ||= 1; return a`, nil, Int(1))
+	expectRun(t, `a := ""; a ||= 1; return a`, nil, Int(1))
+	expectRun(t, `a := 1; a ||= 2; return a`, nil, Int(1))
+	expectRun(t, `c := false; a := 1; a ||= func(){c=true;return 2}(); return [c,a]`, nil, Array{False, Int(1)})
+	expectRun(t, `c := false; a := 0; a ||= func(){c=true;return 2}(); return [c,a]`, nil, Array{True, Int(2)})
+
+	expectRun(t, `a := 1; a ??= 2; return a`, nil, Int(1))
+	expectRun(t, `a := 0; a ??= 2; return a`, nil, Int(0))
+	expectRun(t, `a := undefined; a ??= 2; return a`, nil, Int(2))
+	expectRun(t, `c := false; a := 1; a ??= func(){c=true;return 2}(); return [c,a]`, nil, Array{False, Int(1)})
+	expectRun(t, `c := false; a := undefined; a ??= func(){c=true;return 2}(); return [c,a]`, nil, Array{True, Int(2)})
 }
 
 func TestVMBitwise(t *testing.T) {
@@ -1237,7 +1250,7 @@ func TestBytes(t *testing.T) {
 	expectRun(t, `return "Hello " + bytes("World!")`,
 		nil, String("Hello World!"))
 
-	//slice
+	// slice
 	expectRun(t, `return bytes("")[:]`, nil, Bytes{})
 	expectRun(t, `return bytes("abcde")[:]`, nil, Bytes(String("abcde")))
 	expectRun(t, `return bytes("abcde")[0:]`, nil, Bytes(String("abcde")))
@@ -2325,6 +2338,19 @@ func TestVMLogical(t *testing.T) {
 		nil, Int(7))
 	expectRun(t, `var out; t:=func() {out = 3; return true}; f:=func() {out = 7; return false}; !t() || f(); return out`,
 		nil, Int(7))
+
+	expectRun(t, `false ?? true`, nil, Undefined)
+	expectRun(t, `return true ?? true`, nil, True)
+	expectRun(t, `return undefined ?? 1`, nil, Int(1))
+	expectRun(t, `return false ?? 1`, nil, False)
+	expectRun(t, `return undefined ?? 1 ?? 2`, nil, Int(1))
+	expectRun(t, `return undefined ?? undefined ?? 2`, nil, Int(2))
+	expectRun(t, `var (called = false, f = func() {called = true;return 1}); return [f() ?? 2, called]`, nil, Array{Int(1), True})
+	expectRun(t, `var (c = "", f = func(v,r) {c += v;return r}); return [f("u",undefined) ?? f("1",1) ?? f("2",2) , c]`, nil, Array{Int(1), String("u1")})
+	expectRun(t, `var (c = "", f = func(v,r) {c += v;return r}); return [f("1",1) ?? f("2",2) , c]`, nil, Array{Int(1), String("1")})
+	expectRun(t, `return undefined ?? 0 || 2`, nil, Int(2))
+	expectRun(t, `return undefined ?? 1 || 2`, nil, Int(1))
+	expectRun(t, `return 3 ?? 1 || 2`, nil, Int(3))
 }
 
 func TestVMMap(t *testing.T) {
@@ -3222,7 +3248,7 @@ func TestVMCallCompiledFunction(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	//locals := vm.GetLocals(nil)
+	// locals := vm.GetLocals(nil)
 	// t.Log(f)
 	require.Contains(t, f.(Map), "add")
 	require.Contains(t, f.(Map), "sub")

@@ -153,7 +153,18 @@ func (s *Scanner) Scan() (
 		case ',':
 			tok = token.Comma
 		case '?':
-			tok = token.Question
+			if s.ch == '?' {
+				if s.peek() == '=' {
+					s.next()
+					s.next()
+					tok = token.NullCoalesceAssign
+				} else {
+					s.next()
+					tok = token.NullCoalesce
+				}
+			} else {
+				tok = token.Question
+			}
 		case ';':
 			tok = token.Semicolon
 			literal = ";"
@@ -228,7 +239,21 @@ func (s *Scanner) Scan() (
 				tok = s.switch3(token.And, token.AndAssign, '&', token.LAnd)
 			}
 		case '|':
-			tok = s.switch3(token.Or, token.OrAssign, '|', token.LOr)
+			if s.ch == '=' {
+				s.next()
+				tok = token.OrAssign
+			} else if s.ch == '|' {
+				if s.peek() == '=' {
+					s.next()
+					s.next()
+					tok = token.LOrAssign
+				} else {
+					s.next()
+					tok = token.LOr
+				}
+			} else {
+				tok = token.Or
+			}
 		default:
 			// next reports unexpected BOMs - don't repeat
 			if ch != bom {
@@ -298,7 +323,7 @@ func (s *Scanner) scanComment() string {
 	var numCR int
 
 	if s.ch == '/' {
-		//-style comment
+		// -style comment
 		// (the final '\n' is not considered part of the comment)
 		s.next()
 		for s.ch != '\n' && s.ch >= 0 {
@@ -356,7 +381,7 @@ func (s *Scanner) findLineEnd() bool {
 	// read ahead until a newline, EOF, or non-comment tok is found
 	for s.ch == '/' || s.ch == '*' {
 		if s.ch == '/' {
-			//-style comment always contains a newline
+			// -style comment always contains a newline
 			return true
 		}
 		/*-style comment: look for newline */

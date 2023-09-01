@@ -25,53 +25,56 @@ const (
 	String
 	_literalEnd
 	_operatorBeg
-	Add          // +
-	Sub          // -
-	Mul          // *
-	Quo          // /
-	Rem          // %
-	And          // &
-	Or           // |
-	Xor          // ^
-	Shl          // <<
-	Shr          // >>
-	AndNot       // &^
-	AddAssign    // +=
-	SubAssign    // -=
-	MulAssign    // *=
-	QuoAssign    // /=
-	RemAssign    // %=
-	AndAssign    // &=
-	OrAssign     // |=
-	XorAssign    // ^=
-	ShlAssign    // <<=
-	ShrAssign    // >>=
-	AndNotAssign // &^=
-	LAnd         // &&
-	LOr          // ||
-	Inc          // ++
-	Dec          // --
-	Equal        // ==
-	Less         // <
-	Greater      // >
-	Assign       // =
-	Not          // !
-	NotEqual     // !=
-	LessEq       // <=
-	GreaterEq    // >=
-	Define       // :=
-	Ellipsis     // ...
-	LParen       // (
-	LBrack       // [
-	LBrace       // {
-	Comma        // ,
-	Period       // .
-	RParen       // )
-	RBrack       // ]
-	RBrace       // }
-	Semicolon    // ;
-	Colon        // :
-	Question     // ?
+	Add                // +
+	Sub                // -
+	Mul                // *
+	Quo                // /
+	Rem                // %
+	And                // &
+	Or                 // |
+	Xor                // ^
+	Shl                // <<
+	Shr                // >>
+	AndNot             // &^
+	AddAssign          // +=
+	SubAssign          // -=
+	MulAssign          // *=
+	QuoAssign          // /=
+	RemAssign          // %=
+	AndAssign          // &=
+	OrAssign           // |=
+	XorAssign          // ^=
+	ShlAssign          // <<=
+	ShrAssign          // >>=
+	AndNotAssign       // &^=
+	LOrAssign          // ||=
+	NullCoalesceAssign // ??=
+	LAnd               // &&
+	LOr                // ||
+	NullCoalesce       // ??
+	Inc                // ++
+	Dec                // --
+	Equal              // ==
+	Less               // <
+	Greater            // >
+	Assign             // =
+	Not                // !
+	NotEqual           // !=
+	LessEq             // <=
+	GreaterEq          // >=
+	Define             // :=
+	Ellipsis           // ...
+	LParen             // (
+	LBrack             // [
+	LBrace             // {
+	Comma              // ,
+	Period             // .
+	RParen             // )
+	RBrack             // ]
+	RBrace             // }
+	Semicolon          // ;
+	Colon              // :
+	Question           // ?
 	_operatorEnd
 	_keywordBeg
 	Break
@@ -98,82 +101,85 @@ const (
 )
 
 var tokens = [...]string{
-	Illegal:      "ILLEGAL",
-	EOF:          "EOF",
-	Comment:      "COMMENT",
-	Ident:        "IDENT",
-	Int:          "INT",
-	Uint:         "UINT",
-	Float:        "FLOAT",
-	Char:         "CHAR",
-	String:       "STRING",
-	Add:          "+",
-	Sub:          "-",
-	Mul:          "*",
-	Quo:          "/",
-	Rem:          "%",
-	And:          "&",
-	Or:           "|",
-	Xor:          "^",
-	Shl:          "<<",
-	Shr:          ">>",
-	AndNot:       "&^",
-	AddAssign:    "+=",
-	SubAssign:    "-=",
-	MulAssign:    "*=",
-	QuoAssign:    "/=",
-	RemAssign:    "%=",
-	AndAssign:    "&=",
-	OrAssign:     "|=",
-	XorAssign:    "^=",
-	ShlAssign:    "<<=",
-	ShrAssign:    ">>=",
-	AndNotAssign: "&^=",
-	LAnd:         "&&",
-	LOr:          "||",
-	Inc:          "++",
-	Dec:          "--",
-	Equal:        "==",
-	Less:         "<",
-	Greater:      ">",
-	Assign:       "=",
-	Not:          "!",
-	NotEqual:     "!=",
-	LessEq:       "<=",
-	GreaterEq:    ">=",
-	Define:       ":=",
-	Ellipsis:     "...",
-	LParen:       "(",
-	LBrack:       "[",
-	LBrace:       "{",
-	Comma:        ",",
-	Period:       ".",
-	RParen:       ")",
-	RBrack:       "]",
-	RBrace:       "}",
-	Semicolon:    ";",
-	Colon:        ":",
-	Question:     "?",
-	Break:        "break",
-	Continue:     "continue",
-	Else:         "else",
-	For:          "for",
-	Func:         "func",
-	If:           "if",
-	Return:       "return",
-	True:         "true",
-	False:        "false",
-	In:           "in",
-	Undefined:    "undefined",
-	Import:       "import",
-	Param:        "param",
-	Global:       "global",
-	Var:          "var",
-	Const:        "const",
-	Try:          "try",
-	Catch:        "catch",
-	Finally:      "finally",
-	Throw:        "throw",
+	Illegal:            "ILLEGAL",
+	EOF:                "EOF",
+	Comment:            "COMMENT",
+	Ident:              "IDENT",
+	Int:                "INT",
+	Uint:               "UINT",
+	Float:              "FLOAT",
+	Char:               "CHAR",
+	String:             "STRING",
+	Add:                "+",
+	Sub:                "-",
+	Mul:                "*",
+	Quo:                "/",
+	Rem:                "%",
+	And:                "&",
+	Or:                 "|",
+	Xor:                "^",
+	Shl:                "<<",
+	Shr:                ">>",
+	AndNot:             "&^",
+	AddAssign:          "+=",
+	SubAssign:          "-=",
+	MulAssign:          "*=",
+	QuoAssign:          "/=",
+	RemAssign:          "%=",
+	AndAssign:          "&=",
+	OrAssign:           "|=",
+	XorAssign:          "^=",
+	ShlAssign:          "<<=",
+	ShrAssign:          ">>=",
+	AndNotAssign:       "&^=",
+	LOrAssign:          "||=",
+	NullCoalesceAssign: "??=",
+	LAnd:               "&&",
+	LOr:                "||",
+	NullCoalesce:       "??",
+	Inc:                "++",
+	Dec:                "--",
+	Equal:              "==",
+	Less:               "<",
+	Greater:            ">",
+	Assign:             "=",
+	Not:                "!",
+	NotEqual:           "!=",
+	LessEq:             "<=",
+	GreaterEq:          ">=",
+	Define:             ":=",
+	Ellipsis:           "...",
+	LParen:             "(",
+	LBrack:             "[",
+	LBrace:             "{",
+	Comma:              ",",
+	Period:             ".",
+	RParen:             ")",
+	RBrack:             "]",
+	RBrace:             "}",
+	Semicolon:          ";",
+	Colon:              ":",
+	Question:           "?",
+	Break:              "break",
+	Continue:           "continue",
+	Else:               "else",
+	For:                "for",
+	Func:               "func",
+	If:                 "if",
+	Return:             "return",
+	True:               "true",
+	False:              "false",
+	In:                 "in",
+	Undefined:          "undefined",
+	Import:             "import",
+	Param:              "param",
+	Global:             "global",
+	Var:                "var",
+	Const:              "const",
+	Try:                "try",
+	Catch:              "catch",
+	Finally:            "finally",
+	Throw:              "throw",
 }
 
 func (tok Token) String() string {
@@ -196,7 +202,7 @@ const LowestPrec = 0
 // Precedence returns the precedence for the operator token.
 func (tok Token) Precedence() int {
 	switch tok {
-	case LOr:
+	case LOr, NullCoalesce:
 		return 1
 	case LAnd:
 		return 2

@@ -370,6 +370,25 @@ func (c *Compiler) compileAssignStmt(
 		c.emit(node, OpConstant, c.addConstant(Int(len(lhs))))
 	}
 
+	if op == token.NullCoalesceAssign || op == token.LOrAssign {
+		op2 := OpJumpNull
+		if op == token.LOrAssign {
+			op2 = OpOrJump
+		}
+		jumpPos := c.emit(node, op2, 0)
+		// compile RHSs
+		for _, expr := range rhs {
+			if err := c.Compile(expr); err != nil {
+				return err
+			}
+		}
+		if err := c.compileDefineAssign(node, lhs[0], keyword, token.Assign, false); err != nil {
+			return err
+		}
+		c.changeOperand(jumpPos, len(c.instructions))
+		return nil
+	}
+
 	// compile RHSs
 	for _, expr := range rhs {
 		if err := c.Compile(expr); err != nil {
@@ -869,9 +888,12 @@ func (c *Compiler) compileLogical(node *parser.BinaryExpr) error {
 
 	// jump position
 	var jumpPos int
-	if node.Token == token.LAnd {
+	switch node.Token {
+	case token.LAnd:
 		jumpPos = c.emit(node, OpAndJump, 0)
-	} else {
+	case token.NullCoalesce:
+		jumpPos = c.emit(node, OpJumpNull, 0)
+	default:
 		jumpPos = c.emit(node, OpOrJump, 0)
 	}
 
