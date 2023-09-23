@@ -486,7 +486,7 @@ func TestVMConst(t *testing.T) {
 	expectRun(t, `
 	const x = 1
 	if true {
-		
+
 	} else {
 		// block is not compiled
 		x = 2

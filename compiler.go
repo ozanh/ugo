@@ -798,3 +798,41 @@ func (ms *moduleStore) reset() *moduleStore {
 	}
 	return ms
 }
+
+type constLiteral struct {
+	value parser.Expr
+}
+
+func (cl *constLiteral) emit(c *Compiler, node parser.Node) (Opcode, int, int) {
+	opcode := OpConstant
+	operand := -1
+	switch v := cl.value.(type) {
+	case *parser.IntLit:
+		operand = c.addConstant(Int(v.Value))
+	case *parser.UintLit:
+		operand = c.addConstant(Uint(v.Value))
+	case *parser.FloatLit:
+		operand = c.addConstant(Float(v.Value))
+	case *parser.BoolLit:
+		if v.Value {
+			opcode = OpTrue
+		} else {
+			opcode = OpFalse
+		}
+	case *parser.StringLit:
+		operand = c.addConstant(String(v.Value))
+	case *parser.CharLit:
+		operand = c.addConstant(Char(v.Value))
+	case *parser.UndefinedLit:
+		opcode = OpNull
+	default:
+		panic(fmt.Errorf("unexpected literal type: %T", v))
+	}
+	var pos int
+	if operand == -1 {
+		pos = c.emit(node, opcode)
+	} else {
+		pos = c.emit(node, opcode, operand)
+	}
+	return opcode, operand, pos
+}

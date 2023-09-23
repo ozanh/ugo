@@ -15,10 +15,11 @@ type SymbolScope string
 
 // List of symbol scopes
 const (
-	ScopeGlobal  SymbolScope = "GLOBAL"
-	ScopeLocal   SymbolScope = "LOCAL"
-	ScopeBuiltin SymbolScope = "BUILTIN"
-	ScopeFree    SymbolScope = "FREE"
+	ScopeGlobal   SymbolScope = "GLOBAL"
+	ScopeLocal    SymbolScope = "LOCAL"
+	ScopeBuiltin  SymbolScope = "BUILTIN"
+	ScopeFree     SymbolScope = "FREE"
+	ScopeConstLit SymbolScope = "CONSTLIT"
 )
 
 // Symbol represents a symbol in the symbol table.
@@ -29,6 +30,7 @@ type Symbol struct {
 	Assigned bool
 	Constant bool
 	Original *Symbol
+	constLit constLiteral
 }
 
 func (s *Symbol) String() string {
@@ -144,7 +146,8 @@ func (st *SymbolTable) Resolve(name string) (symbol *Symbol, ok bool) {
 
 		if !st.block &&
 			symbol.Scope != ScopeGlobal &&
-			symbol.Scope != ScopeBuiltin {
+			symbol.Scope != ScopeBuiltin &&
+			symbol.Scope != ScopeConstLit {
 			return st.defineFree(symbol), true
 		}
 	}
@@ -184,6 +187,24 @@ func (st *SymbolTable) DefineLocal(name string) (*Symbol, bool) {
 	st.updateMaxDefs(symbol.Index + 1)
 	st.shadowBuiltin(name)
 
+	return symbol, false
+}
+
+func (st *SymbolTable) defineConstLit(name string) (*Symbol, bool) {
+	symbol, ok := st.store[name]
+	if ok {
+		return symbol, true
+	}
+
+	symbol = &Symbol{
+		Name:     name,
+		Index:    -1,
+		Scope:    ScopeConstLit,
+		Constant: true,
+	}
+
+	st.store[name] = symbol
+	st.shadowBuiltin(name)
 	return symbol, false
 }
 

@@ -296,6 +296,33 @@ func (c *Compiler) compileDeclValue(node *parser.GenDecl) error {
 			} else {
 				lastExpr = v
 			}
+			if isConst && ident.Name != "iota" && ident.Name != "_" {
+				switch v := v.(type) {
+				case *parser.IntLit, *parser.FloatLit, *parser.StringLit,
+					*parser.BoolLit, *parser.CharLit, *parser.UndefinedLit:
+
+					if s, exist := c.symbolTable.defineConstLit(ident.Name); !exist {
+						s.constLit = constLiteral{value: v}
+						s.Assigned = true
+						continue
+					}
+				case *parser.Ident:
+					if v.Name == "iota" {
+						if _, ok := c.symbolTable.find("iota"); !ok {
+							if s, exist := c.symbolTable.defineConstLit(ident.Name); !exist {
+								s.constLit = constLiteral{
+									value: &parser.IntLit{
+										Value:    int64(c.iotaVal),
+										ValuePos: v.Pos(),
+									},
+								}
+								s.Assigned = true
+								continue
+							}
+						}
+					}
+				}
+			}
 
 			rightExpr := []parser.Expr{v}
 			err := c.compileAssignStmt(node, leftExpr, rightExpr, node.Tok, token.Define)
@@ -1172,6 +1199,8 @@ func (c *Compiler) compileIdent(node *parser.Ident) error {
 		c.emit(node, OpGetBuiltin, symbol.Index)
 	case ScopeFree:
 		c.emit(node, OpGetFree, symbol.Index)
+	case ScopeConstLit:
+		symbol.constLit.emit(c, node)
 	}
 	return nil
 }

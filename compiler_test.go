@@ -2,6 +2,7 @@ package ugo_test
 
 import (
 	"bytes"
+	"os"
 	"reflect"
 	"testing"
 
@@ -81,6 +82,86 @@ func concatInsts(insts ...[]byte) []byte {
 		out = append(out, insts[i]...)
 	}
 	return out
+}
+
+func TestCompiler_constLit(t *testing.T) {
+	opts := CompilerOptions{Trace: os.Stdout, TraceCompiler: true}
+	expectCompileWithOpts(t, `const a = 1`, opts, bytecode(
+		Array{},
+		compFunc(concatInsts(
+			makeInst(OpReturn, 0),
+		),
+			withLocals(0),
+		),
+	))
+	expectCompileWithOpts(t, `const a = 1; const b = 2`, opts, bytecode(
+		Array{},
+		compFunc(concatInsts(
+			makeInst(OpReturn, 0),
+		),
+			withLocals(0),
+		),
+	))
+	expectCompileWithOpts(t, `const a = 1; b := a`, opts, bytecode(
+		Array{Int(1)},
+		compFunc(concatInsts(
+			makeInst(OpConstant, 0),
+			makeInst(OpDefineLocal, 0),
+			makeInst(OpReturn, 0),
+		),
+			withLocals(1),
+		),
+	))
+	expectCompileWithOpts(t, `const a = 1; b := a + 1`, opts, bytecode(
+		Array{Int(1)},
+		compFunc(concatInsts(
+			makeInst(OpConstant, 0),
+			makeInst(OpConstant, 0),
+			makeInst(OpBinaryOp, int(token.Add)),
+			makeInst(OpDefineLocal, 0),
+			makeInst(OpReturn, 0),
+		),
+			withLocals(1),
+		),
+	))
+	expectCompileWithOpts(t, `const a = 1; b := a + 2`, opts, bytecode(
+		Array{Int(1), Int(2)},
+		compFunc(concatInsts(
+			makeInst(OpConstant, 0),
+			makeInst(OpConstant, 1),
+			makeInst(OpBinaryOp, int(token.Add)),
+			makeInst(OpDefineLocal, 0),
+			makeInst(OpReturn, 0),
+		),
+			withLocals(1),
+		),
+	))
+	expectCompileWithOpts(t, `const (a = iota, b); c := a+b`, opts, bytecode(
+		Array{Int(0), Int(1)},
+		compFunc(concatInsts(
+			makeInst(OpConstant, 0),
+			makeInst(OpConstant, 1),
+			makeInst(OpBinaryOp, int(token.Add)),
+			makeInst(OpDefineLocal, 0),
+			makeInst(OpReturn, 0),
+		),
+			withLocals(1),
+		),
+	))
+	expectCompileWithOpts(t, `const (a = iota, _, b); c := a+b`, opts, bytecode(
+		Array{Int(1), Int(0), Int(2)},
+		compFunc(concatInsts(
+			makeInst(OpConstant, 0),
+			makeInst(OpDefineLocal, 0),
+			makeInst(OpConstant, 1),
+			makeInst(OpConstant, 2),
+			makeInst(OpBinaryOp, int(token.Add)),
+			makeInst(OpDefineLocal, 1),
+			makeInst(OpReturn, 0),
+		),
+			withLocals(2), // "_" and "c"
+		),
+	))
 }
 
 func TestCompiler_Compile(t *testing.T) {
