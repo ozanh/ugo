@@ -301,21 +301,16 @@ func (c *Compiler) compileDeclValue(node *parser.GenDecl) error {
 				case *parser.IntLit, *parser.FloatLit, *parser.StringLit,
 					*parser.BoolLit, *parser.CharLit, *parser.UndefinedLit:
 
-					if s, exist := c.symbolTable.defineConstLit(ident.Name); !exist {
-						s.constLit = constLiteral{value: v}
+					if s, exist := c.symbolTable.defineConstLiteral(ident.Name); !exist {
+						s.constLit = constLiteralFromExpr(v)
 						s.Assigned = true
 						continue
 					}
 				case *parser.Ident:
 					if v.Name == "iota" {
 						if _, ok := c.symbolTable.find("iota"); !ok {
-							if s, exist := c.symbolTable.defineConstLit(ident.Name); !exist {
-								s.constLit = constLiteral{
-									value: &parser.IntLit{
-										Value:    int64(c.iotaVal),
-										ValuePos: v.Pos(),
-									},
-								}
+							if s, exist := c.symbolTable.defineConstLiteral(ident.Name); !exist {
+								s.constLit = constLiteral{value: Int(c.iotaVal)}
 								s.Assigned = true
 								continue
 							}

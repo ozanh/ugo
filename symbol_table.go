@@ -190,7 +190,7 @@ func (st *SymbolTable) DefineLocal(name string) (*Symbol, bool) {
 	return symbol, false
 }
 
-func (st *SymbolTable) defineConstLit(name string) (*Symbol, bool) {
+func (st *SymbolTable) defineConstLiteral(name string) (*Symbol, bool) {
 	symbol, ok := st.store[name]
 	if ok {
 		return symbol, true

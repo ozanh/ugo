@@ -800,33 +800,48 @@ func (ms *moduleStore) reset() *moduleStore {
 }
 
 type constLiteral struct {
-	value parser.Expr
+	value Object
+}
+
+func constLiteralFromExpr(expr parser.Expr) constLiteral {
+	var value Object
+	switch expr := expr.(type) {
+	case *parser.IntLit:
+		value = Int(expr.Value)
+	case *parser.UintLit:
+		value = Uint(expr.Value)
+	case *parser.FloatLit:
+		value = Float(expr.Value)
+	case *parser.BoolLit:
+		value = Bool(expr.Value)
+	case *parser.StringLit:
+		value = String(expr.Value)
+	case *parser.CharLit:
+		value = Char(expr.Value)
+	case *parser.UndefinedLit:
+		value = Undefined
+	default:
+		panic(fmt.Errorf("unexpected literal type: %T", expr))
+	}
+	return constLiteral{value: value}
 }
 
 func (cl *constLiteral) emit(c *Compiler, node parser.Node) (Opcode, int, int) {
 	opcode := OpConstant
 	operand := -1
 	switch v := cl.value.(type) {
-	case *parser.IntLit:
-		operand = c.addConstant(Int(v.Value))
-	case *parser.UintLit:
-		operand = c.addConstant(Uint(v.Value))
-	case *parser.FloatLit:
-		operand = c.addConstant(Float(v.Value))
-	case *parser.BoolLit:
-		if v.Value {
+	case Int, Uint, Float, Char, String:
+		operand = c.addConstant(cl.value)
+	case Bool:
+		if v {
 			opcode = OpTrue
 		} else {
 			opcode = OpFalse
 		}
-	case *parser.StringLit:
-		operand = c.addConstant(String(v.Value))
-	case *parser.CharLit:
-		operand = c.addConstant(Char(v.Value))
-	case *parser.UndefinedLit:
+	case *UndefinedType:
 		opcode = OpNull
 	default:
-		panic(fmt.Errorf("unexpected literal type: %T", v))
+		panic(fmt.Errorf("unexpected object type: %T", v))
 	}
 	var pos int
 	if operand == -1 {
