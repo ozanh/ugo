@@ -7,7 +7,6 @@ package ugo
 import (
 	"errors"
 	"fmt"
-	"sort"
 )
 
 // SymbolScope represents a symbol scope.
@@ -39,6 +38,21 @@ func (s *Symbol) String() string {
 		s.Name, s.Index, s.Scope, s.Assigned, s.Original, s.Constant)
 }
 
+func (s *Symbol) Clone() *Symbol {
+	if s == nil {
+		return nil
+	}
+	return &Symbol{
+		Name:     s.Name,
+		Index:    s.Index,
+		Scope:    s.Scope,
+		Assigned: s.Assigned,
+		Constant: s.Constant,
+		Original: s.Original.Clone(),
+		constLit: s.constLit,
+	}
+}
+
 // SymbolTable represents a symbol table.
 type SymbolTable struct {
 	parent           *SymbolTable
@@ -48,9 +62,10 @@ type SymbolTable struct {
 	store            map[string]*Symbol
 	disabledBuiltins map[string]struct{}
 	frees            []*Symbol
+	shadowedBuiltins []string
 	block            bool
 	disableParams    bool
-	shadowedBuiltins []string
+	hasConstLit      bool
 }
 
 // NewSymbolTable creates new symbol table object.
@@ -109,7 +124,7 @@ func (st *SymbolTable) SetParams(params ...string) error {
 		}
 		symbol := &Symbol{
 			Name:  param,
-			Index: st.NextIndex(),
+			Index: st.nextIndex(),
 			Scope: ScopeLocal,
 		}
 		st.numDefinition++
@@ -118,21 +133,6 @@ func (st *SymbolTable) SetParams(params ...string) error {
 		st.shadowBuiltin(param)
 	}
 	return nil
-}
-
-func (st *SymbolTable) find(name string, scopes ...SymbolScope) (*Symbol, bool) {
-	if symbol, ok := st.store[name]; ok {
-		if len(scopes) == 0 {
-			return symbol, ok
-		}
-
-		for _, s := range scopes {
-			if s == symbol.Scope {
-				return symbol, true
-			}
-		}
-	}
-	return nil, false
 }
 
 // Resolve resolves a symbol with a given name.
@@ -173,7 +173,7 @@ func (st *SymbolTable) DefineLocal(name string) (*Symbol, bool) {
 		return symbol, true
 	}
 
-	index := st.NextIndex()
+	index := st.nextIndex()
 
 	symbol = &Symbol{
 		Name:  name,
@@ -195,7 +195,7 @@ func (st *SymbolTable) defineConstLiteral(name string) (*Symbol, bool) {
 	if ok {
 		return symbol, true
 	}
-
+	st.hasConstLit = true
 	symbol = &Symbol{
 		Name:     name,
 		Index:    -1,
@@ -235,10 +235,10 @@ func (st *SymbolTable) updateMaxDefs(numDefs int) {
 	}
 }
 
-// NextIndex returns the next symbol index.
-func (st *SymbolTable) NextIndex() int {
+// nextIndex returns the next symbol index.
+func (st *SymbolTable) nextIndex() int {
 	if st.block {
-		return st.parent.NextIndex() + st.numDefinition
+		return st.parent.nextIndex() + st.numDefinition
 	}
 	return st.numDefinition
 }
@@ -283,18 +283,35 @@ func (st *SymbolTable) FreeSymbols() []*Symbol {
 	return st.frees
 }
 
-// Symbols returns registered symbols for the scope.
-func (st *SymbolTable) Symbols() []*Symbol {
-	out := make([]*Symbol, 0, len(st.store))
-	for _, s := range st.store {
-		out = append(out, s)
-	}
-
-	sort.Slice(out, func(i, j int) bool {
-		return out[i].Index < out[j].Index
+func (st *SymbolTable) Find(visitParent bool, fn func(*Symbol) bool) *Symbol {
+	var s *Symbol
+	st.Range(visitParent, func(sym *Symbol) bool {
+		if fn(sym) {
+			s = sym
+			return false
+		}
+		return true
 	})
+	return s
+}
 
-	return out
+func (st *SymbolTable) Range(visitParent bool, fn func(*Symbol) bool) {
+	names := make(map[string]struct{})
+	ptr := st
+	for ptr != nil {
+		for name, sym := range ptr.store {
+			if _, ok := names[name]; !ok {
+				names[name] = struct{}{}
+				if !fn(sym) {
+					return
+				}
+			}
+		}
+		if !visitParent {
+			return
+		}
+		ptr = ptr.parent
+	}
 }
 
 // DisableBuiltin disables given builtin name(s).
@@ -324,7 +341,6 @@ func (st *SymbolTable) DisabledBuiltins() []string {
 	if st.parent != nil {
 		return st.parent.DisabledBuiltins()
 	}
-
 	if st.disabledBuiltins == nil {
 		return nil
 	}
@@ -364,4 +380,50 @@ func (st *SymbolTable) shadowBuiltin(name string) {
 	if _, ok := BuiltinsMap[name]; ok {
 		st.shadowedBuiltins = append(st.shadowedBuiltins, name)
 	}
+}
+
+// Helper functions for symbol table to use in Compiler and optimizer.
+
+func findSymbolSelf(st *SymbolTable, name string) *Symbol {
+	return st.Find(false, func(sym *Symbol) bool {
+		return sym.Name == name
+	})
+}
+
+func findSymbol(st *SymbolTable, name string, scope SymbolScope) *Symbol {
+	return st.Find(true, func(sym *Symbol) bool {
+		return sym.Name == name && sym.Scope == scope
+	})
+}
+
+func inheritSymbol(st *SymbolTable, symbols ...*Symbol) {
+	for _, s := range symbols {
+		st.store[s.Name] = s
+	}
+	if st.hasConstLit {
+		return
+	}
+	for _, s := range st.store {
+		if s.Constant && s.Scope == ScopeConstLit {
+			st.hasConstLit = true
+			break
+		}
+	}
+}
+
+func hasConstLiteral(st *SymbolTable) bool {
+	if st.hasConstLit {
+		return true
+	}
+	if st.parent == nil {
+		return false
+	}
+	ptr := st.parent
+	for ptr != nil {
+		if ptr.hasConstLit {
+			return true
+		}
+		ptr = ptr.parent
+	}
+	return false
 }

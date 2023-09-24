@@ -604,8 +604,6 @@ func TestOptimizerShadowing(t *testing.T) {
 		))
 
 	opts := DefaultCompilerOptions
-	opts.OptimizeConst = true
-	opts.OptimizeExpr = true
 
 	st := NewSymbolTable()
 	require.NoError(t, st.SetParams("int"))
@@ -739,17 +737,15 @@ func TestOptimizerError(t *testing.T) {
 func expectEval(t *testing.T, script string, expected *Bytecode) {
 	t.Helper()
 	opts := DefaultCompilerOptions
-	require.True(t, opts.OptimizeConst)
-	require.True(t, opts.OptimizeExpr)
 	opts.OptimizerMaxCycle = 1<<8 - 1
+	require.True(t, opts.Optimize)
 	expectCompileWithOpts(t, script, opts, expected)
 }
 
 func expectEvalError(t *testing.T, script, errStr string) {
 	t.Helper()
 	opts := DefaultCompilerOptions
-	require.True(t, opts.OptimizeConst)
-	require.True(t, opts.OptimizeExpr)
 	opts.OptimizerMaxCycle = 1<<8 - 1
+	require.True(t, opts.Optimize)
 	expectCompileErrorWithOpts(t, script, opts, errStr)
 }

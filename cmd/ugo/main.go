@@ -96,8 +96,7 @@ func newREPL(ctx context.Context, stdout io.Writer) *repl {
 		TraceParser:       traceParser,
 		TraceOptimizer:    traceOptimizer,
 		TraceCompiler:     traceCompiler,
-		OptimizeConst:     !noOptimizer,
-		OptimizeExpr:      !noOptimizer,
+		Optimize:          !noOptimizer,
 	}
 
 	if stdout == nil {
@@ -250,7 +249,7 @@ func (r *repl) cmdReturnVerbose(_ string) error {
 }
 
 func (r *repl) cmdSymbolsVerbose(_ string) error {
-	_, _ = fmt.Fprintf(r.out, "%v\n", r.eval.Opts.SymbolTable.Symbols())
+	_, _ = fmt.Fprintf(r.out, "%v\n", symbolsSorted(r.eval.Opts.SymbolTable))
 	return nil
 }
 
@@ -327,7 +326,7 @@ func (r *repl) executeScript() {
 }
 
 func (r *repl) setSymbolSuggestions() {
-	symbols := r.eval.Opts.SymbolTable.Symbols()
+	symbols := symbolsSorted(r.eval.Opts.SymbolTable)
 	suggestions = suggestions[:initialSuggLen]
 
 	for _, s := range symbols {
@@ -416,6 +415,22 @@ func defaultSymbolTable() *ugo.SymbolTable {
 		panic(&ugo.Error{Message: "global symbol define error", Cause: err})
 	}
 	return table
+}
+
+func symbolsSorted(st *ugo.SymbolTable) []*ugo.Symbol {
+	symbols := []*ugo.Symbol{}
+	st.Range(
+		false,
+		func(s *ugo.Symbol) bool {
+			symbols = append(symbols, s)
+			return true
+		},
+	)
+
+	sort.Slice(symbols, func(i, j int) bool {
+		return symbols[i].Index < symbols[j].Index
+	})
+	return symbols
 }
 
 func defaultModuleMap(workdir string) *ugo.ModuleMap {

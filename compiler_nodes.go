@@ -5,6 +5,8 @@
 package ugo
 
 import (
+	"fmt"
+
 	"github.com/ozanh/ugo/parser"
 	"github.com/ozanh/ugo/token"
 )
@@ -296,29 +298,11 @@ func (c *Compiler) compileDeclValue(node *parser.GenDecl) error {
 			} else {
 				lastExpr = v
 			}
-			if isConst && ident.Name != "iota" && ident.Name != "_" {
-				switch v := v.(type) {
-				case *parser.IntLit, *parser.FloatLit, *parser.StringLit,
-					*parser.BoolLit, *parser.CharLit, *parser.UndefinedLit:
-
-					if s, exist := c.symbolTable.defineConstLiteral(ident.Name); !exist {
-						s.constLit = constLiteralFromExpr(v)
-						s.Assigned = true
-						continue
-					}
-				case *parser.Ident:
-					if v.Name == "iota" {
-						if _, ok := c.symbolTable.find("iota"); !ok {
-							if s, exist := c.symbolTable.defineConstLiteral(ident.Name); !exist {
-								s.constLit = constLiteral{value: Int(c.iotaVal)}
-								s.Assigned = true
-								continue
-							}
-						}
-					}
+			if isConst {
+				if defined := c.defineConstLiteral(ident, v); defined {
+					continue
 				}
 			}
-
 			rightExpr := []parser.Expr{v}
 			err := c.compileAssignStmt(node, leftExpr, rightExpr, node.Tok, token.Define)
 			if err != nil {
@@ -327,6 +311,48 @@ func (c *Compiler) compileDeclValue(node *parser.GenDecl) error {
 		}
 	}
 	return nil
+}
+
+func (c *Compiler) defineConstLiteral(
+	lhs *parser.Ident,
+	rhs parser.Expr,
+) (defined bool) {
+	if lhs.Name == "iota" || lhs.Name == "_" {
+		return
+	}
+
+	switch rhs := rhs.(type) {
+	case *parser.IntLit, *parser.UintLit, *parser.FloatLit, *parser.StringLit,
+		*parser.BoolLit, *parser.CharLit, *parser.UndefinedLit:
+
+		if s, exist := c.symbolTable.defineConstLiteral(lhs.Name); !exist {
+			s.constLit = constLiteralFromExpr(rhs)
+			s.Assigned = true
+			defined = true
+		}
+	case *parser.Ident:
+		if rhs.Name == "iota" {
+			if findSymbolSelf(c.symbolTable, "iota") == nil {
+				s, exist := c.symbolTable.defineConstLiteral(lhs.Name)
+				if !exist {
+					s.constLit = constLiteral{value: Int(c.iotaVal)}
+					s.Assigned = true
+					defined = true
+				}
+			}
+		} else if rhs.Name != "_" {
+			s1 := findSymbol(c.symbolTable, rhs.Name, ScopeConstLit)
+			if s1 != nil {
+				s2, exist := c.symbolTable.defineConstLiteral(lhs.Name)
+				if !exist {
+					s2.constLit = s1.constLit
+					s2.Assigned = true
+					defined = true
+				}
+			}
+		}
+	}
+	return
 }
 
 func (c *Compiler) checkAssignment(
@@ -454,7 +480,7 @@ func (c *Compiler) compileDestructuring(
 	for lhsIndex, expr := range lhs {
 		if op == token.Define {
 			if term, ok := expr.(*parser.Ident); ok {
-				if _, ok = c.symbolTable.find(term.Name); ok {
+				if findSymbolSelf(c.symbolTable, term.Name) != nil {
 					found++
 				}
 			}
@@ -1195,7 +1221,12 @@ func (c *Compiler) compileIdent(node *parser.Ident) error {
 	case ScopeFree:
 		c.emit(node, OpGetFree, symbol.Index)
 	case ScopeConstLit:
-		symbol.constLit.emit(c, node)
+		if symbol.Constant {
+			symbol.constLit.emit(c, node)
+		} else {
+			panic(fmt.Errorf("symbol '%s' is not defined as constant "+
+				"but its scope is %s", symbol, ScopeConstLit))
+		}
 	}
 	return nil
 }

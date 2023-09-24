@@ -99,9 +99,8 @@ func BenchmarkBytecodeEncDec(b *testing.B) {
 	b.Run("compileOpt", func(b *testing.B) {
 		for i := 0; i < b.N; i++ {
 			_, err := ugo.Compile([]byte(script), ugo.CompilerOptions{
-				OptimizeConst:     true,
-				OptimizeExpr:      true,
 				OptimizerMaxCycle: 100,
+				Optimize:          true,
 			})
 			if err != nil {
 				b.Fatal(err)

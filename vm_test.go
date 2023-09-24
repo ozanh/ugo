@@ -3437,7 +3437,7 @@ func expectErrorGen(
 			name: "default",
 			opts: CompilerOptions{
 				ModuleMap:      opts.moduleMap,
-				OptimizeConst:  true,
+				Optimize:       true,
 				TraceParser:    true,
 				TraceOptimizer: true,
 				TraceCompiler:  true,
@@ -3489,7 +3489,7 @@ func expectRun(t *testing.T, script string, opts *testopts, expect Object) {
 			name: "default",
 			opts: CompilerOptions{
 				ModuleMap:      opts.moduleMap,
-				OptimizeConst:  true,
+				Optimize:       true,
 				TraceParser:    true,
 				TraceOptimizer: true,
 				TraceCompiler:  true,

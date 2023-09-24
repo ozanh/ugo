@@ -5,11 +5,11 @@
 package ugo
 
 import (
-	"errors"
 	"fmt"
 	"io"
 	"os"
 	"reflect"
+	"strconv"
 
 	"github.com/ozanh/ugo/parser"
 	"github.com/ozanh/ugo/token"
@@ -19,8 +19,7 @@ var (
 	// DefaultCompilerOptions holds default Compiler options.
 	DefaultCompilerOptions = CompilerOptions{
 		OptimizerMaxCycle: 100,
-		OptimizeConst:     true,
-		OptimizeExpr:      true,
+		Optimize:          true,
 	}
 	// TraceCompilerOptions holds Compiler options to print trace output
 	// to stdout for Parser, Optimizer, Compiler.
@@ -30,13 +29,9 @@ var (
 		TraceCompiler:     true,
 		TraceOptimizer:    true,
 		OptimizerMaxCycle: 1<<8 - 1,
-		OptimizeConst:     true,
-		OptimizeExpr:      true,
+		Optimize:          true,
 	}
 )
-
-// errSkip is a sentinel error for compiler.
-var errSkip = errors.New("skip")
 
 type (
 
@@ -74,8 +69,7 @@ type (
 		TraceCompiler     bool
 		TraceOptimizer    bool
 		OptimizerMaxCycle int
-		OptimizeConst     bool
-		OptimizeExpr      bool
+		Optimize          bool
 		moduleStore       *moduleStore
 		constsCache       map[Object]int
 	}
@@ -186,13 +180,6 @@ func Compile(script []byte, opts CompilerOptions) (*Bytecode, error) {
 	compiler := NewCompiler(srcFile, opts)
 	compiler.SetGlobalSymbolsIndex()
 
-	if opts.OptimizeConst || opts.OptimizeExpr {
-		err := compiler.optimize(pf)
-		if err != nil && err != errSkip {
-			return nil, err
-		}
-	}
-
 	if err := compiler.Compile(pf); err != nil {
 		return nil, err
 	}
@@ -210,25 +197,31 @@ func Compile(script []byte, opts CompilerOptions) (*Bytecode, error) {
 // index and provide it to the Compiler. This should be called before
 // Compiler.Compile call.
 func (c *Compiler) SetGlobalSymbolsIndex() {
-	symbols := c.symbolTable.Symbols()
-	for _, s := range symbols {
-		if s.Scope == ScopeGlobal && s.Index == -1 {
-			s.Index = c.addConstant(String(s.Name))
-		}
-	}
+	c.symbolTable.Range(
+		true,
+		func(s *Symbol) bool {
+			if s.Scope == ScopeGlobal && s.Index == -1 {
+				s.Index = c.addConstant(String(s.Name))
+			}
+			return true
+		},
+	)
 }
 
 // optimize runs the Optimizer and returns Optimizer object and error from Optimizer.
 // Note:If optimizer cannot run for some reason, a nil optimizer and errSkip
 // error will be returned.
-func (c *Compiler) optimize(file *parser.File) error {
+func (c *Compiler) optimize(node parser.Node) error {
+	if !c.opts.Optimize {
+		return nil
+	}
 	if c.opts.OptimizerMaxCycle < 1 {
-		return errSkip
+		return nil
 	}
 
-	optim := NewOptimizer(file, c.symbolTable, c.opts)
+	optim := NewOptimizer(c.file, c.symbolTable, c.opts)
 
-	if err := optim.Optimize(); err != nil {
+	if err := optim.Optimize(node); err != nil {
 		return err
 	}
 
@@ -291,9 +284,17 @@ func (c *Compiler) Compile(node parser.Node) error {
 		}
 	}
 
+	err := c.optimize(node)
+	if err != nil {
+		return err
+	}
+
 	switch node := node.(type) {
 	case *parser.File:
 		for _, stmt := range node.Stmts {
+			if err := c.optimize(stmt); err != nil {
+				return err
+			}
 			if err := c.Compile(stmt); err != nil {
 				return err
 			}
@@ -559,7 +560,7 @@ func (c *Compiler) compileModule(
 
 	fork := c.fork(modFile, modulePath, moduleMap, symbolTable)
 	err = fork.optimize(file)
-	if err != nil && err != errSkip {
+	if err != nil {
 		return 0, c.error(node, err)
 	}
 
@@ -619,8 +620,7 @@ func (c *Compiler) fork(
 		TraceCompiler:     c.opts.TraceCompiler,
 		TraceOptimizer:    c.opts.TraceOptimizer,
 		OptimizerMaxCycle: c.opts.OptimizerMaxCycle,
-		OptimizeConst:     c.opts.OptimizeConst,
-		OptimizeExpr:      c.opts.OptimizeExpr,
+		Optimize:          c.opts.Optimize,
 		moduleStore:       c.moduleStore,
 		constsCache:       c.constsCache,
 	})
@@ -770,8 +770,10 @@ func FormatInstructions(b []byte, posOffset int) []string {
 
 // IterateInstructions iterate instructions and call given function for each instruction.
 // Note: Do not use operands slice in callback, it is reused for less allocation.
-func IterateInstructions(insts []byte,
-	fn func(pos int, opcode Opcode, operands []int, offset int) bool) {
+func IterateInstructions(
+	insts []byte,
+	fn func(pos int, opcode Opcode, operands []int, offset int) bool,
+) {
 	operands := make([]int, 0, 4)
 	var offset int
 
@@ -800,33 +802,44 @@ func (ms *moduleStore) reset() *moduleStore {
 }
 
 type constLiteral struct {
-	value Object
+	value   Object
+	literal string
 }
 
 func constLiteralFromExpr(expr parser.Expr) constLiteral {
 	var value Object
+	var literal string
 	switch expr := expr.(type) {
 	case *parser.IntLit:
 		value = Int(expr.Value)
+		literal = expr.Literal
 	case *parser.UintLit:
 		value = Uint(expr.Value)
+		literal = expr.Literal
 	case *parser.FloatLit:
 		value = Float(expr.Value)
+		literal = expr.Literal
 	case *parser.BoolLit:
 		value = Bool(expr.Value)
+		literal = expr.Literal
 	case *parser.StringLit:
 		value = String(expr.Value)
+		literal = expr.Literal
 	case *parser.CharLit:
 		value = Char(expr.Value)
+		literal = expr.Literal
 	case *parser.UndefinedLit:
 		value = Undefined
 	default:
 		panic(fmt.Errorf("unexpected literal type: %T", expr))
 	}
-	return constLiteral{value: value}
+	return constLiteral{value: value, literal: literal}
 }
 
 func (cl *constLiteral) emit(c *Compiler, node parser.Node) (Opcode, int, int) {
+	if c.trace != nil {
+		printTrace(c.indent, c.trace, fmt.Sprintf("CONSTLIT %v", cl.value))
+	}
 	opcode := OpConstant
 	operand := -1
 	switch v := cl.value.(type) {
@@ -850,4 +863,70 @@ func (cl *constLiteral) emit(c *Compiler, node parser.Node) (Opcode, int, int) {
 		pos = c.emit(node, opcode, operand)
 	}
 	return opcode, operand, pos
+}
+
+func (cl *constLiteral) buildExpr(node parser.Node) parser.Expr {
+	var expr parser.Expr
+	switch v := cl.value.(type) {
+	case Int:
+		expr = &parser.IntLit{
+			Value:    int64(v),
+			ValuePos: node.Pos(),
+			Literal:  cl.literal,
+		}
+		if cl.literal == "" {
+			expr.(*parser.IntLit).Literal = strconv.FormatInt(int64(v), 10)
+		}
+	case Uint:
+		expr = &parser.UintLit{
+			Value:    uint64(v),
+			ValuePos: node.Pos(),
+			Literal:  cl.literal,
+		}
+		if cl.literal == "" {
+			expr.(*parser.UintLit).Literal = strconv.FormatUint(uint64(v), 10)
+		}
+	case Float:
+		expr = &parser.FloatLit{
+			Value:    float64(v),
+			ValuePos: node.Pos(),
+			Literal:  cl.literal,
+		}
+		if cl.literal == "" {
+			expr.(*parser.FloatLit).Literal =
+				strconv.FormatFloat(float64(v), 'f', -1, 64)
+		}
+	case Char:
+		expr = &parser.CharLit{
+			Value:    rune(v),
+			ValuePos: node.Pos(),
+			Literal:  cl.literal,
+		}
+		if cl.literal == "" {
+			expr.(*parser.CharLit).Literal = strconv.QuoteRune(rune(v))
+		}
+	case String:
+		expr = &parser.StringLit{
+			Value:    string(v),
+			ValuePos: node.Pos(),
+			Literal:  cl.literal,
+		}
+		if cl.literal == "" {
+			expr.(*parser.StringLit).Literal = strconv.Quote(string(v))
+		}
+	case Bool:
+		expr = &parser.BoolLit{
+			Value:    bool(v),
+			ValuePos: node.Pos(),
+			Literal:  cl.literal,
+		}
+		if cl.literal == "" {
+			expr.(*parser.BoolLit).Literal = strconv.FormatBool(bool(v))
+		}
+	case *UndefinedType:
+		expr = &parser.UndefinedLit{TokenPos: node.Pos()}
+	default:
+		panic(fmt.Errorf("unexpected object type: %T", v))
+	}
+	return expr
 }
