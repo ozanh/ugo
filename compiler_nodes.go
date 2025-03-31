@@ -547,10 +547,10 @@ func (c *Compiler) compileAssign(
 	case ScopeFree:
 		c.emit(node, OpSetFree, symbol.Index)
 		symbol.Assigned = true
-		s := symbol
+		s := symbol.Original
 		for s != nil {
-			if s.Original != nil && s.Original.Scope == ScopeLocal {
-				s.Original.Assigned = true
+			if s.Scope == ScopeLocal {
+				s.Assigned = true
 			}
 			s = s.Original
 		}

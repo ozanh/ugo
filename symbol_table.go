@@ -304,7 +304,19 @@ func (st *SymbolTable) FreeSymbols() []*Symbol {
 	return st.frees
 }
 
+// Range iterates over all symbols in current symbol table, and visits
+// parent symbol tables if visitParent is true.
+// The visit function returns true to continue iteration, or false to stop.
 func (st *SymbolTable) Range(visitParent bool, fn func(*Symbol) bool) {
+	if !visitParent {
+		for _, sym := range st.store {
+			if !fn(sym) {
+				return
+			}
+		}
+		return
+	}
+
 	names := make(map[string]struct{})
 	ptr := st
 	for ptr != nil {
@@ -316,13 +328,16 @@ func (st *SymbolTable) Range(visitParent bool, fn func(*Symbol) bool) {
 				}
 			}
 		}
-		if !visitParent {
-			return
-		}
 		ptr = ptr.parent
 	}
 }
 
+// Find searches for a symbol in the current symbol table and its parent tables.
+// The visitParent parameter indicates whether to visit parent tables.
+// The fn function is called for each symbol, and it should return true
+// if the symbol is found. The function returns the first symbol that matches
+// the condition.
+// If no symbol is found, it returns nil.
 func (st *SymbolTable) Find(visitParent bool, fn func(*Symbol) bool) *Symbol {
 	ptr := st
 	for ptr != nil {
