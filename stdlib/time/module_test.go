@@ -870,7 +870,7 @@ func expectRun(t *testing.T, script string, opts *Opts, expected Object) {
 	}
 	mm := NewModuleMap()
 	mm.AddBuiltinModule("time", Module)
-	c := DefaultCompilerOptions
+	var c CompilerOptions
 	c.ModuleMap = mm
 	bc, err := Compile([]byte(script), c)
 	require.NoError(t, err)

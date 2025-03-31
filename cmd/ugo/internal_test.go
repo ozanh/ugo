@@ -126,9 +126,9 @@ func TestREPL(t *testing.T) {
 		symout := string(cw.consume())
 		testHasPrefix(t, symout, "[Symbol{Name:")
 		require.Contains(t, symout,
-			"Symbol{Name:Gosched Index:0 Scope:GLOBAL Assigned:false Original:<nil> Constant:false}")
+			"Symbol{Name:Gosched Index:0 Scope:GLOBAL Assigned:false Constant:false Original:<nil>}")
 		require.Contains(t, symout,
-			"Symbol{Name:test Index:0 Scope:LOCAL Assigned:true Original:<nil> Constant:false}")
+			"Symbol{Name:test Index:0 Scope:LOCAL Assigned:true Constant:false Original:<nil>}")
 	})
 	t.Run("modules_cache", func(t *testing.T) {
 		r := newREPL(ctx, cw)
@@ -239,7 +239,7 @@ func TestFlags(t *testing.T) {
 }
 
 func resetGlobals() {
-	noOptimizer = false
+	noOptimize = false
 	traceEnabled = false
 	traceParser = false
 	traceOptimizer = false

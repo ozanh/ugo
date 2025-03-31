@@ -12,7 +12,7 @@ func TestVMDestructuring(t *testing.T) {
 	expectErrHas(t, `x, y = undefined; return x`,
 		newOpts().CompilerError(), `Compile Error: unresolved reference "x"`)
 	expectErrHas(t, `var (x, y); x, y := undefined; return x`,
-		newOpts().CompilerError(), `Compile Error: no new variable on left side`)
+		newOpts().CompilerError(), `Compile Error: no new variable on the left side`)
 	expectErrHas(t, `x, y = 1, 2`, newOpts().CompilerError(),
 		`Compile Error: multiple expressions on the right side not supported`)
 
@@ -486,7 +486,7 @@ func TestVMConst(t *testing.T) {
 	expectRun(t, `
 	const x = 1
 	if true {
-		
+
 	} else {
 		// block is not compiled
 		x = 2

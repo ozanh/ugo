@@ -230,13 +230,16 @@ func (o *CompiledFunction) equalSourceMap(other *CompiledFunction) bool {
 }
 
 func (o *CompiledFunction) hash32() uint32 {
-	hash := hashData32(2166136261, []byte{byte(o.NumParams)})
-	hash = hashData32(hash, []byte{byte(o.NumLocals)})
+	var variadic byte
 	if o.Variadic {
-		hash = hashData32(hash, []byte{1})
-	} else {
-		hash = hashData32(hash, []byte{0})
+		variadic = 1
 	}
+
+	hash := hashData32(
+		2166136261,
+		[]byte{byte(o.NumParams), byte(o.NumLocals), variadic},
+	)
+
 	hash = hashData32(hash, o.Instructions)
 	return hash
 }

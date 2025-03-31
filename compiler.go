@@ -5,41 +5,21 @@
 package ugo
 
 import (
-	"errors"
 	"fmt"
 	"io"
-	"os"
 	"reflect"
 
+	"github.com/ozanh/ugo/internal"
 	"github.com/ozanh/ugo/parser"
 	"github.com/ozanh/ugo/token"
 )
 
-var (
-	// DefaultCompilerOptions holds default Compiler options.
-	DefaultCompilerOptions = CompilerOptions{
-		OptimizerMaxCycle: 100,
-		OptimizeConst:     true,
-		OptimizeExpr:      true,
-	}
-	// TraceCompilerOptions holds Compiler options to print trace output
-	// to stdout for Parser, Optimizer, Compiler.
-	TraceCompilerOptions = CompilerOptions{
-		Trace:             os.Stdout,
-		TraceParser:       true,
-		TraceCompiler:     true,
-		TraceOptimizer:    true,
-		OptimizerMaxCycle: 1<<8 - 1,
-		OptimizeConst:     true,
-		OptimizeExpr:      true,
-	}
+const (
+	defaultOptimizeLimit = 100
+	maxNumLocals         = 256
 )
 
-// errSkip is a sentinel error for compiler.
-var errSkip = errors.New("skip")
-
 type (
-
 	// Compiler compiles the AST into a bytecode.
 	Compiler struct {
 		parent        *Compiler
@@ -48,6 +28,7 @@ type (
 		constsCache   map[Object]int
 		cfuncCache    map[uint32][]int
 		symbolTable   *SymbolTable
+		optim         *SimpleOptimizer
 		instructions  []byte
 		sourceMap     map[int]int
 		moduleMap     *ModuleMap
@@ -58,26 +39,23 @@ type (
 		loopIndex     int
 		tryCatchIndex int
 		iotaVal       int
-		opts          CompilerOptions
+		opts          *CompilerOptions
 		trace         io.Writer
 		indent        int
 	}
 
 	// CompilerOptions represents customizable options for Compile().
 	CompilerOptions struct {
-		ModuleMap         *ModuleMap
-		ModulePath        string
-		Constants         []Object
-		SymbolTable       *SymbolTable
-		Trace             io.Writer
-		TraceParser       bool
-		TraceCompiler     bool
-		TraceOptimizer    bool
-		OptimizerMaxCycle int
-		OptimizeConst     bool
-		OptimizeExpr      bool
-		moduleStore       *moduleStore
-		constsCache       map[Object]int
+		ModuleMap      *ModuleMap
+		ModulePath     string
+		Constants      []Object
+		SymbolTable    *SymbolTable
+		Trace          io.Writer
+		TraceParser    bool
+		TraceCompiler  bool
+		TraceOptimizer bool
+		NoOptimize     bool
+		OptimizerLimit int
 	}
 
 	// CompilerError represents a compiler error.
@@ -97,8 +75,8 @@ type (
 	// moduleStore represents modules indexes and total count that are defined
 	// while compiling.
 	moduleStore struct {
-		count int
 		store map[string]moduleStoreItem
+		count int
 	}
 
 	// loopStmts represents a loopStmts construct that the compiler uses to
@@ -121,22 +99,40 @@ func (e *CompilerError) Unwrap() error {
 
 // NewCompiler creates a new Compiler object.
 func NewCompiler(file *parser.SourceFile, opts CompilerOptions) *Compiler {
+	return newCompiler(file, &opts, nil, nil, nil)
+}
+
+func newCompiler(
+	file *parser.SourceFile,
+	opts *CompilerOptions,
+	constsCache map[Object]int,
+	cfuncsCache map[uint32][]int,
+	modStore *moduleStore,
+) *Compiler {
+
 	if opts.SymbolTable == nil {
 		opts.SymbolTable = NewSymbolTable()
 	}
+	if !opts.NoOptimize && opts.OptimizerLimit < 1 {
+		opts.OptimizerLimit = defaultOptimizeLimit
+	}
 
-	if opts.constsCache == nil {
-		opts.constsCache = make(map[Object]int)
+	if constsCache == nil {
+		constsCache = make(map[Object]int)
 		for i := range opts.Constants {
 			switch opts.Constants[i].(type) {
 			case Int, Uint, String, Bool, Float, Char, *UndefinedType:
-				opts.constsCache[opts.Constants[i]] = i
+				constsCache[opts.Constants[i]] = i
 			}
 		}
 	}
 
-	if opts.moduleStore == nil {
-		opts.moduleStore = newModuleStore()
+	if cfuncsCache == nil {
+		cfuncsCache = make(map[uint32][]int)
+	}
+
+	if modStore == nil {
+		modStore = new(moduleStore)
 	}
 
 	var trace io.Writer
@@ -147,12 +143,12 @@ func NewCompiler(file *parser.SourceFile, opts CompilerOptions) *Compiler {
 	return &Compiler{
 		file:          file,
 		constants:     opts.Constants,
-		constsCache:   opts.constsCache,
-		cfuncCache:    make(map[uint32][]int),
+		constsCache:   constsCache,
+		cfuncCache:    cfuncsCache,
 		symbolTable:   opts.SymbolTable,
 		sourceMap:     make(map[int]int),
 		moduleMap:     opts.ModuleMap,
-		moduleStore:   opts.moduleStore,
+		moduleStore:   modStore,
 		modulePath:    opts.ModulePath,
 		loopIndex:     -1,
 		tryCatchIndex: -1,
@@ -164,6 +160,15 @@ func NewCompiler(file *parser.SourceFile, opts CompilerOptions) *Compiler {
 
 // Compile compiles given script to Bytecode.
 func Compile(script []byte, opts CompilerOptions) (*Bytecode, error) {
+	return compileScript(script, &opts, nil)
+}
+
+func compileScript(
+	script []byte,
+	opts *CompilerOptions,
+	modStore *moduleStore,
+) (*Bytecode, error) {
+
 	fileSet := parser.NewFileSet()
 	moduleName := opts.ModulePath
 
@@ -172,6 +177,7 @@ func Compile(script []byte, opts CompilerOptions) (*Bytecode, error) {
 	}
 
 	srcFile := fileSet.AddFile(moduleName, -1, len(script))
+
 	var trace io.Writer
 	if opts.TraceParser {
 		trace = opts.Trace
@@ -183,14 +189,10 @@ func Compile(script []byte, opts CompilerOptions) (*Bytecode, error) {
 		return nil, err
 	}
 
-	compiler := NewCompiler(srcFile, opts)
+	compiler := newCompiler(srcFile, opts, nil, nil, modStore)
 	compiler.SetGlobalSymbolsIndex()
-
-	if opts.OptimizeConst || opts.OptimizeExpr {
-		err := compiler.optimize(pf)
-		if err != nil && err != errSkip {
-			return nil, err
-		}
+	if err := compiler.optimize(pf); err != nil {
+		return nil, err
 	}
 
 	if err := compiler.Compile(pf); err != nil {
@@ -198,7 +200,7 @@ func Compile(script []byte, opts CompilerOptions) (*Bytecode, error) {
 	}
 
 	bc := compiler.Bytecode()
-	if bc.Main.NumLocals > 256 {
+	if bc.Main.NumLocals > maxNumLocals {
 		return nil, ErrSymbolLimit
 	}
 	return bc, nil
@@ -210,30 +212,63 @@ func Compile(script []byte, opts CompilerOptions) (*Bytecode, error) {
 // index and provide it to the Compiler. This should be called before
 // Compiler.Compile call.
 func (c *Compiler) SetGlobalSymbolsIndex() {
-	symbols := c.symbolTable.Symbols()
-	for _, s := range symbols {
-		if s.Scope == ScopeGlobal && s.Index == -1 {
-			s.Index = c.addConstant(String(s.Name))
-		}
-	}
+	visitParent := true
+
+	c.symbolTable.Range(
+		visitParent,
+		func(s *Symbol) bool {
+			if s.Scope == ScopeGlobal && s.Index == -1 {
+				s.Index = c.addConstant(String(s.Name))
+			}
+			return true
+		},
+	)
 }
 
 // optimize runs the Optimizer and returns Optimizer object and error from Optimizer.
 // Note:If optimizer cannot run for some reason, a nil optimizer and errSkip
 // error will be returned.
-func (c *Compiler) optimize(file *parser.File) error {
-	if c.opts.OptimizerMaxCycle < 1 {
-		return errSkip
+func (c *Compiler) optimize(node parser.Node) error {
+	if !c.optimizeInit() {
+		return nil
 	}
 
-	optim := NewOptimizer(file, c.symbolTable, c.opts)
-
-	if err := optim.Optimize(); err != nil {
+	if err := c.optim.Optimize(node); err != nil {
 		return err
 	}
 
-	c.opts.OptimizerMaxCycle -= optim.Total()
+	c.opts.OptimizerLimit -= c.optim.Total()
 	return nil
+}
+
+func (c *Compiler) optimizeExpr(expr *parser.Expr) (bool, error) {
+	if !c.optimizeInit() {
+		return false, nil
+	}
+
+	out, ok, err := c.optim.optimizeExpr(*expr)
+	if err != nil {
+		return false, err
+	}
+	if ok {
+		*expr = out
+	}
+
+	c.opts.OptimizerLimit -= c.optim.Total()
+	return ok, nil
+}
+
+func (c *Compiler) optimizeInit() bool {
+	if c.opts.NoOptimize || c.opts.OptimizerLimit <= 0 {
+		return false
+	}
+	if c.optim == nil {
+		c.optim = NewOptimizer(c.file, c.symbolTable, *c.opts)
+	} else {
+		c.optim.reset(c.symbolTable, c.opts.OptimizerLimit)
+	}
+	c.optim.indent = c.indent
+	return true
 }
 
 // Bytecode returns compiled Bytecode ready to run in VM.
@@ -318,6 +353,17 @@ func (c *Compiler) Compile(node parser.Node) error {
 	case *parser.ParenExpr:
 		return c.Compile(node.Expr)
 	case *parser.BinaryExpr:
+		if hasAnyConstLit(c.symbolTable) {
+			expr := parser.Expr(node)
+			ok, err := c.optimizeExpr(&expr)
+			if err != nil {
+				return err
+			}
+			if ok {
+				return c.Compile(expr)
+			}
+		}
+
 		if node.Token == token.LAnd || node.Token == token.LOr {
 			return c.compileLogical(node)
 		}
@@ -341,6 +387,16 @@ func (c *Compiler) Compile(node parser.Node) error {
 	case *parser.UndefinedLit:
 		c.emit(node, OpNull)
 	case *parser.UnaryExpr:
+		if hasAnyConstLit(c.symbolTable) {
+			expr := parser.Expr(node)
+			ok, err := c.optimizeExpr(&expr)
+			if err != nil {
+				return err
+			}
+			if ok {
+				return c.Compile(expr)
+			}
+		}
 		return c.compileUnaryExpr(node)
 	case *parser.IfStmt:
 		return c.compileIfStmt(node)
@@ -417,7 +473,7 @@ func (c *Compiler) addConstant(obj Object) (index int) {
 	defer func() {
 		if c.trace != nil {
 			printTrace(c.indent, c.trace,
-				fmt.Sprintf("CONST %04d %v", index, obj))
+				fmt.Sprintf("CONST %04d %[2]T(%[2]v)", index, obj))
 		}
 	}()
 
@@ -507,22 +563,6 @@ func (c *Compiler) checkCyclicImports(node parser.Node, modulePath string) error
 	return nil
 }
 
-func (c *Compiler) addModule(name string, typ, constantIndex int) moduleStoreItem {
-	moduleIndex := c.moduleStore.count
-	c.moduleStore.count++
-	c.moduleStore.store[name] = moduleStoreItem{
-		typ:           typ,
-		constantIndex: constantIndex,
-		moduleIndex:   moduleIndex,
-	}
-	return c.moduleStore.store[name]
-}
-
-func (c *Compiler) getModule(name string) (moduleStoreItem, bool) {
-	indexes, ok := c.moduleStore.store[name]
-	return indexes, ok
-}
-
 func (c *Compiler) baseModuleMap() *ModuleMap {
 	if c.parent == nil {
 		return c.moduleMap
@@ -554,21 +594,19 @@ func (c *Compiler) compileModule(
 		return 0, err
 	}
 
-	symbolTable := NewSymbolTable().
-		DisableBuiltin(c.symbolTable.DisabledBuiltins()...)
+	symbolTable := NewSymbolTable()
+	symbolTable.disabledBuiltins = copyMapStringSet(c.symbolTable.disabledBuiltinsMap())
 
 	fork := c.fork(modFile, modulePath, moduleMap, symbolTable)
-	err = fork.optimize(file)
-	if err != nil && err != errSkip {
-		return 0, c.error(node, err)
+	if err = fork.optimize(file); err != nil {
+		return 0, err
 	}
-
 	if err = fork.Compile(file); err != nil {
 		return 0, err
 	}
 
 	bc := fork.Bytecode()
-	if bc.Main.NumLocals > 256 {
+	if bc.Main.NumLocals > maxNumLocals {
 		return 0, c.error(node, ErrSymbolLimit)
 	}
 
@@ -609,24 +647,27 @@ func (c *Compiler) fork(
 	moduleMap *ModuleMap,
 	symbolTable *SymbolTable,
 ) *Compiler {
-	child := NewCompiler(file, CompilerOptions{
-		ModuleMap:         moduleMap,
-		ModulePath:        modulePath,
-		Constants:         c.constants,
-		SymbolTable:       symbolTable,
-		Trace:             c.trace,
-		TraceParser:       c.opts.TraceParser,
-		TraceCompiler:     c.opts.TraceCompiler,
-		TraceOptimizer:    c.opts.TraceOptimizer,
-		OptimizerMaxCycle: c.opts.OptimizerMaxCycle,
-		OptimizeConst:     c.opts.OptimizeConst,
-		OptimizeExpr:      c.opts.OptimizeExpr,
-		moduleStore:       c.moduleStore,
-		constsCache:       c.constsCache,
-	})
+
+	child := newCompiler(
+		file,
+		&CompilerOptions{
+			ModuleMap:      moduleMap,
+			ModulePath:     modulePath,
+			Constants:      c.constants,
+			SymbolTable:    symbolTable,
+			Trace:          c.trace,
+			TraceParser:    c.opts.TraceParser,
+			TraceCompiler:  c.opts.TraceCompiler,
+			TraceOptimizer: c.opts.TraceOptimizer,
+			NoOptimize:     c.opts.NoOptimize,
+			OptimizerLimit: c.opts.OptimizerLimit,
+		},
+		c.constsCache,
+		c.cfuncCache,
+		c.moduleStore,
+	)
 
 	child.parent = c
-	child.cfuncCache = c.cfuncCache
 
 	if modulePath == c.modulePath {
 		child.indent = c.indent
@@ -647,6 +688,7 @@ func (c *Compiler) errorf(
 	format string,
 	args ...interface{},
 ) error {
+
 	return &CompilerError{
 		FileSet: c.file.Set(),
 		Node:    node,
@@ -655,15 +697,12 @@ func (c *Compiler) errorf(
 }
 
 func printTrace(indent int, trace io.Writer, a ...interface{}) {
-	const (
-		dots = ". . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . "
-		n    = len(dots)
-	)
+	const dots = ". . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . "
 
 	i := 2 * indent
-	for i > n {
+	for i > len(dots) {
 		_, _ = fmt.Fprint(trace, dots)
-		i -= n
+		i -= len(dots)
 	}
 
 	_, _ = fmt.Fprint(trace, dots[0:i])
@@ -688,9 +727,6 @@ func untracec(c *Compiler) {
 // allocation that resulted in -15% allocation, +2% speed in compiler.
 // It takes ~8ns/op with zero allocation.
 //
-// Returning error is required to identify bugs faster when VM and Opcodes are
-// under heavy development.
-//
 // Warning: Unknown Opcode causes panic!
 func MakeInstruction(buf []byte, op Opcode, args ...int) ([]byte, error) {
 	operands := OpcodeOperands[op]
@@ -701,38 +737,67 @@ func MakeInstruction(buf []byte, op Opcode, args ...int) ([]byte, error) {
 		)
 	}
 
+	for i, arg := range args {
+		var max int
+		switch operands[i] {
+		case 1:
+			max = internal.MaxUint8
+		case 2:
+			max = internal.MaxUint16
+		}
+
+		if arg > max {
+			return buf, fmt.Errorf(
+				"MakeInstruction: %s operand %d at %d is greater than %d",
+				OpcodeNames[op], arg, i, max,
+			)
+		} else if arg < 0 {
+			return buf, fmt.Errorf(
+				"MakeInstruction: %s operand %d at %d is less than 0",
+				OpcodeNames[op], arg, i,
+			)
+		}
+	}
+
 	buf = append(buf[:0], op)
 	switch op {
 	case OpConstant, OpMap, OpArray, OpGetGlobal, OpSetGlobal, OpJump,
 		OpJumpFalsy, OpAndJump, OpOrJump, OpStoreModule:
-		buf = append(buf, byte(args[0]>>8))
-		buf = append(buf, byte(args[0]))
-		return buf, nil
+
+		return append(buf, byte(args[0]>>8), byte(args[0])), nil
+
 	case OpLoadModule, OpSetupTry:
-		buf = append(buf, byte(args[0]>>8))
-		buf = append(buf, byte(args[0]))
-		buf = append(buf, byte(args[1]>>8))
-		buf = append(buf, byte(args[1]))
-		return buf, nil
+
+		_ = args[1]
+		buf = append(buf, byte(args[0]>>8), byte(args[0]))
+		return append(buf, byte(args[1]>>8), byte(args[1])), nil
+
 	case OpClosure:
-		buf = append(buf, byte(args[0]>>8))
-		buf = append(buf, byte(args[0]))
-		buf = append(buf, byte(args[1]))
-		return buf, nil
+
+		_ = args[1]
+		buf = append(buf, byte(args[0]>>8), byte(args[0]))
+		return append(buf, byte(args[1])), nil
+
 	case OpCall, OpCallName:
+
+		_ = args[1]
 		buf = append(buf, byte(args[0]))
-		buf = append(buf, byte(args[1]))
-		return buf, nil
+		return append(buf, byte(args[1])), nil
+
 	case OpGetBuiltin, OpReturn, OpBinaryOp, OpUnary, OpGetIndex, OpGetLocal,
 		OpSetLocal, OpGetFree, OpSetFree, OpGetLocalPtr, OpGetFreePtr, OpThrow,
 		OpFinalizer, OpDefineLocal:
-		buf = append(buf, byte(args[0]))
-		return buf, nil
+
+		return append(buf, byte(args[0])), nil
+
 	case OpEqual, OpNotEqual, OpNull, OpTrue, OpFalse, OpPop, OpSliceIndex,
 		OpSetIndex, OpIterInit, OpIterNext, OpIterKey, OpIterValue,
 		OpSetupCatch, OpSetupFinally, OpNoOp:
+
 		return buf, nil
+
 	default:
+
 		return buf, &Error{
 			Name:    "MakeInstruction",
 			Message: fmt.Sprintf("unknown Opcode %d %s", op, OpcodeNames[op]),
@@ -770,8 +835,10 @@ func FormatInstructions(b []byte, posOffset int) []string {
 
 // IterateInstructions iterate instructions and call given function for each instruction.
 // Note: Do not use operands slice in callback, it is reused for less allocation.
-func IterateInstructions(insts []byte,
-	fn func(pos int, opcode Opcode, operands []int, offset int) bool) {
+func IterateInstructions(
+	insts []byte,
+	fn func(pos int, opcode Opcode, operands []int, offset int) bool,
+) {
 	operands := make([]int, 0, 4)
 	var offset int
 
@@ -785,16 +852,110 @@ func IterateInstructions(insts []byte,
 	}
 }
 
-func newModuleStore() *moduleStore {
-	return &moduleStore{
-		store: make(map[string]moduleStoreItem),
+func (ms *moduleStore) addModule(name string, typ, constIndex int) moduleStoreItem {
+	moduleIndex := ms.count
+	ms.count++
+	if ms.store == nil {
+		ms.store = make(map[string]moduleStoreItem)
 	}
+	ms.store[name] = moduleStoreItem{
+		typ:           typ,
+		constantIndex: constIndex,
+		moduleIndex:   moduleIndex,
+	}
+	return ms.store[name]
 }
 
-func (ms *moduleStore) reset() *moduleStore {
+func (ms *moduleStore) getModule(name string) (moduleStoreItem, bool) {
+	indexes, ok := ms.store[name]
+	return indexes, ok
+}
+
+func (ms *moduleStore) reset() {
+	if ms == nil {
+		return
+	}
 	ms.count = 0
 	for k := range ms.store {
 		delete(ms.store, k)
 	}
-	return ms
+}
+
+type constLiteral struct {
+	value Object
+}
+
+func constLitFromExpr(expr parser.Expr) constLiteral {
+	var value Object
+	switch expr := expr.(type) {
+	case *parser.IntLit:
+		value = Int(expr.Value)
+	case *parser.UintLit:
+		value = Uint(expr.Value)
+	case *parser.FloatLit:
+		value = Float(expr.Value)
+	case *parser.BoolLit:
+		value = Bool(expr.Value)
+	case *parser.StringLit:
+		value = String(expr.Value)
+	case *parser.CharLit:
+		value = Char(expr.Value)
+	case *parser.UndefinedLit:
+		value = Undefined
+	default:
+		panic(fmt.Errorf("unexpected literal type: %T", expr))
+	}
+	return constLiteral{value: value}
+}
+
+func (cl *constLiteral) emit(c *Compiler, node parser.Node) (Opcode, int, int) {
+	if c.trace != nil {
+		printTrace(
+			c.indent, c.trace, fmt.Sprintf("CONSTLIT %[1]T(%[1]v)", cl.value),
+		)
+	}
+	opcode := OpConstant
+	operand := -1
+	switch v := cl.value.(type) {
+	case Int, Uint, Float, Char, String:
+		operand = c.addConstant(cl.value)
+	case Bool:
+		if v {
+			opcode = OpTrue
+		} else {
+			opcode = OpFalse
+		}
+	case *UndefinedType:
+		opcode = OpNull
+	default:
+		panic(fmt.Errorf("unexpected object type: %T", v))
+	}
+	var pos int
+	if operand == -1 {
+		pos = c.emit(node, opcode)
+	} else {
+		pos = c.emit(node, opcode, operand)
+	}
+	return opcode, operand, pos
+}
+
+func (cl *constLiteral) toExpr() parser.Expr {
+	switch v := cl.value.(type) {
+	case Int:
+		return &parser.IntLit{Value: int64(v)}
+	case Uint:
+		return &parser.UintLit{Value: uint64(v)}
+	case Float:
+		return &parser.FloatLit{Value: float64(v)}
+	case Char:
+		return &parser.CharLit{Value: rune(v)}
+	case String:
+		return &parser.StringLit{Value: string(v)}
+	case Bool:
+		return &parser.BoolLit{Value: bool(v)}
+	case *UndefinedType:
+		return &parser.UndefinedLit{}
+	default:
+		panic(fmt.Errorf("unexpected object type: %T", v))
+	}
 }

@@ -87,22 +87,21 @@ func BenchmarkBytecodeEncDec(b *testing.B) {
 		b.Fatal(err)
 	}
 
-	b.Run("compileUnopt", func(b *testing.B) {
+	b.Run("compileUnoptimized", func(b *testing.B) {
 		for i := 0; i < b.N; i++ {
-			_, err := ugo.Compile([]byte(script), ugo.CompilerOptions{})
+			_, err := ugo.Compile(
+				[]byte(script),
+				ugo.CompilerOptions{NoOptimize: true},
+			)
 			if err != nil {
 				b.Fatal(err)
 			}
 		}
 	})
 
-	b.Run("compileOpt", func(b *testing.B) {
+	b.Run("compileOptimized", func(b *testing.B) {
 		for i := 0; i < b.N; i++ {
-			_, err := ugo.Compile([]byte(script), ugo.CompilerOptions{
-				OptimizeConst:     true,
-				OptimizeExpr:      true,
-				OptimizerMaxCycle: 100,
-			})
+			_, err := ugo.Compile([]byte(script), ugo.CompilerOptions{})
 			if err != nil {
 				b.Fatal(err)
 			}

@@ -5,117 +5,145 @@ on:
     branches: 
       - main
       - dev
+      - refactor/const-propagation
   pull_request:
     branches:
       - main
+  workflow_dispatch:
 
 jobs:
   govulncheck:
     runs-on: ubuntu-latest
-    name: Security - govulncheck
+    name: govulncheck
     steps:
     - name: Checkout
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
 
     - name: Setup Go
-      uses: actions/setup-go@v3
+      uses: actions/setup-go@v5
       with:
-        go-version: '1.20'
+        go-version: '1.24'
 
     - name: Install govulncheck
       run: go install golang.org/x/vuln/cmd/govulncheck@latest
     
     - name: Run govulncheck
-      run: govulncheck -v ./...
-
-  build-old:
-      needs: govulncheck
-      strategy:
-        matrix:
-          os:  [ 'ubuntu-latest', 'macOS-latest' ]
-          go: [ '1.15', '1.16' ]
-      runs-on: ${{ matrix.os }}
-      name: Test and Build Go ${{ matrix.go }}  ${{ matrix.os }}
-
-      steps:
-      - name: Checkout
-        uses: actions/checkout@v3
-
-      - name: Setup Go ${{ matrix.go }}
-        uses: actions/setup-go@v3
-        with:
-          go-version: ${{ matrix.go }}
-
-      - name: Install Staticcheck
-        run: |
-          GOBIN=${GOBIN:-"$HOME/go/bin"}
-          mkdir -p "$GOBIN"
-          echo "$GOBIN" >> "$GITHUB_PATH"
-          export GO111MODULE=on
-          cd "$GOBIN" && go get honnef.co/go/tools/cmd/staticcheck@2021.1
-
-      - name: Test
-        run: make test
-
-      - name: Build CLI
-        run: make build-cli
-      
-      - name: Generate
-        run: make generate-all
-
+      run: govulncheck ./...
+  
   build-new:
     needs: govulncheck
     strategy:
       matrix:
         os:  [ 'ubuntu-latest', 'windows-latest' ]
-        go: [ '1.20', '1.19', '1.18', '1.17' ]
+        go: [ '1.24', '1.23', '1.22', '1.21' ]
         arch: [ 'amd64', 'arm64', '386' ]
+        include:
+          - os: 'macOS-latest'
+            go: '1.24'
+            arch: 'amd64'
+          - os: 'macOS-latest'
+            go: '1.23'
+            arch: 'amd64'
+          - os: 'macOS-latest'
+            go: '1.22'
+            arch: 'amd64'
+          - os: 'macOS-latest'
+            go: '1.21'
+            arch: 'amd64'
+          - os: 'macOS-latest'
+            go: '1.24'
+            arch: 'arm64'
+          - os: 'macOS-latest'
+            go: '1.23'
+            arch: 'arm64'
+          - os: 'macOS-latest'
+            go: '1.22'
+            arch: 'arm64'
+          - os: 'macOS-latest'
+            go: '1.21'
+            arch: 'arm64'
+
     runs-on: ${{ matrix.os }}
-    name: Test and Build go${{ matrix.go }}_${{ matrix.os }}_${{ matrix.arch }}
-    env:
-      GOARCH: ${{ matrix.arch }}
+    name: Test and Build
     defaults:
       run:
         shell: bash
 
     steps:
     - name: Checkout
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
 
     - name: Setup Go ${{ matrix.go }}
-      uses: actions/setup-go@v3
+      uses: actions/setup-go@v5
       with:
         go-version: ${{ matrix.go }}
 
-    - name: Install Staticcheck
-      run: go install honnef.co/go/tools/cmd/staticcheck@2022.1
-      if: ${{ (matrix.go == '1.17') || (matrix.go == '1.18') }}
-
-    - name: Install Staticcheck
-      run: go install honnef.co/go/tools/cmd/staticcheck@2023.1.2
-      if: ${{ (matrix.go == '1.19') || (matrix.go == '1.20') }}
-
     - name: Test
       run: make test
-      # TODO: Add arm64 tests using docker
       if: ${{ matrix.arch == 'amd64' }}
 
     - name: Build CLI
       run: |
+        set -e
         make build-cli
         out=ugo_go${{ matrix.go }}_$(go env GOOS)_$(go env GOARCH)
         echo "artifactPath=$out" >> "$GITHUB_ENV"
         mv ugo $out || true
         mv ugo.exe $out.exe || true
+      env:
+        GOARCH: ${{ matrix.arch }}
+    
+    - name: Generate
+      run: make generate-all
+      if: ${{ matrix.arch == 'amd64' }}
     
     - name: 'Upload Artifact'
-      uses: actions/upload-artifact@v3
-      if: ${{ matrix.go == '1.20' }}
+      uses: actions/upload-artifact@v4
+      if: ${{ matrix.go == '1.24' }}
       with:
         name: ${{ env.artifactPath }}
         path: ${{ env.artifactPath }}*
         if-no-files-found: error
         retention-days: 7
+
+  build-old:
+    needs: govulncheck
+    strategy:
+      matrix:
+        os:  [ 'ubuntu-latest', 'windows-latest' ]
+        go: [ '1.20', '1.19', '1.18', '1.17' ]
+        arch: [ 'amd64', 'arm64', '386' ]
+        include:
+          - os: 'macOS-latest'
+            go: '1.20'
+            arch: 'amd64'
+          - os: 'macOS-latest'
+            go: '1.20'
+            arch: 'arm64'
+
+    runs-on: ${{ matrix.os }}
+    name: Test and Build
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Setup Go ${{ matrix.go }}
+      uses: actions/setup-go@v5
+      with:
+        go-version: ${{ matrix.go }}
+
+    - name: Test
+      run: make test
+      if: ${{ matrix.arch == 'amd64' }}
+
+    - name: Build CLI
+      run: make build-cli
+      env:
+        GOARCH: ${{ matrix.arch }}
     
     - name: Generate
       run: make generate-all

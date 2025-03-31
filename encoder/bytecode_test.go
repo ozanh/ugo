@@ -95,7 +95,7 @@ v = int(fmt.Sprintf("%d", v))
 return v*time.Second/time.Second // 1
 `
 
-	opts := ugo.DefaultCompilerOptions
+	var opts ugo.CompilerOptions
 	opts.ModuleMap = ugo.NewModuleMap().
 		AddBuiltinModule("fmt", fmt.Module).
 		AddBuiltinModule("strings", strings.Module).

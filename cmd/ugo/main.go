@@ -27,6 +27,7 @@ import (
 
 	"github.com/ozanh/ugo"
 	"github.com/ozanh/ugo/importers"
+	"github.com/ozanh/ugo/internal"
 	"github.com/ozanh/ugo/token"
 
 	ugofmt "github.com/ozanh/ugo/stdlib/fmt"
@@ -42,7 +43,7 @@ const (
 )
 
 var (
-	noOptimizer    bool
+	noOptimize     bool
 	traceEnabled   bool
 	traceParser    bool
 	traceOptimizer bool
@@ -89,15 +90,14 @@ type repl struct {
 
 func newREPL(ctx context.Context, stdout io.Writer) *repl {
 	opts := ugo.CompilerOptions{
-		ModulePath:        "(repl)",
-		ModuleMap:         defaultModuleMap("."),
-		SymbolTable:       defaultSymbolTable(),
-		OptimizerMaxCycle: ugo.TraceCompilerOptions.OptimizerMaxCycle,
-		TraceParser:       traceParser,
-		TraceOptimizer:    traceOptimizer,
-		TraceCompiler:     traceCompiler,
-		OptimizeConst:     !noOptimizer,
-		OptimizeExpr:      !noOptimizer,
+		ModulePath:     "(repl)",
+		ModuleMap:      defaultModuleMap("."),
+		SymbolTable:    defaultSymbolTable(),
+		OptimizerLimit: internal.MaxUint16,
+		TraceParser:    traceParser,
+		TraceOptimizer: traceOptimizer,
+		TraceCompiler:  traceCompiler,
+		NoOptimize:     noOptimize,
 	}
 
 	if stdout == nil {
@@ -250,7 +250,7 @@ func (r *repl) cmdReturnVerbose(_ string) error {
 }
 
 func (r *repl) cmdSymbolsVerbose(_ string) error {
-	_, _ = fmt.Fprintf(r.out, "%v\n", r.eval.Opts.SymbolTable.Symbols())
+	_, _ = fmt.Fprintf(r.out, "%v\n", symbolsSorted(r.eval.Opts.SymbolTable))
 	return nil
 }
 
@@ -327,7 +327,7 @@ func (r *repl) executeScript() {
 }
 
 func (r *repl) setSymbolSuggestions() {
-	symbols := r.eval.Opts.SymbolTable.Symbols()
+	symbols := symbolsSorted(r.eval.Opts.SymbolTable)
 	suggestions = suggestions[:initialSuggLen]
 
 	for _, s := range symbols {
@@ -335,7 +335,7 @@ func (r *repl) setSymbolSuggestions() {
 			suggestions = append(suggestions,
 				suggest{
 					text:        s.Name,
-					description: string(s.Scope),
+					description: s.Scope.String(),
 					typ:         "symbol",
 				},
 			)
@@ -416,6 +416,24 @@ func defaultSymbolTable() *ugo.SymbolTable {
 		panic(&ugo.Error{Message: "global symbol define error", Cause: err})
 	}
 	return table
+}
+
+func symbolsSorted(st *ugo.SymbolTable) []*ugo.Symbol {
+	visitParent := false
+	symbols := []*ugo.Symbol{}
+
+	st.Range(
+		visitParent,
+		func(s *ugo.Symbol) bool {
+			symbols = append(symbols, s)
+			return true
+		},
+	)
+
+	sort.Slice(symbols, func(i, j int) bool {
+		return symbols[i].Index < symbols[j].Index
+	})
+	return symbols
 }
 
 func defaultModuleMap(workdir string) *ugo.ModuleMap {
@@ -508,7 +526,7 @@ func parseFlags(
 	var trace string
 	flagset.StringVar(&trace, "trace", "",
 		`Comma separated units: -trace parser,optimizer,compiler`)
-	flagset.BoolVar(&noOptimizer, "no-optimizer", false, `Disable optimization`)
+	flagset.BoolVar(&noOptimize, "no-optimize", false, `Disable optimization`)
 	flagset.DurationVar(&timeout, "timeout", 0,
 		"Program timeout. It is applicable if a script file is provided and "+
 			"must be non-zero duration")
@@ -560,10 +578,11 @@ func executeScript(
 	script []byte,
 	traceOut io.Writer,
 ) error {
-	opts := ugo.DefaultCompilerOptions
+	var opts ugo.CompilerOptions
 	opts.SymbolTable = defaultSymbolTable()
 	opts.ModuleMap = defaultModuleMap(workdir)
 	opts.ModulePath = modulePath
+	opts.NoOptimize = noOptimize
 
 	if traceEnabled {
 		opts.Trace = traceOut
@@ -597,7 +616,7 @@ func executeScript(
 	return err
 }
 
-func hasMode(f *os.File, m os.FileMode) bool {
+func hasFileMode(f *os.File, m os.FileMode) bool {
 	info, err := f.Stat()
 	if err != nil {
 		return false
@@ -664,7 +683,7 @@ func main() {
 		return
 	}
 
-	if !hasMode(os.Stdout, os.ModeCharDevice) {
+	if !hasFileMode(os.Stdout, os.ModeCharDevice) {
 		_, _ = fmt.Fprintln(os.Stderr, "not a terminal")
 		os.Exit(1)
 	}

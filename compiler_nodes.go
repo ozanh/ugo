@@ -5,6 +5,8 @@
 package ugo
 
 import (
+	"fmt"
+
 	"github.com/ozanh/ugo/parser"
 	"github.com/ozanh/ugo/token"
 )
@@ -205,7 +207,7 @@ func (c *Compiler) compileThrowStmt(node *parser.ThrowStmt) error {
 func (c *Compiler) compileDeclStmt(node *parser.DeclStmt) error {
 	decl := node.Decl.(*parser.GenDecl)
 	if len(decl.Specs) == 0 {
-		return c.errorf(node, "empty declaration not allowed")
+		return c.error(node, errEmptyDeclNotAllowed)
 	}
 
 	switch decl.Tok {
@@ -221,7 +223,7 @@ func (c *Compiler) compileDeclStmt(node *parser.DeclStmt) error {
 
 func (c *Compiler) compileDeclParam(node *parser.GenDecl) error {
 	if c.symbolTable.parent != nil {
-		return c.errorf(node, "param not allowed in this scope")
+		return c.error(node, plainError("param not allowed in this scope"))
 	}
 
 	names := make([]string, 0, len(node.Specs))
@@ -230,8 +232,7 @@ func (c *Compiler) compileDeclParam(node *parser.GenDecl) error {
 		names = append(names, spec.Ident.Name)
 		if spec.Variadic {
 			if c.variadic {
-				return c.errorf(node,
-					"multiple variadic param declaration")
+				return c.error(node, errMultipleVariadicParamDecl)
 			}
 			c.variadic = true
 		}
@@ -245,7 +246,7 @@ func (c *Compiler) compileDeclParam(node *parser.GenDecl) error {
 
 func (c *Compiler) compileDeclGlobal(node *parser.GenDecl) error {
 	if c.symbolTable.parent != nil {
-		return c.errorf(node, "global not allowed in this scope")
+		return c.error(node, plainError("global not allowed in this scope"))
 	}
 
 	for _, sp := range node.Specs {
@@ -277,7 +278,7 @@ func (c *Compiler) compileDeclValue(node *parser.GenDecl) error {
 			if v, ok := spec.Data.(int); ok {
 				c.iotaVal = v
 			} else {
-				return c.errorf(node, "invalid iota value")
+				return c.error(node, plainError("invalid iota value"))
 			}
 		}
 		for i, ident := range spec.Idents {
@@ -296,7 +297,11 @@ func (c *Compiler) compileDeclValue(node *parser.GenDecl) error {
 			} else {
 				lastExpr = v
 			}
-
+			if isConst {
+				if defined := c.defineConstLit(ident, v); defined {
+					continue
+				}
+			}
 			rightExpr := []parser.Expr{v}
 			err := c.compileAssignStmt(node, leftExpr, rightExpr, node.Tok, token.Define)
 			if err != nil {
@@ -307,17 +312,60 @@ func (c *Compiler) compileDeclValue(node *parser.GenDecl) error {
 	return nil
 }
 
+func (c *Compiler) defineConstLit(
+	lhs *parser.Ident,
+	rhs parser.Expr,
+) (defined bool) {
+
+	if lhs.Name == "iota" || lhs.Name == "_" {
+		return
+	}
+
+	switch rhs := rhs.(type) {
+	case *parser.IntLit, *parser.UintLit, *parser.FloatLit, *parser.StringLit,
+		*parser.BoolLit, *parser.CharLit, *parser.UndefinedLit:
+
+		if s, exist := c.symbolTable.defineConstLit(lhs.Name); !exist {
+			s.constLit = constLitFromExpr(rhs)
+			s.Assigned = true
+			defined = true
+		}
+	case *parser.Ident:
+		if rhs.Name == "iota" {
+			if findSymbolSelf(c.symbolTable, "iota") == nil {
+				s, exist := c.symbolTable.defineConstLit(lhs.Name)
+				if !exist {
+					s.constLit = constLiteral{value: Int(c.iotaVal)}
+					s.Assigned = true
+					defined = true
+				}
+			}
+		} else if rhs.Name != "_" {
+			s1 := findSymbol(c.symbolTable, rhs.Name, ScopeConstLit)
+			if s1 != nil {
+				s2, exist := c.symbolTable.defineConstLit(lhs.Name)
+				if !exist {
+					s2.constLit = s1.constLit
+					s2.Assigned = true
+					defined = true
+				}
+			}
+		}
+	}
+	return
+}
+
 func (c *Compiler) checkAssignment(
 	node parser.Node,
 	lhs []parser.Expr,
 	rhs []parser.Expr,
-	keyword token.Token,
+	_ token.Token, // keyword
 	op token.Token,
 ) (bool, error) {
+
 	_, numRHS := len(lhs), len(rhs)
 	if numRHS > 1 {
-		return false, c.errorf(node,
-			"multiple expressions on the right side not supported")
+		return false, c.error(node, errMultipleExprRhsNotSupported)
 	}
 
 	var selector bool
@@ -333,7 +381,7 @@ Loop:
 	if selector {
 		if op == token.Define {
 			// using selector on new variable does not make sense
-			return false, c.errorf(node, "operator ':=' not allowed with selector")
+			return false, c.error(node, errShortVarDeclOpNotAllowedWithSelector)
 		}
 	}
 
@@ -347,6 +395,7 @@ func (c *Compiler) compileAssignStmt(
 	keyword token.Token,
 	op token.Token,
 ) error {
+
 	compile, err := c.checkAssignment(node, lhs, rhs, keyword, op)
 	if err != nil || !compile {
 		return err
@@ -387,10 +436,7 @@ func (c *Compiler) compileAssignStmt(
 	return c.compileDefineAssign(node, lhs[0], keyword, op, false)
 }
 
-func (c *Compiler) compileCompoundAssignment(
-	node parser.Node,
-	op token.Token,
-) {
+func (c *Compiler) compileCompoundAssignment(node parser.Node, op token.Token) {
 	switch op {
 	case token.AddAssign:
 		c.emit(node, OpBinaryOp, int(token.Add))
@@ -424,6 +470,7 @@ func (c *Compiler) compileDestructuring(
 	keyword token.Token,
 	op token.Token,
 ) error {
+
 	c.emit(node, OpCall, 2, 0)
 	c.emit(node, OpDefineLocal, tempArrSymbol.Index)
 	numLHS := len(lhs)
@@ -432,12 +479,12 @@ func (c *Compiler) compileDestructuring(
 	for lhsIndex, expr := range lhs {
 		if op == token.Define {
 			if term, ok := expr.(*parser.Ident); ok {
-				if _, ok = c.symbolTable.find(term.Name); ok {
+				if findSymbolSelf(c.symbolTable, term.Name) != nil {
 					found++
 				}
 			}
 			if found == numLHS {
-				return c.errorf(node, "no new variable on left side")
+				return c.error(node, errNoNewVariableOnLhs)
 			}
 		}
 
@@ -464,6 +511,7 @@ func (c *Compiler) compileDefine(
 	allowRedefine bool,
 	keyword token.Token,
 ) error {
+
 	symbol, exists := c.symbolTable.DefineLocal(ident)
 	if !allowRedefine && exists && ident != "_" {
 		return c.errorf(node, "%q redeclared in this block", ident)
@@ -473,7 +521,7 @@ func (c *Compiler) compileDefine(
 		return c.errorf(node, "assignment to constant variable %q", ident)
 	}
 	if c.iotaVal > -1 && ident == "iota" && keyword == token.Const {
-		return c.errorf(node, "assignment to iota")
+		return c.error(node, plainError("assignment to iota"))
 	}
 
 	c.emit(node, OpDefineLocal, symbol.Index)
@@ -487,6 +535,7 @@ func (c *Compiler) compileAssign(
 	symbol *Symbol,
 	ident string,
 ) error {
+
 	if symbol.Constant {
 		return c.errorf(node, "assignment to constant variable %q", ident)
 	}
@@ -509,7 +558,7 @@ func (c *Compiler) compileAssign(
 		c.emit(node, OpSetGlobal, symbol.Index)
 		symbol.Assigned = true
 	default:
-		return c.errorf(node, "unresolved reference %q", ident)
+		return c.error(node, unresolvedRefError(ident))
 	}
 	return nil
 }
@@ -521,6 +570,7 @@ func (c *Compiler) compileDefineAssign(
 	op token.Token,
 	allowRedefine bool,
 ) error {
+
 	ident, selectors := resolveAssignLHS(lhs)
 	numSel := len(selectors)
 	if numSel == 0 && op == token.Define {
@@ -529,7 +579,7 @@ func (c *Compiler) compileDefineAssign(
 
 	symbol, ok := c.symbolTable.Resolve(ident)
 	if !ok {
-		return c.errorf(node, "unresolved reference %q", ident)
+		return c.error(node, unresolvedRefError(ident))
 	}
 
 	if numSel == 0 {
@@ -585,7 +635,7 @@ func (c *Compiler) compileBranchStmt(node *parser.BranchStmt) error {
 	case token.Break:
 		curLoop := c.currentLoop()
 		if curLoop == nil {
-			return c.errorf(node, "break not allowed outside loop")
+			return c.error(node, errBreakOutsideOfLoop)
 		}
 
 		var pos int
@@ -599,7 +649,7 @@ func (c *Compiler) compileBranchStmt(node *parser.BranchStmt) error {
 	case token.Continue:
 		curLoop := c.currentLoop()
 		if curLoop == nil {
-			return c.errorf(node, "continue not allowed outside loop")
+			return c.error(node, errContinueOutsideOfLoop)
 		}
 
 		var pos int
@@ -741,7 +791,7 @@ func (c *Compiler) compileForInStmt(stmt *parser.ForInStmt) error {
 	//   :it = iterator(iterable)
 	itSymbol, exists := c.symbolTable.DefineLocal(":it")
 	if exists {
-		return c.errorf(stmt, ":it redeclared in this block")
+		return c.error(stmt, plainError(":it redeclared in this block"))
 	}
 
 	if err := c.Compile(stmt.Iterable); err != nil {
@@ -899,8 +949,7 @@ func (c *Compiler) compileBinaryExpr(node *parser.BinaryExpr) error {
 		c.emit(node, OpNotEqual)
 	default:
 		if !node.Token.IsBinaryOperator() {
-			return c.errorf(node, "invalid binary operator: %s",
-				node.Token.String())
+			return c.errorf(node, "invalid binary operator: %s", node.Token.String())
 		}
 		c.emit(node, OpBinaryOp, int(node.Token))
 	}
@@ -922,8 +971,7 @@ func (c *Compiler) compileUnaryExpr(node *parser.UnaryExpr) error {
 	case token.Add:
 		c.emit(node, OpUnary, int(token.Add))
 	default:
-		return c.errorf(node,
-			"invalid unary operator: %s", node.Token.String())
+		return c.errorf(node, "invalid unary operator: %s", node.Token.String())
 	}
 	return nil
 }
@@ -1042,7 +1090,7 @@ func (c *Compiler) compileCallExpr(node *parser.CallExpr) error {
 func (c *Compiler) compileImportExpr(node *parser.ImportExpr) error {
 	moduleName := node.ModuleName
 	if moduleName == "" {
-		return c.errorf(node, "empty module name")
+		return c.error(node, plainError("empty module name"))
 	}
 
 	importer := c.moduleMap.Get(moduleName)
@@ -1057,7 +1105,7 @@ func (c *Compiler) compileImportExpr(node *parser.ImportExpr) error {
 		}
 	}
 
-	module, exists := c.getModule(moduleName)
+	module, exists := c.moduleStore.getModule(moduleName)
 	if !exists {
 		mod, err := importer.Import(moduleName)
 		if err != nil {
@@ -1075,9 +1123,9 @@ func (c *Compiler) compileImportExpr(node *parser.ImportExpr) error {
 			if err != nil {
 				return err
 			}
-			module = c.addModule(moduleName, 1, cidx)
+			module = c.moduleStore.addModule(moduleName, 1, cidx)
 		case Object:
-			module = c.addModule(moduleName, 2, c.addConstant(v))
+			module = c.moduleStore.addModule(moduleName, 2, c.addConstant(v))
 		default:
 			return c.errorf(node, "invalid import value type: %T", v)
 		}
@@ -1157,7 +1205,7 @@ func (c *Compiler) compileIdent(node *parser.Ident) error {
 	symbol, ok := c.symbolTable.Resolve(node.Name)
 	if !ok {
 		if c.iotaVal < 0 || node.Name != "iota" {
-			return c.errorf(node, "unresolved reference %q", node.Name)
+			return c.error(node, unresolvedRefError(node.Name))
 		}
 		c.emit(node, OpConstant, c.addConstant(Int(c.iotaVal)))
 		return nil
@@ -1172,6 +1220,13 @@ func (c *Compiler) compileIdent(node *parser.Ident) error {
 		c.emit(node, OpGetBuiltin, symbol.Index)
 	case ScopeFree:
 		c.emit(node, OpGetFree, symbol.Index)
+	case ScopeConstLit:
+		if symbol.Constant {
+			symbol.constLit.emit(c, node)
+		} else {
+			panic(fmt.Errorf("symbol '%s' is not defined as constant "+
+				"but its scope is %s", symbol, ScopeConstLit))
+		}
 	}
 	return nil
 }

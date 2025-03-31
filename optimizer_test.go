@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	. "github.com/ozanh/ugo"
+	"github.com/ozanh/ugo/internal"
 	"github.com/ozanh/ugo/token"
 )
 
@@ -54,7 +55,7 @@ func TestOptimizer(t *testing.T) {
 		{s: `!(1 << 2)`, cf: falseF},
 
 		{s: `1u + 2u`, c: Uint(3), cf: defF},
-		{s: `1u - 2u`, c: Uint(^uint64(0)), cf: defF},
+		{s: `1u - 2u`, c: Uint(internal.MaxUint64), cf: defF},
 		{s: `2u * 2u`, c: Uint(4), cf: defF},
 		{s: `2u / 2u`, c: Uint(1), cf: defF},
 		{s: `1u << 2u`, c: Uint(4), cf: defF},
@@ -72,7 +73,7 @@ func TestOptimizer(t *testing.T) {
 		{s: `1u >= 2u`, cf: falseF},
 		{s: `!0u`, cf: trueF},
 		{s: `!1u`, cf: falseF},
-		{s: `-1u`, c: Uint(^uint64(0)), cf: defF},
+		{s: `-1u`, c: Uint(internal.MaxUint64), cf: defF},
 		{s: `+1u`, c: Uint(1), cf: defF},
 
 		{s: `1.0 + 2.0`, c: Float(3), cf: defF},
@@ -603,9 +604,7 @@ func TestOptimizerShadowing(t *testing.T) {
 			),
 		))
 
-	opts := DefaultCompilerOptions
-	opts.OptimizeConst = true
-	opts.OptimizeExpr = true
+	var opts CompilerOptions
 
 	st := NewSymbolTable()
 	require.NoError(t, st.SetParams("int"))
@@ -712,19 +711,15 @@ func TestOptimizerError(t *testing.T) {
 	// Errors on the same line are discarded by optimizer.
 	bc, err := Compile([]byte(`
 	1/0;2/0
-	1/0;`), DefaultCompilerOptions)
+	1/0;`), CompilerOptions{})
 	require.Nil(t, bc)
 	require.Error(t, err)
+
 	require.Equal(t,
-		"Optimizer Error: ZeroDivisionError: \n\tat (main):2:2",
+		"2 errors occurred:\n\t* Optimizer Error: ZeroDivisionError:"+
+			" \n\tat (main):2:2\n\t* Optimizer Error: ZeroDivisionError:"+
+			" \n\tat (main):3:2\n\n",
 		err.Error(),
-	)
-	// test + flag gets all
-	require.Equal(t,
-		"multiple errors:\n Optimizer Error: ZeroDivisionError:"+
-			" \n\tat (main):2:2\n Optimizer Error: ZeroDivisionError:"+
-			" \n\tat (main):3:2",
-		fmt.Sprintf("%+v", err),
 	)
 	// test error implements interface { Errors() []error }
 	if m, ok := err.(interface {
@@ -738,18 +733,14 @@ func TestOptimizerError(t *testing.T) {
 
 func expectEval(t *testing.T, script string, expected *Bytecode) {
 	t.Helper()
-	opts := DefaultCompilerOptions
-	require.True(t, opts.OptimizeConst)
-	require.True(t, opts.OptimizeExpr)
-	opts.OptimizerMaxCycle = 1<<8 - 1
+	var opts CompilerOptions
+	opts.OptimizerLimit = 1<<8 - 1
 	expectCompileWithOpts(t, script, opts, expected)
 }
 
 func expectEvalError(t *testing.T, script, errStr string) {
 	t.Helper()
-	opts := DefaultCompilerOptions
-	require.True(t, opts.OptimizeConst)
-	require.True(t, opts.OptimizeExpr)
-	opts.OptimizerMaxCycle = 1<<8 - 1
+	var opts CompilerOptions
+	opts.OptimizerLimit = 1<<8 - 1
 	expectCompileErrorWithOpts(t, script, opts, errStr)
 }

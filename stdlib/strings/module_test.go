@@ -717,9 +717,9 @@ func expectRun(t *testing.T, script string, expected Object) {
 	t.Helper()
 	mm := NewModuleMap()
 	mm.AddBuiltinModule("strings", Module)
-	c := DefaultCompilerOptions
-	c.ModuleMap = mm
-	bc, err := Compile([]byte(script), c)
+	var opts CompilerOptions
+	opts.ModuleMap = mm
+	bc, err := Compile([]byte(script), opts)
 	require.NoError(t, err)
 	ret, err := NewVM(bc).Run(nil)
 	require.NoError(t, err)

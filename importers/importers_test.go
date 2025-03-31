@@ -86,7 +86,7 @@ println("sourcemod")`))
 
 		createModules(t, tempDir, files)
 
-		opts := ugo.DefaultCompilerOptions
+		var opts ugo.CompilerOptions
 		opts.ModuleMap = moduleMap.Copy()
 		opts.ModuleMap.SetExtImporter(&importers.FileImporter{WorkDir: tempDir})
 		bc, err := ugo.Compile([]byte(script), opts)
@@ -114,7 +114,7 @@ println("sourcemod")`))
 
 		createModules(t, tempDir, mfiles)
 
-		opts := ugo.DefaultCompilerOptions
+		var opts ugo.CompilerOptions
 		opts.ModuleMap = moduleMap.Copy()
 		opts.ModuleMap.SetExtImporter(
 			&importers.FileImporter{

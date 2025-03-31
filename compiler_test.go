@@ -13,76 +13,6 @@ import (
 	. "github.com/ozanh/ugo"
 )
 
-func makeInst(op Opcode, args ...int) []byte {
-	b, err := MakeInstruction(make([]byte, 8), op, args...)
-	if err != nil {
-		panic(err)
-	}
-	return b
-}
-
-type bytecodeOption func(*Bytecode)
-
-func withModules(numOfModules int) bytecodeOption {
-	return func(bc *Bytecode) {
-		bc.NumModules = numOfModules
-	}
-}
-
-func bytecode(
-	consts []Object,
-	cf *CompiledFunction,
-	opts ...bytecodeOption,
-) *Bytecode {
-
-	bc := &Bytecode{
-		Constants: consts,
-		Main:      cf,
-	}
-	for _, f := range opts {
-		f(bc)
-	}
-	return bc
-}
-
-type funcOpt func(*CompiledFunction)
-
-func withParams(numParams int) funcOpt {
-	return func(cf *CompiledFunction) {
-		cf.NumParams = numParams
-	}
-}
-
-func withVariadic() funcOpt {
-	return func(cf *CompiledFunction) {
-		cf.Variadic = true
-	}
-}
-
-func withLocals(numLocals int) funcOpt {
-	return func(cf *CompiledFunction) {
-		cf.NumLocals = numLocals
-	}
-}
-
-func compFunc(insts []byte, opts ...funcOpt) *CompiledFunction {
-	cf := &CompiledFunction{
-		Instructions: insts,
-	}
-	for _, f := range opts {
-		f(cf)
-	}
-	return cf
-}
-
-func concatInsts(insts ...[]byte) []byte {
-	var out []byte
-	for i := range insts {
-		out = append(out, insts[i]...)
-	}
-	return out
-}
-
 func TestCompiler_Compile(t *testing.T) {
 	// all local variables are initialized as undefined
 	expectCompile(t, `var a`, bytecode(
@@ -213,16 +143,29 @@ func TestCompiler_Compile(t *testing.T) {
 		),
 	))
 
-	expectCompile(t, `1 + 2`, bytecode(
-		Array{Int(1), Int(2)},
-		compFunc(concatInsts(
-			makeInst(OpConstant, 0),
-			makeInst(OpConstant, 1),
-			makeInst(OpBinaryOp, int(token.Add)),
-			makeInst(OpPop),
-			makeInst(OpReturn, 0),
-		)),
-	))
+	expectCompileWithOpts(t, `1 + 2`, CompilerOptions{NoOptimize: true},
+		bytecode(
+			Array{Int(1), Int(2)},
+			compFunc(concatInsts(
+				makeInst(OpConstant, 0),
+				makeInst(OpConstant, 1),
+				makeInst(OpBinaryOp, int(token.Add)),
+				makeInst(OpPop),
+				makeInst(OpReturn, 0),
+			)),
+		),
+	)
+
+	expectCompile(t, `1 + 2`,
+		bytecode(
+			Array{Int(3)},
+			compFunc(concatInsts(
+				makeInst(OpConstant, 0),
+				makeInst(OpPop),
+				makeInst(OpReturn, 0),
+			)),
+		),
+	)
 
 	expectCompile(t, `1; 2`, bytecode(
 		Array{Int(1), Int(2)},
@@ -235,7 +178,7 @@ func TestCompiler_Compile(t *testing.T) {
 		)),
 	))
 
-	expectCompile(t, `1 - 2`, bytecode(
+	expectCompileNoOptimize(t, `1 - 2`, bytecode(
 		Array{Int(1), Int(2)},
 		compFunc(concatInsts(
 			makeInst(OpConstant, 0),
@@ -246,23 +189,50 @@ func TestCompiler_Compile(t *testing.T) {
 		)),
 	))
 
-	expectCompile(t, `1 * 2`, bytecode(
+	expectCompile(t, `1 - 2`, bytecode(
+		Array{Int(-1)},
+		compFunc(concatInsts(
+			makeInst(OpConstant, 0),
+			makeInst(OpPop),
+			makeInst(OpReturn, 0),
+		)),
+	))
+
+	expectCompileNoOptimize(t, `1 - 2`, bytecode(
 		Array{Int(1), Int(2)},
 		compFunc(concatInsts(
 			makeInst(OpConstant, 0),
 			makeInst(OpConstant, 1),
-			makeInst(OpBinaryOp, int(token.Mul)),
+			makeInst(OpBinaryOp, int(token.Sub)),
+			makeInst(OpPop),
+			makeInst(OpReturn, 0),
+		)),
+	))
+
+	expectCompile(t, `1 - 2`, bytecode(
+		Array{Int(-1)},
+		compFunc(concatInsts(
+			makeInst(OpConstant, 0),
+			makeInst(OpPop),
+			makeInst(OpReturn, 0),
+		)),
+	))
+
+	expectCompileNoOptimize(t, `2 / 1`, bytecode(
+		Array{Int(2), Int(1)},
+		compFunc(concatInsts(
+			makeInst(OpConstant, 0),
+			makeInst(OpConstant, 1),
+			makeInst(OpBinaryOp, int(token.Quo)),
 			makeInst(OpPop),
 			makeInst(OpReturn, 0),
 		)),
 	))
 
 	expectCompile(t, `2 / 1`, bytecode(
-		Array{Int(2), Int(1)},
+		Array{Int(2)},
 		compFunc(concatInsts(
 			makeInst(OpConstant, 0),
-			makeInst(OpConstant, 1),
-			makeInst(OpBinaryOp, int(token.Quo)),
 			makeInst(OpPop),
 			makeInst(OpReturn, 0),
 		)),
@@ -286,7 +256,7 @@ func TestCompiler_Compile(t *testing.T) {
 		)),
 	))
 
-	expectCompile(t, `1 > 2`, bytecode(
+	expectCompileNoOptimize(t, `1 > 2`, bytecode(
 		Array{Int(1), Int(2)},
 		compFunc(concatInsts(
 			makeInst(OpConstant, 0),
@@ -297,7 +267,16 @@ func TestCompiler_Compile(t *testing.T) {
 		)),
 	))
 
-	expectCompile(t, `1 < 2`, bytecode(
+	expectCompile(t, `1 > 2`, bytecode(
+		Array{},
+		compFunc(concatInsts(
+			makeInst(OpFalse),
+			makeInst(OpPop),
+			makeInst(OpReturn, 0),
+		)),
+	))
+
+	expectCompileNoOptimize(t, `1 < 2`, bytecode(
 		Array{Int(1), Int(2)},
 		compFunc(concatInsts(
 			makeInst(OpConstant, 0),
@@ -308,7 +287,16 @@ func TestCompiler_Compile(t *testing.T) {
 		)),
 	))
 
-	expectCompile(t, `1 >= 2`, bytecode(
+	expectCompile(t, `1 < 2`, bytecode(
+		Array{},
+		compFunc(concatInsts(
+			makeInst(OpTrue),
+			makeInst(OpPop),
+			makeInst(OpReturn, 0),
+		)),
+	))
+
+	expectCompileNoOptimize(t, `1 >= 2`, bytecode(
 		Array{Int(1), Int(2)},
 		compFunc(concatInsts(
 			makeInst(OpConstant, 0),
@@ -319,7 +307,16 @@ func TestCompiler_Compile(t *testing.T) {
 		)),
 	))
 
-	expectCompile(t, `1 <= 2`, bytecode(
+	expectCompile(t, `1 >= 2`, bytecode(
+		Array{},
+		compFunc(concatInsts(
+			makeInst(OpFalse),
+			makeInst(OpPop),
+			makeInst(OpReturn, 0),
+		)),
+	))
+
+	expectCompileNoOptimize(t, `1 <= 2`, bytecode(
 		Array{Int(1), Int(2)},
 		compFunc(concatInsts(
 			makeInst(OpConstant, 0),
@@ -330,7 +327,16 @@ func TestCompiler_Compile(t *testing.T) {
 		)),
 	))
 
-	expectCompile(t, `1 == 2`, bytecode(
+	expectCompile(t, `1 <= 2`, bytecode(
+		Array{},
+		compFunc(concatInsts(
+			makeInst(OpTrue),
+			makeInst(OpPop),
+			makeInst(OpReturn, 0),
+		)),
+	))
+
+	expectCompileNoOptimize(t, `1 == 2`, bytecode(
 		Array{Int(1), Int(2)},
 		compFunc(concatInsts(
 			makeInst(OpConstant, 0),
@@ -341,7 +347,16 @@ func TestCompiler_Compile(t *testing.T) {
 		)),
 	))
 
-	expectCompile(t, `1 != 2`, bytecode(
+	expectCompile(t, `1 == 2`, bytecode(
+		Array{},
+		compFunc(concatInsts(
+			makeInst(OpFalse),
+			makeInst(OpPop),
+			makeInst(OpReturn, 0),
+		)),
+	))
+
+	expectCompileNoOptimize(t, `1 != 2`, bytecode(
 		Array{Int(1), Int(2)},
 		compFunc(concatInsts(
 			makeInst(OpConstant, 0),
@@ -352,12 +367,41 @@ func TestCompiler_Compile(t *testing.T) {
 		)),
 	))
 
-	expectCompile(t, `true == false`, bytecode(
+	expectCompile(t, `1 != 2`, bytecode(
+		Array{},
+		compFunc(concatInsts(
+			makeInst(OpTrue),
+			makeInst(OpPop),
+			makeInst(OpReturn, 0),
+		)),
+	))
+
+	expectCompileNoOptimize(t, `true == false`, bytecode(
 		Array{},
 		compFunc(concatInsts(
 			makeInst(OpTrue),
 			makeInst(OpFalse),
 			makeInst(OpEqual),
+			makeInst(OpPop),
+			makeInst(OpReturn, 0),
+		)),
+	))
+
+	expectCompile(t, `true == false`, bytecode(
+		Array{},
+		compFunc(concatInsts(
+			makeInst(OpFalse),
+			makeInst(OpPop),
+			makeInst(OpReturn, 0),
+		)),
+	))
+
+	expectCompileNoOptimize(t, `true != false`, bytecode(
+		Array{},
+		compFunc(concatInsts(
+			makeInst(OpTrue),
+			makeInst(OpFalse),
+			makeInst(OpNotEqual),
 			makeInst(OpPop),
 			makeInst(OpReturn, 0),
 		)),
@@ -367,14 +411,12 @@ func TestCompiler_Compile(t *testing.T) {
 		Array{},
 		compFunc(concatInsts(
 			makeInst(OpTrue),
-			makeInst(OpFalse),
-			makeInst(OpNotEqual),
 			makeInst(OpPop),
 			makeInst(OpReturn, 0),
 		)),
 	))
 
-	expectCompile(t, `-1`, bytecode(
+	expectCompileNoOptimize(t, `-1`, bytecode(
 		Array{Int(1)},
 		compFunc(concatInsts(
 			makeInst(OpConstant, 0),
@@ -384,7 +426,16 @@ func TestCompiler_Compile(t *testing.T) {
 		)),
 	))
 
-	expectCompile(t, `!true`, bytecode(
+	expectCompile(t, `-1`, bytecode(
+		Array{Int(-1)},
+		compFunc(concatInsts(
+			makeInst(OpConstant, 0),
+			makeInst(OpPop),
+			makeInst(OpReturn, 0),
+		)),
+	))
+
+	expectCompileNoOptimize(t, `!true`, bytecode(
 		Array{},
 		compFunc(concatInsts(
 			makeInst(OpTrue),
@@ -393,7 +444,28 @@ func TestCompiler_Compile(t *testing.T) {
 			makeInst(OpReturn, 0),
 		)),
 	))
+
+	expectCompile(t, `!true`, bytecode(
+		Array{},
+		compFunc(concatInsts(
+			makeInst(OpFalse),
+			makeInst(OpPop),
+			makeInst(OpReturn, 0),
+		)),
+	))
+
 	// `if true` => skips else
+	expectCompileNoOptimize(t, `if true { 10 }; 3333`, bytecode(
+		Array{Int(10), Int(3333)},
+		compFunc(concatInsts(
+			makeInst(OpConstant, 0),
+			makeInst(OpPop),
+			makeInst(OpConstant, 1),
+			makeInst(OpPop),
+			makeInst(OpReturn, 0),
+		)),
+	))
+
 	expectCompile(t, `if true { 10 }; 3333`, bytecode(
 		Array{Int(10), Int(3333)},
 		compFunc(concatInsts(
@@ -406,7 +478,7 @@ func TestCompiler_Compile(t *testing.T) {
 	))
 
 	// `if (true)` => normal if
-	expectCompile(t, `if (true) { 10 }; 3333`, bytecode(
+	expectCompileNoOptimize(t, `if (true) { 10 }; 3333`, bytecode(
 		Array{Int(10), Int(3333)},
 		compFunc(concatInsts(
 			makeInst(OpTrue),         // 0000
@@ -419,7 +491,29 @@ func TestCompiler_Compile(t *testing.T) {
 		)),
 	))
 
+	expectCompile(t, `if (true) { 10 }; 3333`, bytecode(
+		Array{Int(10), Int(3333)},
+		compFunc(concatInsts(
+			makeInst(OpConstant, 0), // 0000
+			makeInst(OpPop),         // 0003
+			makeInst(OpConstant, 1), // 0004
+			makeInst(OpPop),         // 0007
+			makeInst(OpReturn, 0),   // 0008
+		)),
+	))
+
 	// `if true` => skips else
+	expectCompileNoOptimize(t, `if true { 10 } else { 20 }; 3333;`, bytecode(
+		Array{Int(10), Int(3333)},
+		compFunc(concatInsts(
+			makeInst(OpConstant, 0),
+			makeInst(OpPop),
+			makeInst(OpConstant, 1),
+			makeInst(OpPop),
+			makeInst(OpReturn, 0),
+		)),
+	))
+
 	expectCompile(t, `if true { 10 } else { 20 }; 3333;`, bytecode(
 		Array{Int(10), Int(3333)},
 		compFunc(concatInsts(
@@ -432,6 +526,17 @@ func TestCompiler_Compile(t *testing.T) {
 	))
 
 	// `if true` => skips else
+	expectCompileNoOptimize(t, `if true { 10 } else {}; 3333;`, bytecode(
+		Array{Int(10), Int(3333)},
+		compFunc(concatInsts(
+			makeInst(OpConstant, 0),
+			makeInst(OpPop),
+			makeInst(OpConstant, 1),
+			makeInst(OpPop),
+			makeInst(OpReturn, 0),
+		)),
+	))
+
 	expectCompile(t, `if true { 10 } else {}; 3333;`, bytecode(
 		Array{Int(10), Int(3333)},
 		compFunc(concatInsts(
@@ -444,6 +549,17 @@ func TestCompiler_Compile(t *testing.T) {
 	))
 
 	// `if true` => no jumps
+	expectCompileNoOptimize(t, `if true { 10 }; 3333;`, bytecode(
+		Array{Int(10), Int(3333)},
+		compFunc(concatInsts(
+			makeInst(OpConstant, 0),
+			makeInst(OpPop),
+			makeInst(OpConstant, 1),
+			makeInst(OpPop),
+			makeInst(OpReturn, 0),
+		)),
+	))
+
 	expectCompile(t, `if true { 10 }; 3333;`, bytecode(
 		Array{Int(10), Int(3333)},
 		compFunc(concatInsts(
@@ -457,6 +573,16 @@ func TestCompiler_Compile(t *testing.T) {
 
 	// `if false` => skip if block but OpJump is put
 	// TODO: improve this, unnecessary jump
+	expectCompileNoOptimize(t, `if false { 10 }; 3333;`, bytecode(
+		Array{Int(3333)},
+		compFunc(concatInsts(
+			makeInst(OpJump, 3),     // 0000
+			makeInst(OpConstant, 0), // 0003
+			makeInst(OpPop),         // 0006
+			makeInst(OpReturn, 0),   // 0007
+		)),
+	))
+
 	expectCompile(t, `if false { 10 }; 3333;`, bytecode(
 		Array{Int(3333)},
 		compFunc(concatInsts(
@@ -469,6 +595,19 @@ func TestCompiler_Compile(t *testing.T) {
 
 	// `if false` => goes to else block
 	// TODO: improve this, unnecessary jump
+	expectCompileNoOptimize(t, `if false { 10 } else { 20 }; 3333;`, bytecode(
+		Array{Int(20), Int(3333)},
+		compFunc(concatInsts(
+			makeInst(OpJump, 6),     // 0000
+			makeInst(OpJump, 10),    // 0003
+			makeInst(OpConstant, 0), // 0006
+			makeInst(OpPop),         // 0009
+			makeInst(OpConstant, 1), // 0010
+			makeInst(OpPop),         // 0013
+			makeInst(OpReturn, 0),   // 0014
+		)),
+	))
+
 	expectCompile(t, `if false { 10 } else { 20 }; 3333;`, bytecode(
 		Array{Int(20), Int(3333)},
 		compFunc(concatInsts(
@@ -483,7 +622,7 @@ func TestCompiler_Compile(t *testing.T) {
 	))
 
 	// `if (true)` => normal if
-	expectCompile(t, `if (true) { 10 } else { 20 }; 3333;`, bytecode(
+	expectCompileNoOptimize(t, `if (true) { 10 } else { 20 }; 3333;`, bytecode(
 		Array{Int(10), Int(20), Int(3333)},
 		compFunc(concatInsts(
 			makeInst(OpTrue),          // 0000
@@ -499,6 +638,26 @@ func TestCompiler_Compile(t *testing.T) {
 		)),
 	))
 
+	expectCompile(t, `if (true) { 10 } else { 20 }; 3333;`, bytecode(
+		Array{Int(10), Int(3333)},
+		compFunc(concatInsts(
+			makeInst(OpConstant, 0), // 0000
+			makeInst(OpPop),         // 0003
+			makeInst(OpConstant, 1), // 0004
+			makeInst(OpPop),         // 0007
+			makeInst(OpReturn, 0),   // 0008
+		)),
+	))
+
+	expectCompileNoOptimize(t, `"string"`, bytecode(
+		Array{String("string")},
+		compFunc(concatInsts(
+			makeInst(OpConstant, 0),
+			makeInst(OpPop),
+			makeInst(OpReturn, 0),
+		)),
+	))
+
 	expectCompile(t, `"string"`, bytecode(
 		Array{String("string")},
 		compFunc(concatInsts(
@@ -508,12 +667,21 @@ func TestCompiler_Compile(t *testing.T) {
 		)),
 	))
 
-	expectCompile(t, `"str" + "ing"`, bytecode(
+	expectCompileNoOptimize(t, `"str" + "ing"`, bytecode(
 		Array{String("str"), String("ing")},
 		compFunc(concatInsts(
 			makeInst(OpConstant, 0),
 			makeInst(OpConstant, 1),
 			makeInst(OpBinaryOp, int(token.Add)),
+			makeInst(OpPop),
+			makeInst(OpReturn, 0),
+		)),
+	))
+
+	expectCompile(t, `"str" + "ing"`, bytecode(
+		Array{String("string")},
+		compFunc(concatInsts(
+			makeInst(OpConstant, 0),
 			makeInst(OpPop),
 			makeInst(OpReturn, 0),
 		)),
@@ -616,7 +784,7 @@ func TestCompiler_Compile(t *testing.T) {
 		)),
 	))
 
-	expectCompile(t, `[1 + 2, 3 - 4, 5 * 6]`, bytecode(
+	expectCompileNoOptimize(t, `[1 + 2, 3 - 4, 5 * 6]`, bytecode(
 		Array{Int(1), Int(2), Int(3), Int(4), Int(5), Int(6)},
 		compFunc(concatInsts(
 			makeInst(OpConstant, 0),
@@ -628,6 +796,18 @@ func TestCompiler_Compile(t *testing.T) {
 			makeInst(OpConstant, 4),
 			makeInst(OpConstant, 5),
 			makeInst(OpBinaryOp, int(token.Mul)),
+			makeInst(OpArray, 3),
+			makeInst(OpPop),
+			makeInst(OpReturn, 0),
+		)),
+	))
+
+	expectCompile(t, `[1 + 2, 3 - 4, 5 * 6]`, bytecode(
+		Array{Int(3), Int(-1), Int(30)},
+		compFunc(concatInsts(
+			makeInst(OpConstant, 0),
+			makeInst(OpConstant, 1),
+			makeInst(OpConstant, 2),
 			makeInst(OpArray, 3),
 			makeInst(OpPop),
 			makeInst(OpReturn, 0),
@@ -658,7 +838,7 @@ func TestCompiler_Compile(t *testing.T) {
 		)),
 	))
 
-	expectCompile(t, `{a: 2 + 3, b: 5 * 6}`, bytecode(
+	expectCompileNoOptimize(t, `{a: 2 + 3, b: 5 * 6}`, bytecode(
 		Array{String("a"), Int(2), Int(3), String("b"), Int(5), Int(6)},
 		compFunc(concatInsts(
 			makeInst(OpConstant, 0),
@@ -675,7 +855,20 @@ func TestCompiler_Compile(t *testing.T) {
 		)),
 	))
 
-	expectCompile(t, `[1, 2, 3][1 + 1]`, bytecode(
+	expectCompile(t, `{a: 2 + 3, b: 5 * 6}`, bytecode(
+		Array{String("a"), Int(5), String("b"), Int(30)},
+		compFunc(concatInsts(
+			makeInst(OpConstant, 0),
+			makeInst(OpConstant, 1),
+			makeInst(OpConstant, 2),
+			makeInst(OpConstant, 3),
+			makeInst(OpMap, 4),
+			makeInst(OpPop),
+			makeInst(OpReturn, 0),
+		)),
+	))
+
+	expectCompileNoOptimize(t, `[1, 2, 3][1 + 1]`, bytecode(
 		Array{Int(1), Int(2), Int(3)},
 		compFunc(concatInsts(
 			makeInst(OpConstant, 0),
@@ -691,7 +884,21 @@ func TestCompiler_Compile(t *testing.T) {
 		)),
 	))
 
-	expectCompile(t, `{a: 2}[2 - 1]`, bytecode(
+	expectCompile(t, `[1, 2, 3][1 + 1]`, bytecode(
+		Array{Int(1), Int(2), Int(3)},
+		compFunc(concatInsts(
+			makeInst(OpConstant, 0),
+			makeInst(OpConstant, 1),
+			makeInst(OpConstant, 2),
+			makeInst(OpArray, 3),
+			makeInst(OpConstant, 1),
+			makeInst(OpGetIndex, 1),
+			makeInst(OpPop),
+			makeInst(OpReturn, 0),
+		)),
+	))
+
+	expectCompileNoOptimize(t, `{a: 2}[2 - 1]`, bytecode(
 		Array{String("a"), Int(2), Int(1)},
 		compFunc(concatInsts(
 			makeInst(OpConstant, 0),
@@ -700,6 +907,19 @@ func TestCompiler_Compile(t *testing.T) {
 			makeInst(OpConstant, 1),
 			makeInst(OpConstant, 2),
 			makeInst(OpBinaryOp, int(token.Sub)),
+			makeInst(OpGetIndex, 1),
+			makeInst(OpPop),
+			makeInst(OpReturn, 0),
+		)),
+	))
+
+	expectCompile(t, `{a: 2}[2 - 1]`, bytecode(
+		Array{String("a"), Int(2), Int(1)},
+		compFunc(concatInsts(
+			makeInst(OpConstant, 0),
+			makeInst(OpConstant, 1),
+			makeInst(OpMap, 2),
+			makeInst(OpConstant, 2),
 			makeInst(OpGetIndex, 1),
 			makeInst(OpPop),
 			makeInst(OpReturn, 0),
@@ -792,7 +1012,7 @@ func TestCompiler_Compile(t *testing.T) {
 		),
 	))
 
-	expectCompile(t, `func() { return 5 + 10 }`, bytecode(
+	expectCompileNoOptimize(t, `func() { return 5 + 10 }`, bytecode(
 		Array{
 			Int(5),
 			Int(10),
@@ -810,7 +1030,22 @@ func TestCompiler_Compile(t *testing.T) {
 		)),
 	))
 
-	expectCompile(t, `func() { 5 + 10 }`, bytecode(
+	expectCompile(t, `func() { return 5 + 10 }`, bytecode(
+		Array{
+			Int(15),
+			compFunc(concatInsts(
+				makeInst(OpConstant, 0),
+				makeInst(OpReturn, 1),
+			)),
+		},
+		compFunc(concatInsts(
+			makeInst(OpConstant, 1),
+			makeInst(OpPop),
+			makeInst(OpReturn, 0),
+		)),
+	))
+
+	expectCompileNoOptimize(t, `func() { 5 + 10 }`, bytecode(
 		Array{
 			Int(5),
 			Int(10),
@@ -824,6 +1059,22 @@ func TestCompiler_Compile(t *testing.T) {
 		},
 		compFunc(concatInsts(
 			makeInst(OpConstant, 2),
+			makeInst(OpPop),
+			makeInst(OpReturn, 0),
+		)),
+	))
+
+	expectCompile(t, `func() { 5 + 10 }`, bytecode(
+		Array{
+			Int(15),
+			compFunc(concatInsts(
+				makeInst(OpConstant, 0),
+				makeInst(OpPop),
+				makeInst(OpReturn, 0),
+			)),
+		},
+		compFunc(concatInsts(
+			makeInst(OpConstant, 1),
 			makeInst(OpPop),
 			makeInst(OpReturn, 0),
 		)),
@@ -866,7 +1117,7 @@ func TestCompiler_Compile(t *testing.T) {
 		)),
 	))
 
-	expectCompile(t, `func() { if(true) { return 1 } else { return 2 } }`, bytecode(
+	expectCompileNoOptimize(t, `func() { if(true) { return 1 } else { return 2 } }`, bytecode(
 		Array{
 			Int(1),
 			Int(2),
@@ -888,7 +1139,22 @@ func TestCompiler_Compile(t *testing.T) {
 		)),
 	))
 
-	expectCompile(t, `func() { 1; if(true) { 2 } else { 3 }; 4 }`, bytecode(
+	expectCompile(t, `func() { if(true) { return 1 } else { return 2 } }`, bytecode(
+		Array{
+			Int(1),
+			compFunc(concatInsts(
+				makeInst(OpConstant, 0), // 0000
+				makeInst(OpReturn, 1),   // 0003
+			)),
+		},
+		compFunc(concatInsts(
+			makeInst(OpConstant, 1),
+			makeInst(OpPop),
+			makeInst(OpReturn, 0),
+		)),
+	))
+
+	expectCompileNoOptimize(t, `func() { 1; if(true) { 2 } else { 3 }; 4 }`, bytecode(
 		Array{
 			Int(1),
 			Int(2),
@@ -911,6 +1177,28 @@ func TestCompiler_Compile(t *testing.T) {
 		},
 		compFunc(concatInsts(
 			makeInst(OpConstant, 4),
+			makeInst(OpPop),
+			makeInst(OpReturn, 0),
+		)),
+	))
+
+	expectCompile(t, `func() { 1; if(true) { 2 } else { 3 }; 4 }`, bytecode(
+		Array{
+			Int(1),
+			Int(2),
+			Int(4),
+			compFunc(concatInsts(
+				makeInst(OpConstant, 0), // 0000
+				makeInst(OpPop),         // 0003
+				makeInst(OpConstant, 1), // 0004
+				makeInst(OpPop),         // 0007
+				makeInst(OpConstant, 2), // 0008
+				makeInst(OpPop),         // 0011
+				makeInst(OpReturn, 0),   // 0012
+			)),
+		},
+		compFunc(concatInsts(
+			makeInst(OpConstant, 3),
 			makeInst(OpPop),
 			makeInst(OpReturn, 0),
 		)),
@@ -1741,9 +2029,18 @@ func expectCompile(t *testing.T, script string, expected *Bytecode) {
 	expectCompileWithOpts(t, script, CompilerOptions{}, expected)
 }
 
+func expectCompileNoOptimize(t *testing.T, script string, expected *Bytecode) {
+	t.Helper()
+	expectCompileWithOpts(t, script, CompilerOptions{NoOptimize: true}, expected)
+}
+
 // SourceMap comparison is ignored if it is nil.
-func expectCompileWithOpts(t *testing.T,
-	script string, opts CompilerOptions, expected *Bytecode) {
+func expectCompileWithOpts(
+	t *testing.T,
+	script string,
+	opts CompilerOptions,
+	expected *Bytecode,
+) {
 
 	t.Helper()
 	got, err := Compile([]byte(script), opts)
@@ -1751,9 +2048,12 @@ func expectCompileWithOpts(t *testing.T,
 	testBytecodesEqual(t, expected, got, expected.Main.SourceMap != nil)
 }
 
-func testBytecodesEqual(t *testing.T,
-	expected, got *Bytecode, checkSourceMap bool) {
-
+func testBytecodesEqual(
+	t *testing.T,
+	expected *Bytecode,
+	got *Bytecode,
+	checkSourceMap bool,
+) {
 	t.Helper()
 	if expected.NumModules != got.NumModules {
 		t.Fatalf("NumModules not equal expected %d, got %d\n",
@@ -1793,8 +2093,12 @@ func testBytecodesEqual(t *testing.T,
 	}
 }
 
-func assertCompiledFunctionsEqual(t *testing.T,
-	expected, got *CompiledFunction, checkSourceMap bool) bool {
+func assertCompiledFunctionsEqual(
+	t *testing.T,
+	expected *CompiledFunction,
+	got *CompiledFunction,
+	checkSourceMap bool,
+) bool {
 	t.Helper()
 	if expected.NumParams != got.NumParams {
 		t.Errorf("NumParams not equal expected %d, got %d\n",
@@ -1833,4 +2137,74 @@ func assertCompiledFunctionsEqual(t *testing.T,
 		return false
 	}
 	return true
+}
+
+func makeInst(op Opcode, args ...int) []byte {
+	b, err := MakeInstruction(make([]byte, 8), op, args...)
+	if err != nil {
+		panic(err)
+	}
+	return b
+}
+
+type bytecodeOption func(*Bytecode)
+
+func withModules(numOfModules int) bytecodeOption {
+	return func(bc *Bytecode) {
+		bc.NumModules = numOfModules
+	}
+}
+
+func bytecode(
+	consts []Object,
+	cf *CompiledFunction,
+	opts ...bytecodeOption,
+) *Bytecode {
+
+	bc := &Bytecode{
+		Constants: consts,
+		Main:      cf,
+	}
+	for _, f := range opts {
+		f(bc)
+	}
+	return bc
+}
+
+type funcOpt func(*CompiledFunction)
+
+func withParams(numParams int) funcOpt {
+	return func(cf *CompiledFunction) {
+		cf.NumParams = numParams
+	}
+}
+
+func withVariadic() funcOpt {
+	return func(cf *CompiledFunction) {
+		cf.Variadic = true
+	}
+}
+
+func withLocals(numLocals int) funcOpt {
+	return func(cf *CompiledFunction) {
+		cf.NumLocals = numLocals
+	}
+}
+
+func compFunc(insts []byte, opts ...funcOpt) *CompiledFunction {
+	cf := &CompiledFunction{
+		Instructions: insts,
+	}
+	for _, f := range opts {
+		f(cf)
+	}
+	return cf
+}
+
+func concatInsts(insts ...[]byte) []byte {
+	var out []byte
+	for i := range insts {
+		out = append(out, insts[i]...)
+	}
+	return out
 }
