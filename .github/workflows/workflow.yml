@@ -5,11 +5,13 @@ on:
     branches: 
       - main
       - dev
-      - refactor/const-propagation
   pull_request:
     branches:
       - main
   workflow_dispatch:
+
+env:
+  UGO_LONG_TESTS: "1"
 
 jobs:
   govulncheck:
@@ -111,7 +113,7 @@ jobs:
     strategy:
       matrix:
         os:  [ 'ubuntu-latest', 'windows-latest' ]
-        go: [ '1.20', '1.19', '1.18', '1.17' ]
+        go: [ '1.20', '1.19' ]
         arch: [ 'amd64', 'arm64', '386' ]
         include:
           - os: 'macOS-latest'

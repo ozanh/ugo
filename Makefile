@@ -2,6 +2,8 @@ SHELL       := bash
 .SHELLFLAGS := -e -o pipefail -c
 MAKEFLAGS   += --warn-undefined-variables
 
+export GORACE="halt_on_error=1"
+
 all: version generate lint test
 
 build-cli:
@@ -12,6 +14,7 @@ test: version generate lint
 	go test -count=1 -cover ./...
 	go test -count=1 -race -coverpkg=./... ./...
 	go run cmd/ugo/main.go -timeout 20s cmd/ugo/testdata/fibtc.ugo
+	go run -race cmd/ugo/main.go -timeout 20s cmd/ugo/testdata/fibtc.ugo
 
 .PHONY: generate-all
 generate-all: generate generate-docs

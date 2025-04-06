@@ -138,20 +138,6 @@ return v
 }
 ```
 
-## Roadmap
-
-Examples for best practices (2023).
-
-Better Playground (2023).
-
-More standard library modules (2023).
-
-Configurable Stdin, Stdout and Stderr per Virtual Machine (2023).
-
-Deferring function calls (2024).
-
-Concurrency support (2024).
-
 ## Documentation
 
 * [Tutorial](https://github.com/ozanh/ugo/blob/main/docs/tutorial.md)

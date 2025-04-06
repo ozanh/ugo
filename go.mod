@@ -1,6 +1,6 @@
 module github.com/ozanh/ugo
 
-go 1.17
+go 1.19 
 
 require (
 	github.com/peterh/liner v1.2.2

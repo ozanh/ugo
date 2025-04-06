@@ -5,8 +5,9 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/ozanh/ugo/parser"
 	"github.com/stretchr/testify/require"
+
+	"github.com/ozanh/ugo/parser"
 
 	. "github.com/ozanh/ugo"
 )

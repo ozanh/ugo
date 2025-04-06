@@ -9,8 +9,9 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	. "github.com/ozanh/ugo"
 	. "github.com/ozanh/ugo/stdlib/time"
+
+	. "github.com/ozanh/ugo"
 )
 
 func TestModuleTypes(t *testing.T) {

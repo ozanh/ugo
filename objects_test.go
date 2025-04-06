@@ -7,8 +7,9 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	. "github.com/ozanh/ugo"
 	"github.com/ozanh/ugo/token"
+
+	. "github.com/ozanh/ugo"
 )
 
 func TestObjects(t *testing.T) {

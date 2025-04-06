@@ -7,8 +7,9 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	. "github.com/ozanh/ugo"
 	ugotime "github.com/ozanh/ugo/stdlib/time"
+
+	. "github.com/ozanh/ugo"
 )
 
 func TestEval(t *testing.T) {

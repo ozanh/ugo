@@ -2,9 +2,11 @@ package tests
 
 import (
 	"fmt"
+	"os"
 	"reflect"
 	"strconv"
 	"strings"
+	"testing"
 )
 
 func Sdump(value interface{}) string {
@@ -74,5 +76,14 @@ func Sdump(value interface{}) string {
 		return sb.String()
 	default:
 		return fmt.Sprintf("(%+v) %+v\n", typ, value)
+	}
+}
+
+const LongTestsEnv = "UGO_LONG_TESTS"
+
+func SkipIfNotLongTestsEnabled(t testing.TB) {
+	v := os.Getenv(LongTestsEnv)
+	if b, _ := strconv.ParseBool(v); !b {
+		t.Skipf("Skipping long tests because %s is not set", LongTestsEnv)
 	}
 }
