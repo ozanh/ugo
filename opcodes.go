@@ -1,4 +1,4 @@
-// Copyright (c) 2020-2023 Ozan Hacıbekiroğlu.
+// Copyright (c) 2020-2025 Ozan Hacıbekiroğlu.
 // Use of this source code is governed by a MIT License
 // that can be found in the LICENSE file.
 
@@ -117,10 +117,10 @@ var OpcodeOperands = [...][]int{
 	OpUnary:        {1},    // operator
 	OpEqual:        {},
 	OpNotEqual:     {},
-	OpJump:         {2}, // position
-	OpJumpFalsy:    {2}, // position
-	OpAndJump:      {2}, // position
-	OpOrJump:       {2}, // position
+	OpJump:         {4}, // position
+	OpJumpFalsy:    {4}, // position
+	OpAndJump:      {4}, // position
+	OpOrJump:       {4}, // position
 	OpMap:          {2}, // number of keys and values
 	OpArray:        {2}, // number of items
 	OpSliceIndex:   {},
@@ -140,7 +140,7 @@ var OpcodeOperands = [...][]int{
 	OpLoadModule:   {2, 2}, // constant index, module index
 	OpStoreModule:  {2},    // module index
 	OpReturn:       {1},    // number of items (0 or 1)
-	OpSetupTry:     {2, 2},
+	OpSetupTry:     {4, 4}, // catch position, finally position
 	OpSetupCatch:   {},
 	OpSetupFinally: {},
 	OpThrow:        {1}, // 0:re-throw (system), 1:throw <expression>
@@ -154,14 +154,18 @@ var OpcodeOperands = [...][]int{
 // ReadOperands reads operands from the bytecode. Given operands slice is used to
 // fill operands and is returned to allocate less.
 func ReadOperands(numOperands []int, ins []byte, operands []int) ([]int, int) {
-	operands = operands[:0]
 	var offset int
+	operands = operands[:0]
+
 	for _, width := range numOperands {
 		switch width {
 		case 1:
 			operands = append(operands, int(ins[offset]))
 		case 2:
 			operands = append(operands, int(ins[offset+1])|int(ins[offset])<<8)
+		case 4:
+			operands = append(operands, int(ins[offset+3])|int(ins[offset+2])<<8|int(ins[offset+1])<<16|int(ins[offset])<<24)
+
 		}
 		offset += width
 	}

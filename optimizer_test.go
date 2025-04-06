@@ -6,9 +6,10 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	. "github.com/ozanh/ugo"
 	"github.com/ozanh/ugo/internal"
 	"github.com/ozanh/ugo/token"
+
+	. "github.com/ozanh/ugo"
 )
 
 func TestOptimizer(t *testing.T) {
@@ -284,8 +285,8 @@ func TestOptimizerIf(t *testing.T) {
 		bytecode(
 			Array{Int(12)},
 			compFunc(concatInsts(
-				makeInst(OpJump, 6),
-				makeInst(OpJump, 11),
+				makeInst(OpJump, 10),
+				makeInst(OpJump, 15),
 				makeInst(OpConstant, 0),
 				makeInst(OpReturn, 1),
 				makeInst(OpReturn, 0),
@@ -299,7 +300,7 @@ func TestOptimizerFor(t *testing.T) {
 			Array{Int(3)},
 			compFunc(concatInsts(
 				makeInst(OpConstant, 0),
-				makeInst(OpJumpFalsy, 9),
+				makeInst(OpJumpFalsy, 13),
 				makeInst(OpJump, 0),
 				makeInst(OpReturn, 0),
 			)),
@@ -325,7 +326,7 @@ func TestOptimizerFor(t *testing.T) {
 				makeInst(OpGetLocal, 0),
 				makeInst(OpConstant, 1),
 				makeInst(OpBinaryOp, int(token.Less)),
-				makeInst(OpJumpFalsy, 27),
+				makeInst(OpJumpFalsy, 31),
 				makeInst(OpGetLocal, 0),
 				makeInst(OpConstant, 2),
 				makeInst(OpBinaryOp, int(token.Add)),
@@ -350,10 +351,10 @@ func TestOptimizerTryThrow(t *testing.T) {
 		bytecode(
 			Array{Int(3), Float(7), String("a1b")},
 			compFunc(concatInsts(
-				makeInst(OpSetupTry, 12, 18),
+				makeInst(OpSetupTry, 18, 24),
 				makeInst(OpConstant, 0),
 				makeInst(OpPop),
-				makeInst(OpJump, 18),
+				makeInst(OpJump, 24),
 				makeInst(OpSetupCatch),
 				makeInst(OpPop),
 				makeInst(OpConstant, 1),
@@ -729,6 +730,123 @@ func TestOptimizerError(t *testing.T) {
 	} else {
 		require.Equal(t, 2, len(m.Errors()))
 	}
+}
+
+func TestOptimizer_const(t *testing.T) {
+	expectEval(t, `const (a=1,b=2,c=3); return a+b+c`,
+		bytecode(
+			Array{Int(6)},
+			compFunc(concatInsts(
+				makeInst(OpConstant, 0),
+				makeInst(OpReturn, 1),
+			)),
+		))
+
+	expectEval(t, `const (a="a",b="b",c="c"); return a+b+c`,
+		bytecode(
+			Array{String("abc")},
+			compFunc(concatInsts(
+				makeInst(OpConstant, 0),
+				makeInst(OpReturn, 1),
+			)),
+		))
+
+	expectEval(t, `const (a=1,b=2,c=3); return func(){ return a+b+c }()`,
+		bytecode(
+			Array{
+				Int(6),
+				compFunc(concatInsts(
+					makeInst(OpConstant, 0),
+					makeInst(OpReturn, 1),
+				)),
+			},
+			compFunc(concatInsts(
+				makeInst(OpConstant, 1),
+				makeInst(OpCall, 0, 0),
+				makeInst(OpReturn, 1),
+			)),
+		))
+
+	expectEval(t, `const (a=1,b=2,c=3); return func(){ c:=10; return a+b+c }()`,
+		bytecode(
+			Array{
+				Int(10),
+				Int(3),
+				compFunc(concatInsts(
+					makeInst(OpConstant, 0),
+					makeInst(OpDefineLocal, 0),
+					makeInst(OpConstant, 1),
+					makeInst(OpGetLocal, 0),
+					makeInst(OpBinaryOp, int(token.Add)),
+					makeInst(OpReturn, 1),
+				),
+					withLocals(1),
+				),
+			},
+			compFunc(concatInsts(
+				makeInst(OpConstant, 2),
+				makeInst(OpCall, 0, 0),
+				makeInst(OpReturn, 1),
+			)),
+		))
+
+	expectEval(t, `const a=1; return func(){ a:=2; return func() { return a }() }()`,
+		bytecode(
+			Array{
+				Int(2),
+				compFunc(concatInsts(
+					makeInst(OpGetFree, 0),
+					makeInst(OpReturn, 1),
+				)),
+				compFunc(concatInsts(
+					makeInst(OpConstant, 0),
+					makeInst(OpDefineLocal, 0),
+					makeInst(OpGetLocalPtr, 0),
+					makeInst(OpClosure, 1, 1),
+					makeInst(OpCall, 0, 0),
+					makeInst(OpReturn, 1),
+				),
+					withLocals(1),
+				),
+			},
+			compFunc(concatInsts(
+				makeInst(OpConstant, 2),
+				makeInst(OpCall, 0, 0),
+				makeInst(OpReturn, 1),
+			)),
+		))
+
+	expectEval(t, `const (a=1,int=2); return func(){ return a+int }()`,
+		bytecode(
+			Array{
+				Int(3),
+				compFunc(concatInsts(
+					makeInst(OpConstant, 0),
+					makeInst(OpReturn, 1),
+				)),
+			},
+			compFunc(concatInsts(
+				makeInst(OpConstant, 1),
+				makeInst(OpCall, 0, 0),
+				makeInst(OpReturn, 1),
+			)),
+		))
+
+	expectEval(t, `return func(){ const a=1; return a<<2 }()`,
+		bytecode(
+			Array{
+				Int(4),
+				compFunc(concatInsts(
+					makeInst(OpConstant, 0),
+					makeInst(OpReturn, 1),
+				)),
+			},
+			compFunc(concatInsts(
+				makeInst(OpConstant, 1),
+				makeInst(OpCall, 0, 0),
+				makeInst(OpReturn, 1),
+			)),
+		))
 }
 
 func expectEval(t *testing.T, script string, expected *Bytecode) {

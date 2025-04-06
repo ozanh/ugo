@@ -1,4 +1,4 @@
-// Copyright (c) 2020-2023 Ozan Hacıbekiroğlu.
+// Copyright (c) 2020-2025 Ozan Hacıbekiroğlu.
 // Use of this source code is governed by a MIT License
 // that can be found in the LICENSE file.
 
@@ -442,23 +442,14 @@ func findSymbolSelf(st *SymbolTable, name string) *Symbol {
 }
 
 func findSymbol(st *SymbolTable, name string, scope SymbolScope) *Symbol {
-	if st == nil {
-		return nil
-	}
-
-	if scope == ScopeConstLit {
-		if !st.hasConstLit {
-			if st.hasParentConstLit {
-				return findSymbol(st.parent, name, scope)
-			}
-			return nil
-		}
-	}
-
 	const visitParent = true
-	return st.Find(visitParent, func(sym *Symbol) bool {
-		return sym.Name == name && sym.Scope == scope
+	s := st.Find(visitParent, func(sym *Symbol) bool {
+		return sym.Name == name
 	})
+	if s != nil && s.Scope == scope {
+		return s
+	}
+	return nil
 }
 
 func hasAnyConstLit(st *SymbolTable) bool {
@@ -500,10 +491,6 @@ func optimCopyBuiltinStates(dest, src *SymbolTable) {
 }
 
 func optimCopyBuiltinStatesFromScope(dest *SymbolTable, src *optimizerScope) {
-	if src == nil {
-		return
-	}
-
 	root := dest.root()
 	ptr := src
 	for {

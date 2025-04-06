@@ -3222,68 +3222,6 @@ func TestVMCall(t *testing.T) {
 		nil, Map{"a": make(Bytes, 4096)})
 }
 
-func TestVMCallCompiledFunction(t *testing.T) {
-	script := `
-	var v = 0
-	return {
-		"add": func(x) {
-			v+=x
-			return v
-		},
-		"sub": func(x) {
-			v-=x
-			return v
-		},
-	}
-	`
-	c, err := Compile([]byte(script), CompilerOptions{})
-	if err != nil {
-		t.Fatal(err)
-	}
-	vm := NewVM(c)
-	f, err := vm.Run(nil, nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	//locals := vm.GetLocals(nil)
-	// t.Log(f)
-	require.Contains(t, f.(Map), "add")
-	require.Contains(t, f.(Map), "sub")
-	add := f.(Map)["add"].(*CompiledFunction)
-	ret, err := vm.RunCompiledFunction(add, nil, Int(10))
-	if err != nil {
-		t.Fatal(err)
-	}
-	// t.Log(ret)
-	require.Equal(t, Int(10), ret.(Int))
-
-	ret, err = vm.RunCompiledFunction(add, nil, Int(10))
-	if err != nil {
-		t.Fatal(err)
-	}
-	// t.Log(ret)
-	require.Equal(t, Int(20), ret.(Int))
-
-	sub := f.(Map)["sub"].(*CompiledFunction)
-	ret, err = vm.RunCompiledFunction(sub, nil, Int(1))
-	if err != nil {
-		t.Fatal(err)
-	}
-	// t.Log(ret)
-	require.Equal(t, Int(19), ret.(Int))
-
-	ret, err = vm.RunCompiledFunction(sub, nil, Int(1))
-	if err != nil {
-		t.Fatal(err)
-	}
-	// t.Log(ret)
-	require.Equal(t, Int(18), ret.(Int))
-	// for i := range locals {
-	// 	fmt.Printf("%#v\n", locals[i])
-	// 	fmt.Printf("%#v\n", *locals[i].(*ObjectPtr).Value)
-	// }
-}
-
 func TestVMClosure(t *testing.T) {
 	expectRun(t, `
 	param arg0

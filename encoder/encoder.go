@@ -1,4 +1,4 @@
-// Copyright (c) 2020-2023 Ozan Hacıbekiroğlu.
+// Copyright (c) 2020-2025 Ozan Hacıbekiroğlu.
 // Use of this source code is governed by a MIT License
 // that can be found in the LICENSE file.
 
@@ -25,7 +25,9 @@ import (
 // Bytecode is encoded with current BytecodeVersion and its format.
 const (
 	BytecodeSignature uint32 = 0x75474F
-	BytecodeVersion   uint16 = 1
+	BytecodeVersion   uint16 = 2
+	BytecodeVersion1  uint16 = 1
+	BytecodeVersion2  uint16 = 2
 )
 
 // Types implementing encoding.BinaryMarshaler encoding.BinaryUnmarshaler.
@@ -96,16 +98,13 @@ func init() {
 
 // MarshalBinary implements encoding.BinaryMarshaler
 func (bc *Bytecode) MarshalBinary() (data []byte, err error) {
-	switch BytecodeVersion {
-	case 1:
-		var buf bytes.Buffer
-		if err = bc.bytecodeV1Encoder(&buf); err != nil {
-			return nil, err
-		}
-		return buf.Bytes(), nil
-	default:
-		panic("invalid Bytecode version:" + strconv.Itoa(int(BytecodeVersion)))
+	var buf bytes.Buffer
+
+	err = encodeBytecodeV2(bc, &buf)
+	if err != nil {
+		return nil, err
 	}
+	return buf.Bytes(), nil
 }
 
 // UnmarshalBinary implements encoding.BinaryUnmarshaler
@@ -127,14 +126,13 @@ func (bc *Bytecode) UnmarshalBinary(data []byte) error {
 	}
 
 	version := binary.BigEndian.Uint16(data[4:6])
+	buf := bytes.NewBuffer(data[6:])
+
 	switch version {
-	case BytecodeVersion:
-		buf := bytes.NewBuffer(data[6:])
-		err := bc.bytecodeV1Decoder(buf)
-		if err != nil {
-			return err
-		}
-		return nil
+	case BytecodeVersion2:
+		return decodeBytecodeV2(bc, buf)
+	case BytecodeVersion1:
+		return decodeBytecodeV1(bc, buf)
 	default:
 		return &ugo.Error{
 			Name:    "encoder.Bytecode.UnmarshalBinary",
@@ -143,27 +141,24 @@ func (bc *Bytecode) UnmarshalBinary(data []byte) error {
 	}
 }
 
-func putBytecodeHeader(w io.Writer) (err error) {
-	sig := make([]byte, 4)
-	binary.BigEndian.PutUint32(sig, BytecodeSignature)
-	if _, err = io.Copy(w, bytes.NewReader(sig)); err != nil {
-		return
-	}
+func writeBytecodeHeader(w io.Writer, version uint16) (err error) {
+	b := make([]byte, 0, 6)
+	b = binary.BigEndian.AppendUint32(b, BytecodeSignature)
+	b = binary.BigEndian.AppendUint16(b, version)
 
-	bcVersion := make([]byte, 2)
-	binary.BigEndian.PutUint16(bcVersion, BytecodeVersion)
-
-	if _, err = io.Copy(w, bytes.NewReader(bcVersion)); err != nil {
-		return
-	}
-	return nil
+	_, err = w.Write(b)
+	return
 }
 
-func (bc *Bytecode) bytecodeV1Encoder(w io.Writer) (err error) {
-	if err = putBytecodeHeader(w); err != nil {
-		return
+func encodeBytecodeV2(bc *Bytecode, w io.Writer) error {
+	err := writeBytecodeHeader(w, BytecodeVersion2)
+	if err != nil {
+		return err
 	}
+	return encodeBytecodeCommon(bc, w)
+}
 
+func encodeBytecodeCommon(bc *Bytecode, w io.Writer) (err error) {
 	// FileSet, field #0
 	if bc.FileSet != nil {
 		_ = writeByteTo(w, 0)
@@ -219,7 +214,7 @@ func (bc *Bytecode) bytecodeV1Encoder(w io.Writer) (err error) {
 	return nil
 }
 
-func (bc *Bytecode) bytecodeV1Decoder(r *bytes.Buffer) error {
+func decodeBytecodeV2(bc *Bytecode, r *bytes.Buffer) error {
 	for {
 		field, err := r.ReadByte()
 		if err != nil {
@@ -1296,19 +1291,14 @@ func readByteFrom(r io.Reader) (byte, error) {
 
 	var one = []byte{0}
 	n, err := r.Read(one)
-	if err != nil {
-		if err == io.EOF {
-			if n == 1 {
-				return one[0], nil
-			}
-		}
-		return 0, err
-	}
-
 	if n == 1 {
 		return one[0], nil
 	}
-	return 0, errors.New("byte read error")
+
+	if err == nil {
+		err = errors.New("byte read error")
+	}
+	return 0, err
 }
 
 func writeByteTo(w io.Writer, b byte) error {
@@ -1316,15 +1306,8 @@ func writeByteTo(w io.Writer, b byte) error {
 		return bw.WriteByte(b)
 	}
 
-	n, err := w.Write([]byte{b})
-	if err != nil {
-		return err
-	}
-
-	if n != 1 {
-		return errors.New("byte write error")
-	}
-	return nil
+	_, err := w.Write([]byte{b})
+	return err
 }
 
 type varintConv struct {

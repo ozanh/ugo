@@ -1,4 +1,4 @@
-// Copyright (c) 2020-2023 Ozan Hacıbekiroğlu.
+// Copyright (c) 2020-2025 Ozan Hacıbekiroğlu.
 // Use of this source code is governed by a MIT License
 // that can be found in the LICENSE file.
 
@@ -112,33 +112,6 @@ func (vm *VM) GetLocals(locals []Object) []Object {
 	return locals
 }
 
-// RunCompiledFunction runs given CompiledFunction as if it is Main function.
-// Bytecode must be set before calling this method, because Fileset and Constants are copied.
-func (vm *VM) RunCompiledFunction(
-	f *CompiledFunction,
-	globals Object,
-	args ...Object,
-) (Object, error) {
-	vm.mu.Lock()
-	defer vm.mu.Unlock()
-
-	if vm.bytecode == nil {
-		return nil, errors.New("invalid Bytecode")
-	}
-
-	vm.bytecode = &Bytecode{
-		FileSet:    vm.bytecode.FileSet,
-		Constants:  vm.constants,
-		Main:       f,
-		NumModules: vm.bytecode.NumModules,
-	}
-
-	for i := range vm.stack {
-		vm.stack[i] = nil
-	}
-	return vm.init(globals, args...)
-}
-
 // Abort aborts the VM execution. It is safe to call this method from another
 // goroutine.
 func (vm *VM) Abort() {
@@ -157,10 +130,6 @@ func (vm *VM) Run(globals Object, args ...Object) (Object, error) {
 	vm.mu.Lock()
 	defer vm.mu.Unlock()
 
-	return vm.init(globals, args...)
-}
-
-func (vm *VM) init(globals Object, args ...Object) (Object, error) {
 	if vm.bytecode == nil || vm.bytecode.Main == nil {
 		return nil, errors.New("invalid Bytecode")
 	}
@@ -283,22 +252,22 @@ VMLoop:
 			}
 		case OpAndJump:
 			if vm.stack[vm.sp-1].IsFalsy() {
-				pos := int(vm.curInsts[vm.ip+2]) | int(vm.curInsts[vm.ip+1])<<8
-				vm.ip = pos - 1
+				vm.ip = int(vm.curInsts[vm.ip+4]) | int(vm.curInsts[vm.ip+3])<<8 |
+					int(vm.curInsts[vm.ip+2])<<16 | int(vm.curInsts[vm.ip+1])<<24 - 1
 				continue
 			}
 			vm.stack[vm.sp-1] = nil
 			vm.sp--
-			vm.ip += 2
+			vm.ip += 4
 		case OpOrJump:
 			if vm.stack[vm.sp-1].IsFalsy() {
 				vm.stack[vm.sp-1] = nil
 				vm.sp--
-				vm.ip += 2
+				vm.ip += 4
 				continue
 			}
-			pos := int(vm.curInsts[vm.ip+2]) | int(vm.curInsts[vm.ip+1])<<8
-			vm.ip = pos - 1
+			vm.ip = int(vm.curInsts[vm.ip+4]) | int(vm.curInsts[vm.ip+3])<<8 |
+				int(vm.curInsts[vm.ip+2])<<16 | int(vm.curInsts[vm.ip+1])<<24 - 1
 		case OpEqual:
 			left, right := vm.stack[vm.sp-2], vm.stack[vm.sp-1]
 
@@ -426,7 +395,8 @@ VMLoop:
 			vm.sp++
 			vm.ip += 3
 		case OpJump:
-			vm.ip = (int(vm.curInsts[vm.ip+2]) | int(vm.curInsts[vm.ip+1])<<8) - 1
+			vm.ip = (int(vm.curInsts[vm.ip+4]) | int(vm.curInsts[vm.ip+3])<<8 |
+				int(vm.curInsts[vm.ip+2])<<16 | int(vm.curInsts[vm.ip+1])<<24) - 1
 		case OpJumpFalsy:
 			vm.sp--
 			obj := vm.stack[vm.sp]
@@ -448,10 +418,11 @@ VMLoop:
 				falsy = obj.IsFalsy()
 			}
 			if falsy {
-				vm.ip = (int(vm.curInsts[vm.ip+2]) | int(vm.curInsts[vm.ip+1])<<8) - 1
+				vm.ip = (int(vm.curInsts[vm.ip+4]) | int(vm.curInsts[vm.ip+3])<<8 |
+					int(vm.curInsts[vm.ip+2])<<16 | int(vm.curInsts[vm.ip+1])<<24) - 1
 				continue
 			}
-			vm.ip += 2
+			vm.ip += 4
 		case OpGetGlobal:
 			cidx := int(vm.curInsts[vm.ip+2]) | int(vm.curInsts[vm.ip+1])<<8
 			index := vm.constants[cidx]
@@ -826,8 +797,11 @@ func (vm *VM) handlePanic(r interface{}) {
 }
 
 func (vm *VM) xOpSetupTry() {
-	catch := int(vm.curInsts[vm.ip+2]) | int(vm.curInsts[vm.ip+1])<<8
-	finally := int(vm.curInsts[vm.ip+4]) | int(vm.curInsts[vm.ip+3])<<8
+	catch := int(vm.curInsts[vm.ip+4]) | int(vm.curInsts[vm.ip+3])<<8 |
+		int(vm.curInsts[vm.ip+2])<<16 | int(vm.curInsts[vm.ip+1])<<24
+
+	finally := int(vm.curInsts[vm.ip+8]) | int(vm.curInsts[vm.ip+7])<<8 |
+		int(vm.curInsts[vm.ip+6])<<16 | int(vm.curInsts[vm.ip+5])<<24
 
 	ptrs := errHandler{
 		sp:      vm.sp,
@@ -836,15 +810,15 @@ func (vm *VM) xOpSetupTry() {
 	}
 
 	if vm.curFrame.errHandlers == nil {
-		vm.curFrame.errHandlers = &errHandlers{
-			handlers: []errHandler{ptrs},
-		}
+		vm.curFrame.
+			errHandlers = &errHandlers{handlers: []errHandler{ptrs}}
 	} else {
-		vm.curFrame.errHandlers.handlers = append(
-			vm.curFrame.errHandlers.handlers, ptrs)
+		vm.curFrame.
+			errHandlers.
+			handlers = append(vm.curFrame.errHandlers.handlers, ptrs)
 	}
 
-	vm.ip += 4
+	vm.ip += 8
 }
 
 func (vm *VM) xOpSetupCatch() {

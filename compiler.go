@@ -1,4 +1,4 @@
-// Copyright (c) 2020-2023 Ozan Hacıbekiroğlu.
+// Copyright (c) 2020-2025 Ozan Hacıbekiroğlu.
 // Use of this source code is governed by a MIT License
 // that can be found in the LICENSE file.
 
@@ -744,6 +744,8 @@ func MakeInstruction(buf []byte, op Opcode, args ...int) ([]byte, error) {
 			max = internal.MaxUint8
 		case 2:
 			max = internal.MaxUint16
+		case 4:
+			max = internal.MaxInt32
 		}
 
 		if arg > max {
@@ -761,28 +763,46 @@ func MakeInstruction(buf []byte, op Opcode, args ...int) ([]byte, error) {
 
 	buf = append(buf[:0], op)
 	switch op {
-	case OpConstant, OpMap, OpArray, OpGetGlobal, OpSetGlobal, OpJump,
-		OpJumpFalsy, OpAndJump, OpOrJump, OpStoreModule:
+	case OpJump, OpJumpFalsy, OpAndJump, OpOrJump:
+		return append(buf,
+			byte(args[0]>>24), byte(args[0]>>16), byte(args[0]>>8), byte(args[0]),
+		), nil
+
+	case OpSetupTry:
+
+		_ = args[1]
+		return append(buf,
+			byte(args[0]>>24), byte(args[0]>>16), byte(args[0]>>8), byte(args[0]),
+			byte(args[1]>>24), byte(args[1]>>16), byte(args[1]>>8), byte(args[1]),
+		), nil
+
+	case OpConstant, OpMap, OpArray, OpGetGlobal, OpSetGlobal, OpStoreModule:
 
 		return append(buf, byte(args[0]>>8), byte(args[0])), nil
 
-	case OpLoadModule, OpSetupTry:
+	case OpLoadModule:
 
 		_ = args[1]
-		buf = append(buf, byte(args[0]>>8), byte(args[0]))
-		return append(buf, byte(args[1]>>8), byte(args[1])), nil
+		return append(buf,
+			byte(args[0]>>8), byte(args[0]),
+			byte(args[1]>>8), byte(args[1]),
+		), nil
 
 	case OpClosure:
 
 		_ = args[1]
-		buf = append(buf, byte(args[0]>>8), byte(args[0]))
-		return append(buf, byte(args[1])), nil
+		return append(buf,
+			byte(args[0]>>8), byte(args[0]),
+			byte(args[1]),
+		), nil
 
 	case OpCall, OpCallName:
 
 		_ = args[1]
-		buf = append(buf, byte(args[0]))
-		return append(buf, byte(args[1])), nil
+		return append(buf,
+			byte(args[0]),
+			byte(args[1]),
+		), nil
 
 	case OpGetBuiltin, OpReturn, OpBinaryOp, OpUnary, OpGetIndex, OpGetLocal,
 		OpSetLocal, OpGetFree, OpSetFree, OpGetLocalPtr, OpGetFreePtr, OpThrow,

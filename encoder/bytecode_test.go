@@ -3,7 +3,7 @@ package encoder_test
 import (
 	"bytes"
 	"io"
-	"io/ioutil"
+	"os"
 	"testing"
 	gotime "time"
 
@@ -64,7 +64,8 @@ func TestBytecode_file(t *testing.T) {
 			withSourceMap(map[int]int{0: 1, 1: 2}),
 		),
 	}
-	f, err := ioutil.TempFile(temp, "mod.ugoc")
+
+	f, err := os.CreateTemp(temp, "mod.ugoc")
 	require.NoError(t, err)
 	defer f.Close()
 
@@ -118,7 +119,7 @@ return {
 	require.Equal(t, ugo.Int(1), wantRet)
 
 	temp := t.TempDir()
-	f, err := ioutil.TempFile(temp, "program.ugoc")
+	f, err := os.CreateTemp(temp, "program.ugoc")
 	require.NoError(t, err)
 	defer f.Close()
 
