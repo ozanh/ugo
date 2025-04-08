@@ -341,13 +341,15 @@ func (c *Compiler) defineConstLit(
 				}
 			}
 		} else if rhs.Name != "_" {
-			s1 := findSymbol(c.symbolTable, rhs.Name, ScopeConstLit)
-			if s1 != nil {
-				s2, exist := c.symbolTable.defineConstLit(lhs.Name)
-				if !exist {
-					s2.constLit = s1.constLit
-					s2.Assigned = true
-					defined = true
+			if hasAnyConstLit(c.symbolTable) {
+				s1 := findSymbolWithScope(c.symbolTable, rhs.Name, ScopeConstLit)
+				if s1 != nil {
+					s2, exist := c.symbolTable.defineConstLit(lhs.Name)
+					if !exist {
+						s2.constLit = s1.constLit
+						s2.Assigned = true
+						defined = true
+					}
 				}
 			}
 		}

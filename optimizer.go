@@ -823,8 +823,8 @@ func (so *SimpleOptimizer) transform(node parser.Node) (parser.Expr, bool) {
 			node.False = expr
 		}
 	case *parser.Ident:
-		if so.scope.handleConstLits {
-			s := findSymbol(so.compSymTab, node.Name, ScopeConstLit)
+		if so.scope.handleConstLits && hasAnyConstLit(so.compSymTab) {
+			s := findSymbolWithScope(so.compSymTab, node.Name, ScopeConstLit)
 			if s != nil && s.Assigned && s.Constant {
 				return s.constLit.toExpr(), true
 			}

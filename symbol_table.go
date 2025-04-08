@@ -332,28 +332,6 @@ func (st *SymbolTable) Range(visitParent bool, fn func(*Symbol) bool) {
 	}
 }
 
-// Find searches for a symbol in the current symbol table and its parent tables.
-// The visitParent parameter indicates whether to visit parent tables.
-// The fn function is called for each symbol, and it should return true
-// if the symbol is found. The function returns the first symbol that matches
-// the condition.
-// If no symbol is found, it returns nil.
-func (st *SymbolTable) Find(visitParent bool, fn func(*Symbol) bool) *Symbol {
-	ptr := st
-	for ptr != nil {
-		for _, sym := range ptr.store {
-			if fn(sym) {
-				return sym
-			}
-		}
-		if !visitParent {
-			return nil
-		}
-		ptr = ptr.parent
-	}
-	return nil
-}
-
 // DisableBuiltin disables given builtin name(s).
 // Compiler returns `Compile Error: unresolved reference "builtin name"`
 // if a disabled builtin is used.
@@ -432,28 +410,40 @@ func (st *SymbolTable) shadowBuiltin(name string) {
 	}
 }
 
-// Helper functions for symbol table to use in Compiler and optimizer.
-
-func findSymbolSelf(st *SymbolTable, name string) *Symbol {
-	const visitParent = false
-	return st.Find(visitParent, func(sym *Symbol) bool {
-		return sym.Name == name
-	})
-}
-
-func findSymbol(st *SymbolTable, name string, scope SymbolScope) *Symbol {
-	const visitParent = true
-	s := st.Find(visitParent, func(sym *Symbol) bool {
-		return sym.Name == name
-	})
-	if s != nil && s.Scope == scope {
-		return s
+// findByName searches for a symbol in the current symbol table and its parent
+// tables. If no symbol is found, it returns nil.
+func (st *SymbolTable) findByName(visitParent bool, name string) *Symbol {
+	ptr := st
+	for ptr != nil {
+		if sym, ok := ptr.store[name]; ok {
+			return sym
+		}
+		if !visitParent {
+			return nil
+		}
+		ptr = ptr.parent
 	}
 	return nil
 }
 
+// Helper functions for symbol table to use in Compiler and optimizer.
+
 func hasAnyConstLit(st *SymbolTable) bool {
 	return st.hasConstLit || st.hasParentConstLit
+}
+
+func findSymbolSelf(st *SymbolTable, name string) *Symbol {
+	const visitParent = false
+	return st.findByName(visitParent, name)
+}
+
+func findSymbolWithScope(st *SymbolTable, name string, scope SymbolScope) *Symbol {
+	const visitParent = true
+	s := st.findByName(visitParent, name)
+	if s != nil && s.Scope == scope {
+		return s
+	}
+	return nil
 }
 
 func copyMapStringSet(m map[string]struct{}) map[string]struct{} {
