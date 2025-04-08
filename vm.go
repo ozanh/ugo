@@ -23,7 +23,7 @@ const (
 
 // VM executes the instructions in Bytecode.
 type VM struct {
-	abort        int64
+	abort        atomic.Int64
 	sp           int
 	ip           int
 	curInsts     []byte
@@ -115,14 +115,14 @@ func (vm *VM) GetLocals(locals []Object) []Object {
 // Abort aborts the VM execution. It is safe to call this method from another
 // goroutine.
 func (vm *VM) Abort() {
-	vm.pool.abort(vm)
-	atomic.StoreInt64(&vm.abort, 1)
+	vm.pool.abort()
+	vm.abort.Store(1)
 }
 
 // Aborted reports whether VM is aborted. It is safe to call this method from
 // another goroutine.
 func (vm *VM) Aborted() bool {
-	return atomic.LoadInt64(&vm.abort) == 1
+	return vm.abort.Load() == 1
 }
 
 // Run runs VM and executes the instructions until the OpReturn Opcode or Abort call.
@@ -135,7 +135,7 @@ func (vm *VM) Run(globals Object, args ...Object) (Object, error) {
 	}
 
 	vm.err = nil
-	atomic.StoreInt64(&vm.abort, 0)
+	vm.abort.Store(0)
 	vm.initGlobals(globals)
 	vm.initLocals(args)
 	vm.initCurrentFrame()
@@ -184,7 +184,7 @@ func (vm *VM) run() (rerun bool) {
 
 func (vm *VM) loop() {
 VMLoop:
-	for atomic.LoadInt64(&vm.abort) == 0 {
+	for vm.abort.Load() == 0 {
 		vm.ip++
 		switch vm.curInsts[vm.ip] {
 		case OpConstant:
@@ -1631,7 +1631,7 @@ type vmPool struct {
 	vms  map[*VM]struct{}
 }
 
-func (v *vmPool) abort(vm *VM) {
+func (v *vmPool) abort() {
 	v.mu.Lock()
 	defer v.mu.Unlock()
 
