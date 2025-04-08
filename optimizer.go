@@ -855,7 +855,7 @@ func (so *SimpleOptimizer) error(node parser.Node, err error) error {
 	}
 }
 
-func (so *SimpleOptimizer) printTraceMsgf(format string, args ...interface{}) {
+func (so *SimpleOptimizer) printTraceMsgf(format string, args ...any) {
 	const (
 		dots = ". . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . "
 		n    = len(dots)

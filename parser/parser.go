@@ -744,7 +744,7 @@ func (p *Parser) parseDecl() Decl {
 
 func (p *Parser) parseGenDecl(
 	keyword token.Token,
-	fn func(token.Token, bool, interface{}) Spec,
+	fn func(token.Token, bool, any) Spec,
 ) *GenDecl {
 	if p.trace {
 		defer untracep(tracep(p, "GenDecl("+keyword.String()+")"))
@@ -773,7 +773,7 @@ func (p *Parser) parseGenDecl(
 	}
 }
 
-func (p *Parser) parseParamSpec(keyword token.Token, multi bool, _ interface{}) Spec {
+func (p *Parser) parseParamSpec(keyword token.Token, multi bool, _ any) Spec {
 	if p.trace {
 		defer untracep(tracep(p, keyword.String()+"Spec"))
 	}
@@ -803,7 +803,7 @@ func (p *Parser) parseParamSpec(keyword token.Token, multi bool, _ interface{}) 
 	return spec
 }
 
-func (p *Parser) parseValueSpec(keyword token.Token, multi bool, data interface{}) Spec {
+func (p *Parser) parseValueSpec(keyword token.Token, multi bool, data any) Spec {
 	if p.trace {
 		defer untracep(tracep(p, keyword.String()+"Spec"))
 	}
@@ -1421,7 +1421,7 @@ func (p *Parser) next() {
 	}
 }
 
-func (p *Parser) printTrace(a ...interface{}) {
+func (p *Parser) printTrace(a ...any) {
 	const (
 		dots = ". . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . "
 		n    = len(dots)

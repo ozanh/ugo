@@ -2,7 +2,7 @@ package importers
 
 import (
 	"errors"
-	"io/ioutil"
+	"os"
 	"path/filepath"
 
 	"github.com/ozanh/ugo"
@@ -45,13 +45,13 @@ func (m *FileImporter) Name() string {
 
 // Import returns the content of the path determined by Name call. Empty name
 // will return an error.
-func (m *FileImporter) Import(moduleName string) (interface{}, error) {
+func (m *FileImporter) Import(moduleName string) (any, error) {
 	// Note that; moduleName == Name()
 	if m.name == "" || moduleName == "" {
 		return nil, errors.New("invalid import call")
 	}
 	if m.FileReader == nil {
-		return ioutil.ReadFile(moduleName)
+		return os.ReadFile(moduleName)
 	}
 	return m.FileReader(moduleName)
 }
@@ -71,7 +71,7 @@ func (m *FileImporter) Fork(moduleName string) ugo.ExtImporter {
 // starts with Shebang #! , it is replaced with //.
 // This function can be used as ReadFile callback in FileImporter.
 func ShebangReadFile(path string) ([]byte, error) {
-	data, err := ioutil.ReadFile(path)
+	data, err := os.ReadFile(path)
 	if err == nil {
 		Shebang2Slashes(data)
 	}

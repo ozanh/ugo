@@ -169,7 +169,7 @@ func (c chainErr) Unwrap() error {
 	return c[1:]
 }
 
-func (c chainErr) As(target interface{}) bool {
+func (c chainErr) As(target any) bool {
 	return errors.As(c[0], target)
 }
 

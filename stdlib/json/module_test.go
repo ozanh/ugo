@@ -26,7 +26,7 @@ func TestModuleTypes(t *testing.T) {
 }
 
 func TestScript(t *testing.T) {
-	catchf := func(s string, args ...interface{}) string {
+	catchf := func(s string, args ...any) string {
 		return fmt.Sprintf(`
 		json := import("json")
 		try {
@@ -36,7 +36,7 @@ func TestScript(t *testing.T) {
 		}
 		`, fmt.Sprintf(s, args...))
 	}
-	scriptf := func(s string, args ...interface{}) string {
+	scriptf := func(s string, args ...any) string {
 		return fmt.Sprintf(`
 		json := import("json")
 		return %s

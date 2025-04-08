@@ -180,7 +180,7 @@ var Module = map[string]ugo.Object{
 	},
 }
 
-func newPrint(fn func(...interface{}) (int, error)) ugo.CallableExFunc {
+func newPrint(fn func(...any) (int, error)) ugo.CallableExFunc {
 	return func(c ugo.Call) (ret ugo.Object, err error) {
 		vargs := toPrintArgs(0, c)
 		n, err := fn(vargs...)
@@ -188,7 +188,7 @@ func newPrint(fn func(...interface{}) (int, error)) ugo.CallableExFunc {
 	}
 }
 
-func newPrintf(fn func(string, ...interface{}) (int, error)) ugo.CallableExFunc {
+func newPrintf(fn func(string, ...any) (int, error)) ugo.CallableExFunc {
 	return func(c ugo.Call) (ret ugo.Object, err error) {
 		if c.Len() < 1 {
 			return ugo.Undefined, ugo.ErrWrongNumArguments.NewError(
@@ -200,14 +200,14 @@ func newPrintf(fn func(string, ...interface{}) (int, error)) ugo.CallableExFunc 
 	}
 }
 
-func newSprint(fn func(...interface{}) string) ugo.CallableExFunc {
+func newSprint(fn func(...any) string) ugo.CallableExFunc {
 	return func(c ugo.Call) (ret ugo.Object, err error) {
 		vargs := toPrintArgs(0, c)
 		return ugo.String(fn(vargs...)), nil
 	}
 }
 
-func newSprintf(fn func(string, ...interface{}) string) ugo.CallableExFunc {
+func newSprintf(fn func(string, ...any) string) ugo.CallableExFunc {
 	return func(c ugo.Call) (ret ugo.Object, err error) {
 		if c.Len() < 1 {
 			return ugo.Undefined, ugo.ErrWrongNumArguments.NewError(
@@ -218,7 +218,7 @@ func newSprintf(fn func(string, ...interface{}) string) ugo.CallableExFunc {
 	}
 }
 
-func newSscan(fn func(string, ...interface{}) (int, error)) ugo.CallableExFunc {
+func newSscan(fn func(string, ...any) (int, error)) ugo.CallableExFunc {
 	return func(c ugo.Call) (ret ugo.Object, err error) {
 		if c.Len() < 2 {
 			return ugo.Undefined, ugo.ErrWrongNumArguments.NewError(
@@ -234,7 +234,7 @@ func newSscan(fn func(string, ...interface{}) (int, error)) ugo.CallableExFunc {
 }
 
 func newSscanf(
-	fn func(string, string, ...interface{}) (int, error),
+	fn func(string, string, ...any) (int, error),
 ) ugo.CallableExFunc {
 	return func(c ugo.Call) (ret ugo.Object, err error) {
 		if c.Len() < 3 {
@@ -250,9 +250,9 @@ func newSscanf(
 	}
 }
 
-func toScanArgs(offset int, c ugo.Call) ([]interface{}, error) {
+func toScanArgs(offset int, c ugo.Call) ([]any, error) {
 	size := c.Len()
-	vargs := make([]interface{}, 0, size-offset)
+	vargs := make([]any, 0, size-offset)
 	for i := offset; i < size; i++ {
 		v, ok := c.Get(i).(ScanArg)
 		if !ok {
@@ -265,9 +265,9 @@ func toScanArgs(offset int, c ugo.Call) ([]interface{}, error) {
 	return vargs, nil
 }
 
-func toPrintArgs(offset int, c ugo.Call) []interface{} {
+func toPrintArgs(offset int, c ugo.Call) []any {
 	size := c.Len()
-	vargs := make([]interface{}, 0, size-offset)
+	vargs := make([]any, 0, size-offset)
 	for i := offset; i < size; i++ {
 		vargs = append(vargs, c.Get(i))
 	}

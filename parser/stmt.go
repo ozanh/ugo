@@ -25,7 +25,7 @@ type Stmt interface {
 }
 
 // IsStatement returns true if given value is implements interface{ stmtNode() }.
-func IsStatement(v interface{}) bool {
+func IsStatement(v any) bool {
 	_, ok := v.(interface {
 		stmtNode()
 	})

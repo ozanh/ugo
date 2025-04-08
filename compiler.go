@@ -686,7 +686,7 @@ func (c *Compiler) error(node parser.Node, err error) error {
 func (c *Compiler) errorf(
 	node parser.Node,
 	format string,
-	args ...interface{},
+	args ...any,
 ) error {
 
 	return &CompilerError{
@@ -696,7 +696,7 @@ func (c *Compiler) errorf(
 	}
 }
 
-func printTrace(indent int, trace io.Writer, a ...interface{}) {
+func printTrace(indent int, trace io.Writer, a ...any) {
 	const dots = ". . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . "
 
 	i := 2 * indent
@@ -738,20 +738,20 @@ func MakeInstruction(buf []byte, op Opcode, args ...int) ([]byte, error) {
 	}
 
 	for i, arg := range args {
-		var max int
+		var maxVal int
 		switch operands[i] {
 		case 1:
-			max = internal.MaxUint8
+			maxVal = internal.MaxUint8
 		case 2:
-			max = internal.MaxUint16
+			maxVal = internal.MaxUint16
 		case 4:
-			max = internal.MaxInt32
+			maxVal = internal.MaxInt32
 		}
 
-		if arg > max {
+		if arg > maxVal {
 			return buf, fmt.Errorf(
 				"MakeInstruction: %s operand %d at %d is greater than %d",
-				OpcodeNames[op], arg, i, max,
+				OpcodeNames[op], arg, i, maxVal,
 			)
 		} else if arg < 0 {
 			return buf, fmt.Errorf(

@@ -624,7 +624,7 @@ func (t *testopts) NoPanic() *testopts {
 	return t
 }
 
-func (t *testopts) Module(name string, module interface{}) *testopts {
+func (t *testopts) Module(name string, module any) *testopts {
 	if t.moduleMap == nil {
 		t.moduleMap = ugo.NewModuleMap()
 	}

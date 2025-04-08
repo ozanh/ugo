@@ -3323,7 +3323,7 @@ func (t *testopts) NoPanic() *testopts {
 	return t
 }
 
-func (t *testopts) Module(name string, module interface{}) *testopts {
+func (t *testopts) Module(name string, module any) *testopts {
 	if t.moduleMap == nil {
 		t.moduleMap = NewModuleMap()
 	}
@@ -3369,7 +3369,7 @@ func expectErrIs(t *testing.T, script string, opts *testopts, expectErr error) {
 	})
 }
 
-func expectErrAs(t *testing.T, script string, opts *testopts, asErr interface{}, eqErr interface{}) {
+func expectErrAs(t *testing.T, script string, opts *testopts, asErr any, eqErr any) {
 	t.Helper()
 	expectErrorGen(t, script, opts, func(t *testing.T, retErr error) {
 		t.Helper()

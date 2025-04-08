@@ -9,7 +9,7 @@ import (
 	"testing"
 )
 
-func Sdump(value interface{}) string {
+func Sdump(value any) string {
 	if value == nil {
 		return fmt.Sprintf("(%[1]T) %[1]v\n", value)
 	}
@@ -37,7 +37,7 @@ func Sdump(value interface{}) string {
 				continue
 			}
 			elem := val.Index(i).Elem()
-			var iface interface{}
+			var iface any
 			if elem.IsValid() && elem.CanInterface() {
 				iface = elem.Interface()
 			}
@@ -58,7 +58,7 @@ func Sdump(value interface{}) string {
 		sb.WriteString("\n")
 		for _, k := range keys {
 			sb.WriteString(fmt.Sprintf("%#v:", k))
-			var iface interface{}
+			var iface any
 			vkind := val.MapIndex(k).Kind()
 			if vkind == reflect.Ptr || vkind == reflect.Interface {
 				elem := val.MapIndex(k).Elem()

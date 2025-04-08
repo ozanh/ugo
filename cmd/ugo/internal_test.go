@@ -7,7 +7,8 @@ import (
 	"bytes"
 	"context"
 	"flag"
-	"io/ioutil"
+	"io"
+	"os"
 	"strings"
 	"testing"
 
@@ -251,12 +252,12 @@ func TestExecuteScript(t *testing.T) {
 	defer cancel()
 
 	const workdir = "./testdata"
-	scr, err := ioutil.ReadFile("./testdata/fibtc.ugo")
+	scr, err := os.ReadFile("./testdata/fibtc.ugo")
 	require.NoError(t, err)
 	require.NoError(t, executeScript(ctx, "(test1)", workdir, scr, nil))
 
 	traceEnabled = true
-	require.NoError(t, executeScript(ctx, "(test2)", workdir, scr, ioutil.Discard))
+	require.NoError(t, executeScript(ctx, "(test2)", workdir, scr, io.Discard))
 	resetGlobals()
 
 	// FIXME: Following is a flaky test which compromise CI

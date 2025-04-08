@@ -28,9 +28,9 @@ type (
 
 	// A ValueSpec node represents a variable declaration
 	ValueSpec struct {
-		Idents []*Ident    // TODO: slice is reserved for tuple assignment
-		Values []Expr      // initial values; or nil
-		Data   interface{} // iota
+		Idents []*Ident // TODO: slice is reserved for tuple assignment
+		Values []Expr   // initial values; or nil
+		Data   any      // iota
 	}
 
 	// A ParamSpec node represents a parameter declaration

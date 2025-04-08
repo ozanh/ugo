@@ -14,7 +14,6 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -670,10 +669,10 @@ func main() {
 		)
 		if filePath == "-" {
 			modulePath = "(stdin)"
-			script, err = ioutil.ReadAll(os.Stdin)
+			script, err = io.ReadAll(os.Stdin)
 		} else {
 			workdir = filepath.Dir(filePath)
-			script, err = ioutil.ReadFile(filePath)
+			script, err = os.ReadFile(filePath)
 		}
 		importers.Shebang2Slashes(script)
 

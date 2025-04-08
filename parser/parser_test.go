@@ -5,7 +5,6 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"reflect"
 	"strings"
@@ -89,7 +88,7 @@ c := counter ? v3 : undefined
 		f, err = os.Open(goldenFile)
 		require.NoError(t, err)
 	}
-	golden, err := ioutil.ReadAll(f)
+	golden, err := io.ReadAll(f)
 	require.NoError(t, err)
 	var out bytes.Buffer
 	parse(sample, &out)

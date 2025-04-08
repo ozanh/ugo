@@ -772,7 +772,7 @@ func (vm *VM) clearCurrentFrame() {
 	vm.curFrame.errHandlers = nil
 }
 
-func (vm *VM) handlePanic(r interface{}) {
+func (vm *VM) handlePanic(r any) {
 	if vm.sp < stackSize && vm.frameIndex <= frameSize && vm.err == nil {
 
 		if err := vm.throwGenErr(fmt.Errorf("%v", r)); err != nil {
@@ -1698,7 +1698,7 @@ func (v *vmPool) clear() {
 }
 
 var vmSyncPool = sync.Pool{
-	New: func() interface{} {
+	New: func() any {
 		return &VM{
 			bytecode: &Bytecode{},
 		}

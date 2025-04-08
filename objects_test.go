@@ -246,7 +246,7 @@ func TestObjectCopier(t *testing.T) {
 }
 
 func TestObjectImpl(t *testing.T) {
-	var o interface{} = ObjectImpl{}
+	var o any = ObjectImpl{}
 	if _, ok := o.(Object); !ok {
 		t.Fatal("ObjectImpl must implement Object interface")
 	}

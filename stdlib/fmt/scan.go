@@ -10,7 +10,7 @@ import (
 
 func init() {
 	registry.RegisterAnyConverter(reflect.TypeOf((*scanArg)(nil)),
-		func(in interface{}) (interface{}, bool) {
+		func(in any) (any, bool) {
 			sa := in.(*scanArg)
 			if sa.argValue != nil {
 				return sa.Arg(), true
@@ -28,7 +28,7 @@ type ScanArg interface {
 	Set(bool)
 	// Arg must return either a pointer to a basic Go type or implementations of
 	// fmt.Scanner interface.
-	Arg() interface{}
+	Arg() any
 	// Value must return scanned, non-nil uGO Object.
 	Value() ugo.Object
 }
@@ -36,7 +36,7 @@ type ScanArg interface {
 // argValue is an interface implemented by the basic scannable types and used by
 // scanArg type.
 type argValue interface {
-	Arg() interface{}
+	Arg() any
 	Value() ugo.Object
 }
 
@@ -102,7 +102,7 @@ type stringType struct {
 	v string
 }
 
-func (st *stringType) Arg() interface{} {
+func (st *stringType) Arg() any {
 	return &st.v
 }
 
@@ -114,7 +114,7 @@ type bytesType struct {
 	v []byte
 }
 
-func (bt *bytesType) Arg() interface{} {
+func (bt *bytesType) Arg() any {
 	return &bt.v
 }
 
@@ -126,7 +126,7 @@ type intType struct {
 	v int64
 }
 
-func (it *intType) Arg() interface{} {
+func (it *intType) Arg() any {
 	return &it.v
 }
 
@@ -138,7 +138,7 @@ type uintType struct {
 	v uint64
 }
 
-func (ut *uintType) Arg() interface{} {
+func (ut *uintType) Arg() any {
 	return &ut.v
 }
 
@@ -150,7 +150,7 @@ type floatType struct {
 	v float64
 }
 
-func (ft *floatType) Arg() interface{} {
+func (ft *floatType) Arg() any {
 	return &ft.v
 }
 
@@ -162,7 +162,7 @@ type charType struct {
 	v rune
 }
 
-func (ct *charType) Arg() interface{} {
+func (ct *charType) Arg() any {
 	return &ct.v
 }
 
@@ -174,7 +174,7 @@ type boolType struct {
 	v bool
 }
 
-func (bt *boolType) Arg() interface{} {
+func (bt *boolType) Arg() any {
 	return &bt.v
 }
 

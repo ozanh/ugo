@@ -2,7 +2,6 @@ package importers_test
 
 import (
 	"bytes"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -144,7 +143,7 @@ func createModules(t *testing.T, baseDir string, files map[string]string) {
 		path := filepath.Join(baseDir, file)
 		err := os.MkdirAll(filepath.Dir(path), 0755)
 		require.NoError(t, err)
-		err = ioutil.WriteFile(path, []byte(data), 0644)
+		err = os.WriteFile(path, []byte(data), 0644)
 		require.NoError(t, err)
 	}
 }
