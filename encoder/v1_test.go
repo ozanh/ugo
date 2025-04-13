@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/ozanh/ugo"
-	v1 "github.com/ozanh/ugo/encoder/v1"
+	"github.com/ozanh/ugo/encoder/opv1"
 
 	. "github.com/ozanh/ugo/encoder"
 )
@@ -20,8 +20,8 @@ func Test_bytecode_v1(t *testing.T) {
 		bcv1 := &Bytecode{
 			Main: compFunc(
 				concatInsts(
-					makeInst(v1.OpNoOp),
-					makeInst(v1.OpConstant, 0),
+					makeInst(opv1.OpNoOp),
+					makeInst(opv1.OpConstant, 0),
 				),
 				withParams(1),
 				withLocals(1),
@@ -61,28 +61,28 @@ func Test_bytecode_v1(t *testing.T) {
 		bcv1 := &Bytecode{
 			Main: compFunc(
 				concatInsts(
-					makeInst(v1.OpNoOp),
-					makeInst(v1.OpConstant, 0),
+					makeInst(opv1.OpNoOp),
+					makeInst(opv1.OpConstant, 0),
 
 					binary.BigEndian.AppendUint16(
-						[]byte{v1.OpJump},
+						[]byte{opv1.OpJump},
 						1,
 					),
 					binary.BigEndian.AppendUint16(
-						[]byte{v1.OpJumpFalsy},
+						[]byte{opv1.OpJumpFalsy},
 						2,
 					),
 					binary.BigEndian.AppendUint16(
-						[]byte{v1.OpAndJump},
+						[]byte{opv1.OpAndJump},
 						3,
 					),
 					binary.BigEndian.AppendUint16(
-						[]byte{v1.OpOrJump},
+						[]byte{opv1.OpOrJump},
 						4,
 					),
 					binary.BigEndian.AppendUint16(
 						binary.BigEndian.AppendUint16(
-							[]byte{v1.OpSetupTry},
+							[]byte{opv1.OpSetupTry},
 							5,
 						),
 						6,
@@ -136,23 +136,23 @@ func Test_bytecode_v1(t *testing.T) {
 				cf.Instructions,
 				func(pos int, op ugo.Opcode, operands []int, offset int) bool {
 					switch op {
-					case v1.OpJump:
+					case opv1.OpJump:
 						require.Equal(t, 4, offset)
 						require.Equal(t, 1, len(operands))
 						require.Equal(t, 1, operands[0])
-					case v1.OpJumpFalsy:
+					case opv1.OpJumpFalsy:
 						require.Equal(t, 4, offset)
 						require.Equal(t, 1, len(operands))
 						require.Equal(t, 2, operands[0])
-					case v1.OpAndJump:
+					case opv1.OpAndJump:
 						require.Equal(t, 4, offset)
 						require.Equal(t, 1, len(operands))
 						require.Equal(t, 3, operands[0])
-					case v1.OpOrJump:
+					case opv1.OpOrJump:
 						require.Equal(t, 4, offset)
 						require.Equal(t, 1, len(operands))
 						require.Equal(t, 4, operands[0])
-					case v1.OpSetupTry:
+					case opv1.OpSetupTry:
 						require.Equal(t, 8, offset)
 						require.Equal(t, 2, len(operands))
 						require.Equal(t, 5, operands[0])

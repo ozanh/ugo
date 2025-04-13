@@ -9,7 +9,7 @@ import (
 	"fmt"
 
 	"github.com/ozanh/ugo"
-	v1 "github.com/ozanh/ugo/encoder/v1"
+	"github.com/ozanh/ugo/encoder/opv1"
 )
 
 func decodeBytecodeV1(bc *Bytecode, r *bytes.Buffer) error {
@@ -26,8 +26,8 @@ func decodeBytecodeV1(bc *Bytecode, r *bytes.Buffer) error {
 }
 
 func convBytecodeV1ToV2(bc *Bytecode) error {
-	opWidth := make([]int, len(v1.OpcodeOperands))
-	for op, operands := range v1.OpcodeOperands {
+	opWidth := make([]int, len(opv1.OpcodeOperands))
+	for op, operands := range opv1.OpcodeOperands {
 		var total int
 		for _, operand := range operands {
 			total += operand
@@ -61,7 +61,7 @@ func convCompFuncV1ToV2(cf *ugo.CompiledFunction, opWidth []int) error {
 
 		switch op {
 		case
-			v1.OpJump, v1.OpJumpFalsy, v1.OpAndJump, v1.OpOrJump, v1.OpSetupTry:
+			opv1.OpJump, opv1.OpJumpFalsy, opv1.OpAndJump, opv1.OpOrJump, opv1.OpSetupTry:
 			hasJump = true
 			continue
 		}
@@ -90,9 +90,9 @@ func convCompFuncV1ToV2(cf *ugo.CompiledFunction, opWidth []int) error {
 		w := opWidth[op]
 
 		switch op {
-		case v1.OpJump, v1.OpJumpFalsy, v1.OpAndJump, v1.OpOrJump, v1.OpSetupTry:
+		case opv1.OpJump, opv1.OpJumpFalsy, opv1.OpAndJump, opv1.OpOrJump, opv1.OpSetupTry:
 			operands, _ = ugo.ReadOperands(
-				v1.OpcodeOperands[op],
+				opv1.OpcodeOperands[op],
 				cf.Instructions[i+1:],
 				operands[:0],
 			)

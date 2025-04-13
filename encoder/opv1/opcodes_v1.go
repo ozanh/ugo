@@ -2,7 +2,7 @@
 // Use of this source code is governed by a MIT License
 // that can be found in the LICENSE file.
 
-package v1
+package opv1
 
 type Opcode = byte
 

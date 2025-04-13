@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/ozanh/ugo"
+
 	. "github.com/ozanh/ugo/encoder"
 )
 
