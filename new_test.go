@@ -8,7 +8,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/ozanh/ugo/tests"
+	"github.com/ozanh/ugo/internal/tests"
 
 	. "github.com/ozanh/ugo"
 )

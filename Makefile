@@ -16,6 +16,13 @@ test: version generate lint
 	go run cmd/ugo/main.go -timeout 20s cmd/ugo/testdata/fibtc.ugo
 	go run -race cmd/ugo/main.go -timeout 20s cmd/ugo/testdata/fibtc.ugo
 
+.PHONY: test-long
+test-long: version generate lint
+	UGO_LONG_TESTS=1 go test -count=1 -cover ./...
+	UGO_LONG_TESTS=1 go test -count=1 -race -coverpkg=./... ./...
+	go run cmd/ugo/main.go -timeout 20s cmd/ugo/testdata/fibtc.ugo
+	go run -race cmd/ugo/main.go -timeout 20s cmd/ugo/testdata/fibtc.ugo
+
 .PHONY: generate-all
 generate-all: generate generate-docs
 

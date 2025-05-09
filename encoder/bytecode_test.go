@@ -10,11 +10,11 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/ozanh/ugo"
+	"github.com/ozanh/ugo/internal/tests"
 	"github.com/ozanh/ugo/stdlib/fmt"
 	"github.com/ozanh/ugo/stdlib/json"
 	"github.com/ozanh/ugo/stdlib/strings"
 	"github.com/ozanh/ugo/stdlib/time"
-	"github.com/ozanh/ugo/tests"
 
 	. "github.com/ozanh/ugo/encoder"
 )
