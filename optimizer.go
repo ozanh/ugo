@@ -1,4 +1,4 @@
-// Copyright (c) 2020-2023 Ozan Hacıbekiroğlu.
+// Copyright (c) 2020-2025 Ozan Hacıbekiroğlu.
 // Use of this source code is governed by a MIT License
 // that can be found in the LICENSE file.
 
@@ -10,6 +10,7 @@ import (
 	"io"
 	"reflect"
 	"strconv"
+	"time"
 
 	"github.com/ozanh/ugo/parser"
 	"github.com/ozanh/ugo/token"
@@ -31,8 +32,9 @@ func (e *OptimizerError) Unwrap() error {
 }
 
 type optimizerScope struct {
-	parent   *optimizerScope
-	shadowed []string
+	parent          *optimizerScope
+	shadowed        []string
+	handleConstLits bool
 }
 
 func (s *optimizerScope) define(ident string) {
@@ -41,52 +43,31 @@ func (s *optimizerScope) define(ident string) {
 	}
 }
 
-func (s *optimizerScope) shadowedBuiltins() []string {
-	var out []string
-	if len(s.shadowed) > 0 {
-		out = append(out, s.shadowed...)
-	}
-
-	if s.parent != nil {
-		out = append(out, s.parent.shadowedBuiltins()...)
-	}
-	return out
-}
-
 // SimpleOptimizer optimizes given parsed file by evaluating constants and
 // expressions. It is not safe to call methods concurrently.
 type SimpleOptimizer struct {
-	scope            *optimizerScope
-	vm               *VM
-	count            int
-	total            int
-	maxCycle         int
-	indent           int
-	optimConsts      bool
-	optimExpr        bool
-	disabledBuiltins []string
-	constants        []Object
-	instructions     []byte
-	moduleStore      *moduleStore
-	returnStmt       parser.ReturnStmt
-	file             *parser.File
-	errors           multipleErr
-	trace            io.Writer
-	exprLevel        byte
-	evalBits         uint64
+	file          *parser.SourceFile
+	scope         *optimizerScope
+	compSymTab    *SymbolTable
+	eval          optimizerEval
+	errors        multipleErr
+	trace         io.Writer
+	count         int
+	total         int
+	limit         int
+	indent        int
+	evalBits      uint64
+	exprLevel     uint8
+	traceCompiler bool
+	traceParser   bool
 }
 
 // NewOptimizer creates an Optimizer object.
 func NewOptimizer(
-	file *parser.File,
-	base *SymbolTable,
+	file *parser.SourceFile,
+	symTab *SymbolTable,
 	opts CompilerOptions,
 ) *SimpleOptimizer {
-	var disabled []string
-	if base != nil {
-		disabled = base.DisabledBuiltins()
-		disabled = append(disabled, base.ShadowedBuiltins()...)
-	}
 
 	var trace io.Writer
 	if opts.TraceOptimizer {
@@ -94,14 +75,24 @@ func NewOptimizer(
 	}
 
 	return &SimpleOptimizer{
-		file:             file,
-		vm:               NewVM(nil).SetRecover(true),
-		maxCycle:         opts.OptimizerMaxCycle,
-		optimConsts:      opts.OptimizeConst,
-		optimExpr:        opts.OptimizeExpr,
-		disabledBuiltins: disabled,
-		moduleStore:      newModuleStore(),
-		trace:            trace,
+		file:          file,
+		compSymTab:    symTab,
+		limit:         opts.OptimizerLimit,
+		trace:         trace,
+		traceCompiler: opts.TraceCompiler,
+		traceParser:   opts.TraceParser,
+	}
+}
+
+func (so *SimpleOptimizer) reset(symTab *SymbolTable, limit int) {
+	*so = SimpleOptimizer{
+		file:          so.file,
+		compSymTab:    symTab,
+		eval:          so.eval,
+		limit:         limit,
+		trace:         so.trace,
+		traceCompiler: so.traceCompiler,
+		traceParser:   so.traceParser,
 	}
 }
 
@@ -129,16 +120,15 @@ func canOptimizeInsts(constants []Object, insts []byte) bool {
 	}
 
 	// using array here instead of map or slice is faster to look up opcode
-	allowedOps := [...]bool{
+	allowedOps := [255]bool{
 		OpConstant: true, OpNull: true, OpBinaryOp: true, OpUnary: true,
 		OpNoOp: true, OpAndJump: true, OpOrJump: true, OpArray: true,
 		OpReturn: true, OpEqual: true, OpNotEqual: true, OpPop: true,
 		OpGetBuiltin: true, OpCall: true, OpSetLocal: true, OpDefineLocal: true,
 		OpTrue: true, OpFalse: true,
-		^byte(0): false,
 	}
 
-	allowedBuiltins := [...]bool{
+	allowedBuiltins := [255]bool{
 		BuiltinContains: true, BuiltinBool: true, BuiltinInt: true,
 		BuiltinUint: true, BuiltinChar: true, BuiltinFloat: true,
 		BuiltinString: true, BuiltinChars: true, BuiltinLen: true,
@@ -148,7 +138,6 @@ func canOptimizeInsts(constants []Object, insts []byte) bool {
 		BuiltinIsFloat: true, BuiltinIsChar: true, BuiltinIsBool: true,
 		BuiltinIsString: true, BuiltinIsBytes: true, BuiltinIsMap: true,
 		BuiltinIsArray: true, BuiltinIsUndefined: true, BuiltinIsIterable: true,
-		^byte(0): false,
 	}
 
 	canOptimize := true
@@ -178,132 +167,86 @@ func canOptimizeInsts(constants []Object, insts []byte) bool {
 }
 
 func (so *SimpleOptimizer) evalExpr(expr parser.Expr) (parser.Expr, bool) {
-	if !so.optimExpr {
-		return nil, false
-	}
-
 	if len(so.errors) > 0 {
 		// do not evaluate erroneous line again
 		prevPos := so.errors[len(so.errors)-1].(*OptimizerError).FilePos
-		if so.file.InputFile.Set().Position(expr.Pos()).Line == prevPos.Line {
+		if so.file.Set().Position(expr.Pos()).Line == prevPos.Line {
 			return nil, false
 		}
 	}
-
-	if so.trace != nil {
+	istrace := so.trace != nil
+	if istrace {
 		so.printTraceMsgf("eval: %s", expr)
 	}
 
 	if !so.canEval() || !canOptimizeExpr(expr) {
-		if so.trace != nil {
+		if istrace {
 			so.printTraceMsgf("cannot optimize expression")
 		}
 		return nil, false
 	}
 
+	if istrace {
+		so.printTraceMsgf("slow eval: %s", expr)
+	}
+
 	x, ok := so.slowEvalExpr(expr)
 	if !ok {
 		so.setNoEval()
-		if so.trace != nil {
+		if istrace {
 			so.printTraceMsgf("cannot optimize code")
 		}
 	} else {
+		if istrace {
+			so.printTraceMsgf("optimized code")
+		}
 		so.count++
 	}
 	return x, ok
 }
 
 func (so *SimpleOptimizer) slowEvalExpr(expr parser.Expr) (parser.Expr, bool) {
-	st := NewSymbolTable().
-		EnableParams(false).
-		DisableBuiltin(so.disabledBuiltins...).
-		DisableBuiltin(so.scope.shadowedBuiltins()...)
-
-	compiler := NewCompiler(
-		so.file.InputFile,
-		CompilerOptions{
-			SymbolTable: st,
-			moduleStore: so.moduleStore.reset(),
-			Constants:   so.constants[:0],
-			Trace:       so.trace,
-		},
-	)
-	compiler.instructions = so.instructions[:0]
-	compiler.indent = so.indent
-
-	so.returnStmt.Result = expr
-
-	if err := compiler.Compile(&so.returnStmt); err != nil {
+	obj, ok := so.eval.eval(so, expr)
+	if !ok {
 		return nil, false
 	}
-
-	bytecode := compiler.Bytecode()
-
-	// obtain constants and instructions slices to reuse
-	so.constants = bytecode.Constants
-	so.instructions = bytecode.Main.Instructions
-
-	if !canOptimizeInsts(bytecode.Constants, bytecode.Main.Instructions) {
-		if so.trace != nil {
-			so.printTraceMsgf("cannot optimize instructions")
-		}
-		return nil, false
-	}
-
-	obj, err := so.vm.SetBytecode(bytecode).Clear().Run(nil)
-	if err != nil {
-		if so.trace != nil {
-			so.printTraceMsgf("eval error: %s", err)
-		}
-		if !errors.Is(err, ErrVMAborted) {
-			so.errors = append(so.errors, so.error(expr, err))
-		}
-		obj = nil
-	}
-
 	switch v := obj.(type) {
 	case String:
-		l := strconv.Quote(string(v))
 		expr = &parser.StringLit{
 			Value:    string(v),
-			Literal:  l,
+			Literal:  strconv.Quote(string(v)),
 			ValuePos: expr.Pos(),
 		}
 	case *UndefinedType:
 		expr = &parser.UndefinedLit{TokenPos: expr.Pos()}
 	case Bool:
-		l := strconv.FormatBool(bool(v))
 		expr = &parser.BoolLit{
 			Value:    bool(v),
-			Literal:  l,
+			Literal:  strconv.FormatBool(bool(v)),
 			ValuePos: expr.Pos(),
 		}
 	case Int:
-		l := strconv.FormatInt(int64(v), 10)
 		expr = &parser.IntLit{
 			Value:    int64(v),
-			Literal:  l,
+			Literal:  strconv.FormatInt(int64(v), 10),
 			ValuePos: expr.Pos(),
 		}
 	case Uint:
-		l := strconv.FormatUint(uint64(v), 10)
 		expr = &parser.UintLit{
 			Value:    uint64(v),
-			Literal:  l,
+			Literal:  strconv.FormatUint(uint64(v), 10),
 			ValuePos: expr.Pos(),
 		}
 	case Float:
-		l := strconv.FormatFloat(float64(v), 'f', -1, 64)
 		expr = &parser.FloatLit{
 			Value:    float64(v),
-			Literal:  l,
+			Literal:  strconv.FormatFloat(float64(v), 'f', -1, 64),
 			ValuePos: expr.Pos(),
 		}
 	case Char:
-		l := strconv.QuoteRune(rune(v))
 		expr = &parser.CharLit{
 			Value:    rune(v),
-			Literal:  l,
+			Literal:  strconv.QuoteRune(rune(v)),
 			ValuePos: expr.Pos(),
 		}
 	default:
@@ -340,23 +283,65 @@ func (so *SimpleOptimizer) leaveExprLevel() {
 }
 
 // Optimize optimizes ast tree by simple constant folding and evaluating simple expressions.
-func (so *SimpleOptimizer) Optimize() error {
-	so.errors = nil
+func (so *SimpleOptimizer) Optimize(node parser.Node) error {
+	const methodName = "Optimize"
+	const singlePass = false
 
-	defer so.vm.Abort()
+	err := so.optimize(
+		methodName,
+		singlePass,
+		func() {
+			so.transform(node)
+		},
+	)
+	return err
+}
 
-	if so.trace != nil {
-		so.printTraceMsgf("Enter Optimizer")
+func (so *SimpleOptimizer) optimizeExpr(expr parser.Expr) (parser.Expr, bool, error) {
+	const methodName = "optimizeExpr"
+	const singlePass = true
+
+	var out parser.Expr
+	var ok bool
+
+	err := so.optimize(
+		methodName,
+		singlePass,
+		func() {
+			so.scope.handleConstLits = true
+
+			out, ok = so.transform(expr)
+		},
+	)
+	return out, ok, err
+}
+
+func (so *SimpleOptimizer) optimize(
+	methodName string,
+	singlePass bool,
+	runFn func(),
+) error {
+
+	if so.limit <= 0 {
+		return nil
 	}
 
-	for i := 1; i <= so.maxCycle; i++ {
+	so.errors = nil
+
+	if so.trace != nil {
+		so.printTraceMsgf("Enter " + methodName)
+	}
+
+	pass := 1
+	for so.limit > 0 {
 		so.count = 0
 		so.exprLevel = 0
 		if so.trace != nil {
-			so.printTraceMsgf("%d. pass", i)
+			so.printTraceMsgf("%d. pass", pass)
+			pass++
 		}
 		so.enterScope()
-		so.optimize(so.file)
+		runFn()
 		so.leaveScope()
 
 		if so.count == 0 {
@@ -367,6 +352,11 @@ func (so *SimpleOptimizer) Optimize() error {
 			break
 		}
 		so.total += so.count
+		so.limit -= so.count
+
+		if singlePass {
+			break
+		}
 	}
 
 	if so.trace != nil {
@@ -375,20 +365,18 @@ func (so *SimpleOptimizer) Optimize() error {
 		} else {
 			so.printTraceMsgf("No Optimization")
 		}
-		so.printTraceMsgf("File: %s", so.file)
-		so.printTraceMsgf("Exit Optimizer")
+		so.printTraceMsgf("File: %s", so.file.Name)
+		so.printTraceMsgf("Exit " + methodName)
 		so.printTraceMsgf("----------------------")
 	}
 
-	if so.errors == nil {
-		return nil
-	}
-	return so.errors
+	return so.errors.errorOrNil()
 }
 
 func (so *SimpleOptimizer) binaryopInts(
 	op token.Token,
-	left, right *parser.IntLit,
+	left *parser.IntLit,
+	right *parser.IntLit,
 ) (parser.Expr, bool) {
 
 	var val int64
@@ -425,7 +413,8 @@ func (so *SimpleOptimizer) binaryopInts(
 
 func (so *SimpleOptimizer) binaryopFloats(
 	op token.Token,
-	left, right *parser.FloatLit,
+	left *parser.FloatLit,
+	right *parser.FloatLit,
 ) (parser.Expr, bool) {
 
 	var val float64
@@ -454,12 +443,9 @@ func (so *SimpleOptimizer) binaryopFloats(
 
 func (so *SimpleOptimizer) binaryop(
 	op token.Token,
-	left, right parser.Expr,
+	left parser.Expr,
+	right parser.Expr,
 ) (parser.Expr, bool) {
-
-	if !so.optimConsts {
-		return nil, false
-	}
 
 	switch left := left.(type) {
 	case *parser.IntLit:
@@ -488,10 +474,6 @@ func (so *SimpleOptimizer) unaryop(
 	op token.Token,
 	expr parser.Expr,
 ) (parser.Expr, bool) {
-
-	if !so.optimConsts {
-		return nil, false
-	}
 
 	switch expr := expr.(type) {
 	case *parser.IntLit:
@@ -561,7 +543,7 @@ func (so *SimpleOptimizer) unaryop(
 	return nil, false
 }
 
-func (so *SimpleOptimizer) optimize(node parser.Node) (parser.Expr, bool) {
+func (so *SimpleOptimizer) transform(node parser.Node) (parser.Expr, bool) {
 	if so.trace != nil {
 		if node != nil {
 			defer untraceoptim(traceoptim(so, fmt.Sprintf("%s (%s)",
@@ -584,11 +566,11 @@ func (so *SimpleOptimizer) optimize(node parser.Node) (parser.Expr, bool) {
 	switch node := node.(type) {
 	case *parser.File:
 		for _, stmt := range node.Stmts {
-			_, _ = so.optimize(stmt)
+			_, _ = so.transform(stmt)
 		}
 	case *parser.ExprStmt:
 		if node.Expr != nil {
-			if expr, ok = so.optimize(node.Expr); ok {
+			if expr, ok = so.transform(node.Expr); ok {
 				node.Expr = expr
 			}
 			if expr, ok = so.evalExpr(node.Expr); ok {
@@ -597,13 +579,13 @@ func (so *SimpleOptimizer) optimize(node parser.Node) (parser.Expr, bool) {
 		}
 	case *parser.ParenExpr:
 		if node.Expr != nil {
-			return so.optimize(node.Expr)
+			return so.transform(node.Expr)
 		}
 	case *parser.BinaryExpr:
-		if expr, ok = so.optimize(node.LHS); ok {
+		if expr, ok = so.transform(node.LHS); ok {
 			node.LHS = expr
 		}
-		if expr, ok = so.optimize(node.RHS); ok {
+		if expr, ok = so.transform(node.RHS); ok {
 			node.RHS = expr
 		}
 		if expr, ok = so.binaryop(node.Token, node.LHS, node.RHS); ok {
@@ -612,7 +594,7 @@ func (so *SimpleOptimizer) optimize(node parser.Node) (parser.Expr, bool) {
 		}
 		return so.evalExpr(node)
 	case *parser.UnaryExpr:
-		if expr, ok = so.optimize(node.Expr); ok {
+		if expr, ok = so.transform(node.Expr); ok {
 			node.Expr = expr
 		}
 		if expr, ok = so.unaryop(node.Token, node.Expr); ok {
@@ -622,15 +604,15 @@ func (so *SimpleOptimizer) optimize(node parser.Node) (parser.Expr, bool) {
 		return so.evalExpr(node)
 	case *parser.IfStmt:
 		if node.Init != nil {
-			_, _ = so.optimize(node.Init)
+			_, _ = so.transform(node.Init)
 		}
-		if expr, ok = so.optimize(node.Cond); ok {
+		if expr, ok = so.transform(node.Cond); ok {
 			node.Cond = expr
 		}
 		if expr, ok = so.evalExpr(node.Cond); ok {
 			node.Cond = expr
 		}
-		if falsy, ok := isLitFalsy(node.Cond); ok {
+		if falsy, ok := isLiteralFalsy(node.Cond); ok {
 			// convert expression to BoolLit so that Compiler skips if block
 			node.Cond = &parser.BoolLit{
 				Value:    !falsy,
@@ -639,32 +621,32 @@ func (so *SimpleOptimizer) optimize(node parser.Node) (parser.Expr, bool) {
 			}
 		}
 		if node.Body != nil {
-			_, _ = so.optimize(node.Body)
+			_, _ = so.transform(node.Body)
 		}
 		if node.Else != nil {
-			_, _ = so.optimize(node.Else)
+			_, _ = so.transform(node.Else)
 		}
 	case *parser.TryStmt:
 		if node.Body != nil {
-			_, _ = so.optimize(node.Body)
+			_, _ = so.transform(node.Body)
 		}
 		if node.Catch != nil {
-			_, _ = so.optimize(node.Catch)
+			_, _ = so.transform(node.Catch)
 		}
 		if node.Finally != nil {
-			_, _ = so.optimize(node.Finally)
+			_, _ = so.transform(node.Finally)
 		}
 	case *parser.CatchStmt:
 		if node.Body != nil {
-			_, _ = so.optimize(node.Body)
+			_, _ = so.transform(node.Body)
 		}
 	case *parser.FinallyStmt:
 		if node.Body != nil {
-			_, _ = so.optimize(node.Body)
+			_, _ = so.transform(node.Body)
 		}
 	case *parser.ThrowStmt:
 		if node.Expr != nil {
-			if expr, ok = so.optimize(node.Expr); ok {
+			if expr, ok = so.transform(node.Expr); ok {
 				node.Expr = expr
 			}
 			if expr, ok = so.evalExpr(node.Expr); ok {
@@ -673,26 +655,26 @@ func (so *SimpleOptimizer) optimize(node parser.Node) (parser.Expr, bool) {
 		}
 	case *parser.ForStmt:
 		if node.Init != nil {
-			_, _ = so.optimize(node.Init)
+			_, _ = so.transform(node.Init)
 		}
 		if node.Cond != nil {
-			if expr, ok = so.optimize(node.Cond); ok {
+			if expr, ok = so.transform(node.Cond); ok {
 				node.Cond = expr
 			}
 		}
 		if node.Post != nil {
-			_, _ = so.optimize(node.Post)
+			_, _ = so.transform(node.Post)
 		}
 		if node.Body != nil {
-			_, _ = so.optimize(node.Body)
+			_, _ = so.transform(node.Body)
 		}
 	case *parser.ForInStmt:
 		if node.Body != nil {
-			_, _ = so.optimize(node.Body)
+			_, _ = so.transform(node.Body)
 		}
 	case *parser.BlockStmt:
 		for _, stmt := range node.Stmts {
-			_, _ = so.optimize(stmt)
+			_, _ = so.transform(stmt)
 		}
 	case *parser.AssignStmt:
 		for _, lhs := range node.LHS {
@@ -701,7 +683,7 @@ func (so *SimpleOptimizer) optimize(node parser.Node) (parser.Expr, bool) {
 			}
 		}
 		for i, rhs := range node.RHS {
-			if expr, ok = so.optimize(rhs); ok {
+			if expr, ok = so.transform(rhs); ok {
 				node.RHS[i] = expr
 			}
 		}
@@ -725,7 +707,7 @@ func (so *SimpleOptimizer) optimize(node parser.Node) (parser.Expr, bool) {
 					so.scope.define(spec.Idents[i].Name)
 					if i < len(spec.Values) && spec.Values[i] != nil {
 						v := spec.Values[i]
-						if expr, ok = so.optimize(v); ok {
+						if expr, ok = so.transform(v); ok {
 							spec.Values[i] = expr
 							v = expr
 						}
@@ -738,7 +720,7 @@ func (so *SimpleOptimizer) optimize(node parser.Node) (parser.Expr, bool) {
 		}
 	case *parser.ArrayLit:
 		for i := range node.Elements {
-			if expr, ok = so.optimize(node.Elements[i]); ok {
+			if expr, ok = so.transform(node.Elements[i]); ok {
 				node.Elements[i] = expr
 			}
 			if expr, ok = so.evalExpr(node.Elements[i]); ok {
@@ -747,7 +729,7 @@ func (so *SimpleOptimizer) optimize(node parser.Node) (parser.Expr, bool) {
 		}
 	case *parser.MapLit:
 		for i := range node.Elements {
-			if expr, ok = so.optimize(node.Elements[i].Value); ok {
+			if expr, ok = so.transform(node.Elements[i].Value); ok {
 				node.Elements[i].Value = expr
 			}
 			if expr, ok = so.evalExpr(node.Elements[i].Value); ok {
@@ -755,7 +737,7 @@ func (so *SimpleOptimizer) optimize(node parser.Node) (parser.Expr, bool) {
 			}
 		}
 	case *parser.IndexExpr:
-		if expr, ok = so.optimize(node.Index); ok {
+		if expr, ok = so.transform(node.Index); ok {
 			node.Index = expr
 		}
 		if expr, ok = so.evalExpr(node.Index); ok {
@@ -763,7 +745,7 @@ func (so *SimpleOptimizer) optimize(node parser.Node) (parser.Expr, bool) {
 		}
 	case *parser.SliceExpr:
 		if node.Low != nil {
-			if expr, ok = so.optimize(node.Low); ok {
+			if expr, ok = so.transform(node.Low); ok {
 				node.Low = expr
 			}
 			if expr, ok = so.evalExpr(node.Low); ok {
@@ -771,7 +753,7 @@ func (so *SimpleOptimizer) optimize(node parser.Node) (parser.Expr, bool) {
 			}
 		}
 		if node.High != nil {
-			if expr, ok = so.optimize(node.High); ok {
+			if expr, ok = so.transform(node.High); ok {
 				node.High = expr
 			}
 			if expr, ok = so.evalExpr(node.High); ok {
@@ -779,17 +761,21 @@ func (so *SimpleOptimizer) optimize(node parser.Node) (parser.Expr, bool) {
 			}
 		}
 	case *parser.FuncLit:
+		if so.scope.handleConstLits {
+			return nil, false
+		}
+
 		so.enterScope()
 		defer so.leaveScope()
 		for _, ident := range node.Type.Params.List {
 			so.scope.define(ident.Name)
 		}
 		if node.Body != nil {
-			_, _ = so.optimize(node.Body)
+			_, _ = so.transform(node.Body)
 		}
 	case *parser.ReturnStmt:
 		if node.Result != nil {
-			if expr, ok = so.optimize(node.Result); ok {
+			if expr, ok = so.transform(node.Result); ok {
 				node.Result = expr
 			}
 			if expr, ok = so.evalExpr(node.Result); ok {
@@ -798,10 +784,10 @@ func (so *SimpleOptimizer) optimize(node parser.Node) (parser.Expr, bool) {
 		}
 	case *parser.CallExpr:
 		if node.Func != nil {
-			_, _ = so.optimize(node.Func)
+			_, _ = so.transform(node.Func)
 		}
 		for i := range node.Args {
-			if expr, ok = so.optimize(node.Args[i]); ok {
+			if expr, ok = so.transform(node.Args[i]); ok {
 				node.Args[i] = expr
 			}
 			if expr, ok = so.evalExpr(node.Args[i]); ok {
@@ -809,13 +795,13 @@ func (so *SimpleOptimizer) optimize(node parser.Node) (parser.Expr, bool) {
 			}
 		}
 	case *parser.CondExpr:
-		if expr, ok = so.optimize(node.Cond); ok {
+		if expr, ok = so.transform(node.Cond); ok {
 			node.Cond = expr
 		}
 		if expr, ok = so.evalExpr(node.Cond); ok {
 			node.Cond = expr
 		}
-		if falsy, ok := isLitFalsy(node.Cond); ok {
+		if falsy, ok := isLiteralFalsy(node.Cond); ok {
 			// convert expression to BoolLit so that Compiler skips expressions
 			node.Cond = &parser.BoolLit{
 				Value:    !falsy,
@@ -824,17 +810,24 @@ func (so *SimpleOptimizer) optimize(node parser.Node) (parser.Expr, bool) {
 			}
 		}
 
-		if expr, ok = so.optimize(node.True); ok {
+		if expr, ok = so.transform(node.True); ok {
 			node.True = expr
 		}
 		if expr, ok = so.evalExpr(node.True); ok {
 			node.True = expr
 		}
-		if expr, ok = so.optimize(node.False); ok {
+		if expr, ok = so.transform(node.False); ok {
 			node.False = expr
 		}
 		if expr, ok = so.evalExpr(node.False); ok {
 			node.False = expr
+		}
+	case *parser.Ident:
+		if so.scope.handleConstLits && hasAnyConstLit(so.compSymTab) {
+			s := findSymbolWithScope(so.compSymTab, node.Name, ScopeConstLit)
+			if s != nil && s.Assigned && s.Constant {
+				return s.constLit.toExpr(), true
+			}
 		}
 	}
 	return nil, false
@@ -854,7 +847,7 @@ func (so *SimpleOptimizer) Total() int {
 }
 
 func (so *SimpleOptimizer) error(node parser.Node, err error) error {
-	pos := so.file.InputFile.Set().Position(node.Pos())
+	pos := so.file.Set().Position(node.Pos())
 	return &OptimizerError{
 		FilePos: pos,
 		Node:    node,
@@ -862,7 +855,7 @@ func (so *SimpleOptimizer) error(node parser.Node, err error) error {
 	}
 }
 
-func (so *SimpleOptimizer) printTraceMsgf(format string, args ...interface{}) {
+func (so *SimpleOptimizer) printTraceMsgf(format string, args ...any) {
 	const (
 		dots = ". . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . "
 		n    = len(dots)
@@ -898,7 +891,7 @@ func isObjectConstant(obj Object) bool {
 	return false
 }
 
-func isLitFalsy(expr parser.Expr) (bool, bool) {
+func isLiteralFalsy(expr parser.Expr) (bool, bool) {
 	if expr == nil {
 		return false, false
 	}
@@ -922,41 +915,139 @@ func isLitFalsy(expr parser.Expr) (bool, bool) {
 	return false, false
 }
 
-type multipleErr []error
-
-func (m multipleErr) Errors() []error {
-	return m
+type optimizerEval struct {
+	vm         *VM
+	compiler   Compiler
+	global     Map
+	symtab     *SymbolTable
+	returnStmt parser.ReturnStmt
 }
 
-func (m multipleErr) Error() string {
-	if len(m) == 0 {
-		return ""
+func (ev *optimizerEval) resetCompiler(so *SimpleOptimizer) {
+	if ev.symtab == nil {
+		ev.symtab = NewSymbolTable()
+	} else {
+		ev.symtab.reset()
 	}
-	return m[0].Error()
+
+	ev.symtab.EnableParams(false)
+	optimCopyBuiltinStates(ev.symtab, so.compSymTab)
+	optimCopyBuiltinStatesFromScope(ev.symtab, so.scope)
+
+	ev.compiler = Compiler{
+		file:          so.file,
+		constants:     ev.compiler.constants[:0],
+		symbolTable:   ev.symtab,
+		constsCache:   ev.compiler.constsCache,
+		cfuncCache:    ev.compiler.cfuncCache,
+		instructions:  ev.compiler.instructions[:0],
+		sourceMap:     ev.compiler.sourceMap,
+		moduleMap:     ev.compiler.moduleMap,
+		moduleStore:   ev.compiler.moduleStore,
+		loops:         ev.compiler.loops[:0],
+		loopIndex:     -1,
+		tryCatchIndex: -1,
+		iotaVal:       -1,
+		indent:        so.indent,
+		trace:         so.trace,
+	}
+
+	if ev.compiler.opts == nil {
+		ev.compiler.opts = new(CompilerOptions)
+	}
+
+	*ev.compiler.opts = CompilerOptions{
+		Trace:         so.trace,
+		TraceCompiler: so.traceCompiler,
+		TraceParser:   so.traceParser,
+		NoOptimize:    true,
+	}
+
+	if ev.compiler.constsCache == nil {
+		ev.compiler.constsCache = make(map[Object]int)
+	} else {
+		for k := range ev.compiler.constsCache {
+			delete(ev.compiler.constsCache, k)
+		}
+	}
+
+	if ev.compiler.cfuncCache == nil {
+		ev.compiler.cfuncCache = make(map[uint32][]int)
+	} else {
+		for k := range ev.compiler.cfuncCache {
+			delete(ev.compiler.cfuncCache, k)
+		}
+	}
+
+	if ev.compiler.sourceMap == nil {
+		ev.compiler.sourceMap = make(map[int]int)
+	} else {
+		for k := range ev.compiler.sourceMap {
+			delete(ev.compiler.sourceMap, k)
+		}
+	}
+
+	if ev.compiler.moduleStore == nil {
+		ev.compiler.moduleStore = new(moduleStore)
+	} else {
+		ev.compiler.moduleStore.reset()
+	}
 }
 
-func (m multipleErr) Format(s fmt.State, verb rune) {
-	switch verb {
-	case 'v', 's':
-		if len(m) == 0 {
-			return
+func (ev *optimizerEval) eval(so *SimpleOptimizer, expr parser.Expr) (Object, bool) {
+	ev.resetCompiler(so)
+
+	ev.returnStmt.Result = expr
+
+	istrace := so.trace != nil
+	if err := ev.compiler.Compile(&ev.returnStmt); err != nil {
+		if istrace {
+			so.printTraceMsgf("compile error: %s", err)
 		}
-		if len(m) > 1 {
-			_, _ = fmt.Fprint(s, "multiple errors:\n ")
-		}
-		switch {
-		case s.Flag('+'):
-			_, _ = fmt.Fprint(s, m[0].Error())
-			for _, err := range m[1:] {
-				_, _ = fmt.Fprint(s, "\n ")
-				_, _ = fmt.Fprint(s, err.Error())
-			}
-		case s.Flag('#'):
-			_, _ = fmt.Fprintf(s, "%#v", []error(m))
-		default:
-			_, _ = fmt.Fprint(s, m.Error())
-		}
-	case 'q':
-		_, _ = fmt.Fprintf(s, "%q", m.Error())
+		return nil, false
 	}
+
+	bytecode := ev.compiler.Bytecode()
+
+	if !canOptimizeInsts(bytecode.Constants, bytecode.Main.Instructions) {
+		if istrace {
+			so.printTraceMsgf("cannot optimize instructions")
+		}
+		return nil, false
+	}
+	if ev.vm == nil {
+		ev.vm = NewVM(nil).SetRecover(true)
+	}
+	defer ev.vm.Abort()
+
+	if ev.global == nil {
+		ev.global = Map{}
+	} else {
+		for k := range ev.global {
+			delete(ev.global, k)
+		}
+	}
+
+	var startTime time.Time
+	if istrace {
+		so.printTraceMsgf("run vm")
+		startTime = time.Now()
+	}
+
+	obj, err := ev.vm.SetBytecode(bytecode).Run(ev.global)
+
+	if istrace {
+		so.printTraceMsgf("vm run time: %s", time.Since(startTime))
+	}
+
+	if err != nil {
+		if istrace {
+			so.printTraceMsgf("eval error: %s", err)
+		}
+		if !errors.Is(err, ErrVMAborted) {
+			so.errors = append(so.errors, so.error(expr, err))
+		}
+		return nil, false
+	}
+	return obj, true
 }

@@ -1,4 +1,4 @@
-// Copyright (c) 2020-2023 Ozan Hacıbekiroğlu.
+// Copyright (c) 2020-2025 Ozan Hacıbekiroğlu.
 // Use of this source code is governed by a MIT License
 // that can be found in the LICENSE file.
 
@@ -25,7 +25,7 @@ type Stmt interface {
 }
 
 // IsStatement returns true if given value is implements interface{ stmtNode() }.
-func IsStatement(v interface{}) bool {
+func IsStatement(v any) bool {
 	_, ok := v.(interface {
 		stmtNode()
 	})

@@ -1,6 +1,6 @@
 // A modified version of Go's json implementation.
 
-// Copyright (c) 2022-2023 Ozan Hacıbekiroğlu.
+// Copyright (c) 2022-2025 Ozan Hacıbekiroğlu.
 // Use of this source code is governed by a MIT License
 // that can be found in the LICENSE file.
 
@@ -104,11 +104,11 @@ type encodeState struct {
 	// startDetectingCyclesAfter, so that we skip the work if we're within a
 	// reasonable amount of nested pointers deep.
 	ptrLevel uint
-	ptrSeen  map[interface{}]struct{}
+	ptrSeen  map[any]struct{}
 }
 
 func newEncodeState() *encodeState {
-	return &encodeState{ptrSeen: make(map[interface{}]struct{})}
+	return &encodeState{ptrSeen: make(map[any]struct{})}
 }
 
 // jsonError is an error wrapper type for internal use only.
@@ -301,7 +301,7 @@ func mapEncoder(e *encodeState, v ugo.Object, opts encOpts) {
 	}
 	if e.ptrLevel++; e.ptrLevel > startDetectingCyclesAfter {
 		// Start checking if we've run into a pointer cycle.
-		var ptr interface{}
+		var ptr any
 		if _, ok := v.(ugo.Map); ok {
 			ptr = reflect.ValueOf(v).Pointer()
 		} else { // *SyncMap

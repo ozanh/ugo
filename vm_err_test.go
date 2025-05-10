@@ -5,8 +5,9 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/ozanh/ugo/parser"
 	"github.com/stretchr/testify/require"
+
+	"github.com/ozanh/ugo/parser"
 
 	. "github.com/ozanh/ugo"
 )
@@ -122,7 +123,8 @@ func TestVMErrorHandlers(t *testing.T) {
 	require.Equal(t, parser.Pos(54), errZeroDiv.Trace[1])
 
 	errZeroDiv = nil
-	expectErrAs(t, `func(x) { return 1/x }(0)`, newOpts().Skip2Pass(), &errZeroDiv, nil)
+	expectErrAs(t, `func(x) { return 1/x }(0)`, newOpts().Skip1Pass(), &errZeroDiv, nil)
+	require.NotNil(t, errZeroDiv)
 	require.NotNil(t, errZeroDiv.Err)
 	require.Equal(t, "", errZeroDiv.Err.Message)
 	require.Equal(t, nil, errZeroDiv.Err.Cause)
@@ -131,7 +133,7 @@ func TestVMErrorHandlers(t *testing.T) {
 	require.Equal(t, parser.Pos(1), errZeroDiv.Trace[1])
 
 	errZeroDiv = nil
-	expectErrAs(t, `1/0`, newOpts().Skip2Pass(), &errZeroDiv, nil)
+	expectErrAs(t, `1/0`, newOpts().Skip2Pass().CompilerError(), &errZeroDiv, nil)
 	require.NotNil(t, invOpErr.Err)
 	require.Equal(t, "", errZeroDiv.Err.Message)
 	require.Equal(t, nil, errZeroDiv.Err.Cause)

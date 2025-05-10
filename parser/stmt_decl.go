@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE.golang file.
 
-// Copyright (c) 2020-2023 Ozan Hacıbekiroğlu.
+// Copyright (c) 2020-2025 Ozan Hacıbekiroğlu.
 // Use of this source code is governed by a MIT License
 // that can be found in the LICENSE file.
 
@@ -28,9 +28,9 @@ type (
 
 	// A ValueSpec node represents a variable declaration
 	ValueSpec struct {
-		Idents []*Ident    // TODO: slice is reserved for tuple assignment
-		Values []Expr      // initial values; or nil
-		Data   interface{} // iota
+		Idents []*Ident // TODO: slice is reserved for tuple assignment
+		Values []Expr   // initial values; or nil
+		Data   any      // iota
 	}
 
 	// A ParamSpec node represents a parameter declaration

@@ -1,4 +1,4 @@
-// Copyright (c) 2020-2023 Ozan Hacıbekiroğlu.
+// Copyright (c) 2020-2025 Ozan Hacıbekiroğlu.
 // Use of this source code is governed by a MIT License
 // that can be found in the LICENSE file.
 
@@ -15,18 +15,18 @@ import (
 
 func init() {
 	registry.RegisterObjectConverter(reflect.TypeOf(time.Duration(0)),
-		func(in interface{}) (interface{}, bool) {
+		func(in any) (any, bool) {
 			return ugo.Int(in.(time.Duration)), true
 		},
 	)
 
 	registry.RegisterObjectConverter(reflect.TypeOf(time.Time{}),
-		func(in interface{}) (interface{}, bool) {
+		func(in any) (any, bool) {
 			return &Time{Value: in.(time.Time)}, true
 		},
 	)
 	registry.RegisterObjectConverter(reflect.TypeOf((*time.Time)(nil)),
-		func(in interface{}) (interface{}, bool) {
+		func(in any) (any, bool) {
 			v := in.(*time.Time)
 			if v == nil {
 				return ugo.Undefined, true
@@ -35,13 +35,13 @@ func init() {
 		},
 	)
 	registry.RegisterAnyConverter(reflect.TypeOf((*Time)(nil)),
-		func(in interface{}) (interface{}, bool) {
+		func(in any) (any, bool) {
 			return in.(*Time).Value, true
 		},
 	)
 
 	registry.RegisterObjectConverter(reflect.TypeOf((*time.Location)(nil)),
-		func(in interface{}) (interface{}, bool) {
+		func(in any) (any, bool) {
 			v := in.(*time.Location)
 			if v == nil {
 				return ugo.Undefined, true
@@ -50,7 +50,7 @@ func init() {
 		},
 	)
 	registry.RegisterAnyConverter(reflect.TypeOf((*Location)(nil)),
-		func(in interface{}) (interface{}, bool) {
+		func(in any) (any, bool) {
 			return in.(*Location).Value, true
 		},
 	)

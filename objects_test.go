@@ -7,8 +7,9 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	. "github.com/ozanh/ugo"
 	"github.com/ozanh/ugo/token"
+
+	. "github.com/ozanh/ugo"
 )
 
 func TestObjects(t *testing.T) {
@@ -245,7 +246,7 @@ func TestObjectCopier(t *testing.T) {
 }
 
 func TestObjectImpl(t *testing.T) {
-	var o interface{} = ObjectImpl{}
+	var o any = ObjectImpl{}
 	if _, ok := o.(Object); !ok {
 		t.Fatal("ObjectImpl must implement Object interface")
 	}

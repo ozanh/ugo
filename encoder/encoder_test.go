@@ -55,19 +55,19 @@ func TestEncDecObjects(t *testing.T) {
 	}
 
 	boolObjects := []ugo.Bool{ugo.True, ugo.False, ugo.Bool(true), ugo.Bool(false)}
-	for _, tC := range boolObjects {
-		msg := fmt.Sprintf("Bool(%v)", tC)
-		data, err := Bool(tC).MarshalBinary()
+	for _, tt := range boolObjects {
+		msg := fmt.Sprintf("Bool(%v)", tt)
+		data, err := Bool(tt).MarshalBinary()
 		require.NoError(t, err, msg)
 		require.Greater(t, len(data), 0, msg)
 		var v Bool
 		err = v.UnmarshalBinary(data)
 		require.NoError(t, err, msg)
-		require.Equal(t, Bool(tC), v, msg)
+		require.Equal(t, Bool(tt), v, msg)
 
 		obj, err := DecodeObject(bytes.NewReader(data))
 		require.NoError(t, err, msg)
-		require.Equal(t, tC, obj, msg)
+		require.Equal(t, tt, obj, msg)
 	}
 
 	intObjects := []ugo.Int{
@@ -81,19 +81,19 @@ func TestEncDecObjects(t *testing.T) {
 			intObjects = append(intObjects, ugo.Int(v))
 		}
 	}
-	for _, tC := range intObjects {
-		msg := fmt.Sprintf("Int(%v)", tC)
-		data, err := Int(tC).MarshalBinary()
+	for _, tt := range intObjects {
+		msg := fmt.Sprintf("Int(%v)", tt)
+		data, err := Int(tt).MarshalBinary()
 		require.NoError(t, err, msg)
 		require.Greater(t, len(data), 0, msg)
 		var v Int
 		err = v.UnmarshalBinary(data)
 		require.NoError(t, err, msg)
-		require.Equal(t, Int(tC), v, msg)
+		require.Equal(t, Int(tt), v, msg)
 
 		obj, err := DecodeObject(bytes.NewReader(data))
 		require.NoError(t, err, msg)
-		require.Equal(t, tC, obj, msg)
+		require.Equal(t, tt, obj, msg)
 	}
 
 	uintObjects := []ugo.Uint{ugo.Uint(0), ugo.Uint(1), ^ugo.Uint(0)}
@@ -101,19 +101,19 @@ func TestEncDecObjects(t *testing.T) {
 		v := seededRand.Uint64()
 		uintObjects = append(uintObjects, ugo.Uint(v))
 	}
-	for _, tC := range uintObjects {
-		msg := fmt.Sprintf("Uint(%v)", tC)
-		data, err := Uint(tC).MarshalBinary()
+	for _, tt := range uintObjects {
+		msg := fmt.Sprintf("Uint(%v)", tt)
+		data, err := Uint(tt).MarshalBinary()
 		require.NoError(t, err, msg)
 		require.Greater(t, len(data), 0, msg)
 		var v Uint
 		err = v.UnmarshalBinary(data)
 		require.NoError(t, err, msg)
-		require.Equal(t, Uint(tC), v, msg)
+		require.Equal(t, Uint(tt), v, msg)
 
 		obj, err := DecodeObject(bytes.NewReader(data))
 		require.NoError(t, err, msg)
-		require.Equal(t, tC, obj, msg)
+		require.Equal(t, tt, obj, msg)
 	}
 
 	charObjects := []ugo.Char{ugo.Char(0)}
@@ -121,19 +121,19 @@ func TestEncDecObjects(t *testing.T) {
 		v := seededRand.Int31()
 		charObjects = append(charObjects, ugo.Char(v))
 	}
-	for _, tC := range charObjects {
-		msg := fmt.Sprintf("Char(%v)", tC)
-		data, err := Char(tC).MarshalBinary()
+	for _, tt := range charObjects {
+		msg := fmt.Sprintf("Char(%v)", tt)
+		data, err := Char(tt).MarshalBinary()
 		require.NoError(t, err, msg)
 		require.Greater(t, len(data), 0, msg)
 		var v Char
 		err = v.UnmarshalBinary(data)
 		require.NoError(t, err, msg)
-		require.Equal(t, Char(tC), v, msg)
+		require.Equal(t, Char(tt), v, msg)
 
 		obj, err := DecodeObject(bytes.NewReader(data))
 		require.NoError(t, err, msg)
-		require.Equal(t, tC, obj, msg)
+		require.Equal(t, tt, obj, msg)
 	}
 
 	floatObjects := []ugo.Float{ugo.Float(0), ugo.Float(-1)}
@@ -142,26 +142,26 @@ func TestEncDecObjects(t *testing.T) {
 		floatObjects = append(floatObjects, ugo.Float(v))
 	}
 	floatObjects = append(floatObjects, ugo.Float(math.NaN()))
-	for _, tC := range floatObjects {
-		msg := fmt.Sprintf("Float(%v)", tC)
-		data, err := Float(tC).MarshalBinary()
+	for _, tt := range floatObjects {
+		msg := fmt.Sprintf("Float(%v)", tt)
+		data, err := Float(tt).MarshalBinary()
 		require.NoError(t, err, msg)
 		require.Greater(t, len(data), 0, msg)
 		var v Float
 		err = v.UnmarshalBinary(data)
 		require.NoError(t, err, msg)
-		if math.IsNaN(float64(tC)) {
+		if math.IsNaN(float64(tt)) {
 			require.True(t, math.IsNaN(float64(v)))
 		} else {
-			require.Equal(t, Float(tC), v, msg)
+			require.Equal(t, Float(tt), v, msg)
 		}
 
 		obj, err := DecodeObject(bytes.NewReader(data))
 		require.NoError(t, err, msg)
-		if math.IsNaN(float64(tC)) {
+		if math.IsNaN(float64(tt)) {
 			require.True(t, math.IsNaN(float64(obj.(ugo.Float))))
 		} else {
-			require.Equal(t, tC, obj, msg)
+			require.Equal(t, tt, obj, msg)
 		}
 	}
 	// remove NaN from Floats slice, array tests below requires NaN check otherwise fails.
@@ -171,38 +171,38 @@ func TestEncDecObjects(t *testing.T) {
 	for i := 0; i < 1000; i++ {
 		stringObjects = append(stringObjects, ugo.String(randString(i)))
 	}
-	for _, tC := range stringObjects {
-		msg := fmt.Sprintf("String(%v)", tC)
-		data, err := String(tC).MarshalBinary()
+	for _, tt := range stringObjects {
+		msg := fmt.Sprintf("String(%v)", tt)
+		data, err := String(tt).MarshalBinary()
 		require.NoError(t, err, msg)
 		require.Greater(t, len(data), 0, msg)
 		var v String
 		err = v.UnmarshalBinary(data)
 		require.NoError(t, err, msg)
-		require.Equal(t, String(tC), v, msg)
+		require.Equal(t, String(tt), v, msg)
 
 		obj, err := DecodeObject(bytes.NewReader(data))
 		require.NoError(t, err, msg)
-		require.Equal(t, tC, obj, msg)
+		require.Equal(t, tt, obj, msg)
 	}
 
 	bytesObjects := []ugo.Bytes{{}, ugo.Bytes("çığöşü")}
 	for i := 0; i < 1000; i++ {
 		bytesObjects = append(bytesObjects, ugo.Bytes(randString(i)))
 	}
-	for _, tC := range bytesObjects {
-		msg := fmt.Sprintf("Bytes(%v)", tC)
-		data, err := Bytes(tC).MarshalBinary()
+	for _, tt := range bytesObjects {
+		msg := fmt.Sprintf("Bytes(%v)", tt)
+		data, err := Bytes(tt).MarshalBinary()
 		require.NoError(t, err, msg)
 		require.Greater(t, len(data), 0, msg)
 		var v = Bytes{}
 		err = v.UnmarshalBinary(data)
 		require.NoError(t, err, msg)
-		require.Equal(t, Bytes(tC), v, msg)
+		require.Equal(t, Bytes(tt), v, msg)
 
 		obj, err := DecodeObject(bytes.NewReader(data))
 		require.NoError(t, err, msg)
-		require.Equal(t, tC, obj, msg)
+		require.Equal(t, tt, obj, msg)
 	}
 
 	arrays := []ugo.Array{}
@@ -243,19 +243,19 @@ func TestEncDecObjects(t *testing.T) {
 	arrays = append(arrays, temp7)
 	arrays = append(arrays, ugo.Array{ugo.Undefined})
 
-	for _, tC := range arrays {
-		msg := fmt.Sprintf("Array(%v)", tC)
-		data, err := Array(tC).MarshalBinary()
+	for _, tt := range arrays {
+		msg := fmt.Sprintf("Array(%v)", tt)
+		data, err := Array(tt).MarshalBinary()
 		require.NoError(t, err, msg)
 		require.Greater(t, len(data), 0, msg)
 		var v = ugo.Array{}
 		err = (*Array)(&v).UnmarshalBinary(data)
 		require.NoError(t, err, msg)
-		require.Equal(t, tC, v, msg)
+		require.Equal(t, tt, v, msg)
 
 		obj, err := DecodeObject(bytes.NewReader(data))
 		require.NoError(t, err, msg)
-		require.Equal(t, tC, obj, msg)
+		require.Equal(t, tt, obj, msg)
 	}
 
 	maps := []ugo.Map{}
@@ -267,38 +267,38 @@ func TestEncDecObjects(t *testing.T) {
 		maps = append(maps, m)
 	}
 
-	for _, tC := range maps {
-		msg := fmt.Sprintf("Map(%v)", tC)
-		data, err := Map(tC).MarshalBinary()
+	for _, tt := range maps {
+		msg := fmt.Sprintf("Map(%v)", tt)
+		data, err := Map(tt).MarshalBinary()
 		require.NoError(t, err, msg)
 		require.Greater(t, len(data), 0, msg)
 		var v = ugo.Map{}
 		err = (*Map)(&v).UnmarshalBinary(data)
 		require.NoError(t, err, msg)
-		require.Equal(t, tC, v, msg)
+		require.Equal(t, tt, v, msg)
 
 		obj, err := DecodeObject(bytes.NewReader(data))
 		require.NoError(t, err, msg)
-		require.Equal(t, tC, obj, msg)
+		require.Equal(t, tt, obj, msg)
 	}
 
 	syncMaps := []*ugo.SyncMap{}
 	for _, m := range maps {
 		syncMaps = append(syncMaps, &ugo.SyncMap{Value: m})
 	}
-	for _, tC := range syncMaps {
-		msg := fmt.Sprintf("SyncMap(%v)", tC)
-		data, err := (*SyncMap)(tC).MarshalBinary()
+	for _, tt := range syncMaps {
+		msg := fmt.Sprintf("SyncMap(%v)", tt)
+		data, err := (*SyncMap)(tt).MarshalBinary()
 		require.NoError(t, err, msg)
 		require.Greater(t, len(data), 0, msg)
 		var v = &ugo.SyncMap{}
 		err = (*SyncMap)(v).UnmarshalBinary(data)
 		require.NoError(t, err, msg)
-		require.Equal(t, tC, v, msg)
+		require.Equal(t, tt, v, msg)
 
 		obj, err := DecodeObject(bytes.NewReader(data))
 		require.NoError(t, err, msg)
-		require.Equal(t, tC, obj, msg)
+		require.Equal(t, tt, obj, msg)
 	}
 
 	compFuncs := []*ugo.CompiledFunction{
@@ -326,19 +326,19 @@ func TestEncDecObjects(t *testing.T) {
 			withSourceMap(map[int]int{0: 1, 3: 1, 5: 1}),
 		),
 	}
-	for i, tC := range compFuncs {
+	for i, tt := range compFuncs {
 		msg := fmt.Sprintf("CompiledFunction #%d", i)
-		data, err := (*CompiledFunction)(tC).MarshalBinary()
+		data, err := (*CompiledFunction)(tt).MarshalBinary()
 		require.NoError(t, err, msg)
 		require.Greater(t, len(data), 0, msg)
 		var v = &ugo.CompiledFunction{}
 		err = (*CompiledFunction)(v).UnmarshalBinary(data)
 		require.NoError(t, err, msg)
-		require.Equal(t, tC, v, msg)
+		require.Equal(t, tt, v, msg)
 
 		obj, err := DecodeObject(bytes.NewReader(data))
 		require.NoError(t, err, msg)
-		require.Equal(t, tC, obj, msg)
+		require.Equal(t, tt, obj, msg)
 	}
 
 	builtinFuncs := []*BuiltinFunction{}
@@ -347,20 +347,20 @@ func TestEncDecObjects(t *testing.T) {
 			builtinFuncs = append(builtinFuncs, f)
 		}
 	}
-	for _, tC := range builtinFuncs {
-		msg := fmt.Sprintf("BuiltinFunction %s", tC.Name)
-		data, err := tC.MarshalBinary()
+	for _, tt := range builtinFuncs {
+		msg := fmt.Sprintf("BuiltinFunction %s", tt.Name)
+		data, err := tt.MarshalBinary()
 		require.NoError(t, err, msg)
 		require.Greater(t, len(data), 0, msg)
 		var v = &ugo.BuiltinFunction{}
 		err = (*BuiltinFunction)(v).UnmarshalBinary(data)
 		require.NoError(t, err, msg)
-		require.Equal(t, tC.Name, v.Name)
+		require.Equal(t, tt.Name, v.Name)
 		require.NotNil(t, v.Value)
 
 		obj, err := DecodeObject(bytes.NewReader(data))
 		require.NoError(t, err, msg)
-		require.Equal(t, tC.Name, obj.(*BuiltinFunction).Name, msg)
+		require.Equal(t, tt.Name, obj.(*BuiltinFunction).Name, msg)
 		require.NotNil(t, obj.(*BuiltinFunction).Value, msg)
 	}
 
@@ -624,7 +624,7 @@ func (t *testopts) NoPanic() *testopts {
 	return t
 }
 
-func (t *testopts) Module(name string, module interface{}) *testopts {
+func (t *testopts) Module(name string, module any) *testopts {
 	if t.moduleMap == nil {
 		t.moduleMap = ugo.NewModuleMap()
 	}

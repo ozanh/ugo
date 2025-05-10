@@ -12,7 +12,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/ozanh/ugo/tests"
+	"github.com/ozanh/ugo/internal/tests"
 
 	. "github.com/ozanh/ugo"
 )
@@ -593,8 +593,12 @@ func TestVMBoolean(t *testing.T) {
 	expectRun(t, `return (true + false) + 20`, nil, Int(21))
 	expectRun(t, `return !(true + false)`, nil, False)
 	expectRun(t, `return !(true - false)`, nil, False)
-	expectErrIs(t, `return true/false`, nil, ErrZeroDivision)
-	expectErrIs(t, `return 1/false`, nil, ErrZeroDivision)
+
+	expectErrIs(t, `return true/false`, newOpts().Skip2Pass().CompilerError(), ErrZeroDivision)
+	expectErrIs(t, `return true/false`, newOpts().Skip1Pass(), ErrZeroDivision)
+
+	expectErrIs(t, `return 1/false`, newOpts().Skip2Pass().CompilerError(), ErrZeroDivision)
+	expectErrIs(t, `return 1/false`, newOpts().Skip1Pass(), ErrZeroDivision)
 }
 
 func TestVMUndefined(t *testing.T) {
@@ -750,9 +754,14 @@ func TestVMBuiltinFunction(t *testing.T) {
 	g = &SyncMap{Value: Map{"a": Int(1)}}
 	expectRun(t, `return contains(globals(), "a")`,
 		newOpts().Globals(g).Skip2Pass(), True)
-	expectErrIs(t, `contains()`, nil, ErrWrongNumArguments)
-	expectErrIs(t, `contains("", "", "")`, nil, ErrWrongNumArguments)
-	expectErrIs(t, `contains(1, 2)`, nil, ErrType)
+	expectErrIs(t, `contains()`, newOpts().Skip2Pass().CompilerError(), ErrWrongNumArguments)
+	expectErrIs(t, `contains()`, newOpts().Skip1Pass(), ErrWrongNumArguments)
+
+	expectErrIs(t, `contains("", "", "")`, newOpts().Skip2Pass().CompilerError(), ErrWrongNumArguments)
+	expectErrIs(t, `contains("", "", "")`, newOpts().Skip1Pass(), ErrWrongNumArguments)
+
+	expectErrIs(t, `contains(1, 2)`, newOpts().Skip2Pass().CompilerError(), ErrType)
+	expectErrIs(t, `contains(1, 2)`, newOpts().Skip1Pass(), ErrType)
 
 	expectRun(t, `return len(undefined)`, nil, Int(0))
 	expectRun(t, `return len(1)`, nil, Int(0))
@@ -772,7 +781,8 @@ func TestVMBuiltinFunction(t *testing.T) {
 	g = &SyncMap{Value: Map{"a": Int(5)}}
 	expectRun(t, `return len(globals())`,
 		newOpts().Globals(g).Skip2Pass(), Int(1))
-	expectErrIs(t, `len()`, nil, ErrWrongNumArguments)
+	expectErrIs(t, `len()`, newOpts().Skip2Pass().CompilerError(), ErrWrongNumArguments)
+	expectErrIs(t, `len()`, newOpts().Skip1Pass(), ErrWrongNumArguments)
 	expectErrIs(t, `len([], [])`, nil, ErrWrongNumArguments)
 
 	expectRun(t, `return cap(undefined)`, nil, Int(0))
@@ -827,8 +837,10 @@ func TestVMBuiltinFunction(t *testing.T) {
 		&Error{Name: "error", Message: "1"})
 	expectRun(t, `return error(undefined)`, nil,
 		&Error{Name: "error", Message: "undefined"})
-	expectErrIs(t, `error()`, nil, ErrWrongNumArguments)
-	expectErrIs(t, `error(1,2,3)`, nil, ErrWrongNumArguments)
+	expectErrIs(t, `error()`, newOpts().Skip2Pass().CompilerError(), ErrWrongNumArguments)
+	expectErrIs(t, `error()`, newOpts().Skip1Pass(), ErrWrongNumArguments)
+	expectErrIs(t, `error(1,2,3)`, newOpts().Skip2Pass().CompilerError(), ErrWrongNumArguments)
+	expectErrIs(t, `error(1,2,3)`, newOpts().Skip1Pass(), ErrWrongNumArguments)
 
 	expectRun(t, `return typeName(true)`, nil, String("bool"))
 	expectRun(t, `return typeName(undefined)`, nil, String("undefined"))
@@ -843,8 +855,10 @@ func TestVMBuiltinFunction(t *testing.T) {
 	expectRun(t, `return typeName(bytes())`, nil, String("bytes"))
 	expectRun(t, `return typeName(func(){})`, nil, String("compiledFunction"))
 	expectRun(t, `return typeName(append)`, nil, String("builtinFunction"))
-	expectErrIs(t, `typeName()`, nil, ErrWrongNumArguments)
-	expectErrIs(t, `typeName("", "")`, nil, ErrWrongNumArguments)
+	expectErrIs(t, `typeName()`, newOpts().Skip2Pass().CompilerError(), ErrWrongNumArguments)
+	expectErrIs(t, `typeName()`, newOpts().Skip1Pass(), ErrWrongNumArguments)
+	expectErrIs(t, `typeName("", "")`, newOpts().Skip2Pass().CompilerError(), ErrWrongNumArguments)
+	expectErrIs(t, `typeName("", "")`, newOpts().Skip1Pass(), ErrWrongNumArguments)
 
 	convs := []struct {
 		f      string
@@ -963,19 +977,19 @@ func TestVMBuiltinFunction(t *testing.T) {
 		}
 	}
 
-	expectErrIs(t, `int(1, 2)`, nil, ErrWrongNumArguments)
-	expectErrIs(t, `uint(1, 2)`, nil, ErrWrongNumArguments)
-	expectErrIs(t, `char(1, 2)`, nil, ErrWrongNumArguments)
-	expectErrIs(t, `float(1, 2)`, nil, ErrWrongNumArguments)
-	expectErrIs(t, `string(1, 2)`, nil, ErrWrongNumArguments)
-	expectErrIs(t, `chars(1, 2)`, nil, ErrWrongNumArguments)
+	expectErrIs(t, `int(1, 2)`, newOpts().Skip1Pass(), ErrWrongNumArguments)
+	expectErrIs(t, `uint(1, 2)`, newOpts().Skip1Pass(), ErrWrongNumArguments)
+	expectErrIs(t, `char(1, 2)`, newOpts().Skip1Pass(), ErrWrongNumArguments)
+	expectErrIs(t, `float(1, 2)`, newOpts().Skip1Pass(), ErrWrongNumArguments)
+	expectErrIs(t, `string(1, 2)`, newOpts().Skip1Pass(), ErrWrongNumArguments)
+	expectErrIs(t, `chars(1, 2)`, newOpts().Skip1Pass(), ErrWrongNumArguments)
 
-	expectErrIs(t, `int([])`, nil, ErrType)
-	expectErrIs(t, `uint([])`, nil, ErrType)
-	expectErrIs(t, `char([])`, nil, ErrType)
-	expectErrIs(t, `float([])`, nil, ErrType)
-	expectErrIs(t, `chars([])`, nil, ErrType)
-	expectErrIs(t, `bytes(1, 2, "")`, nil, ErrType)
+	expectErrIs(t, `int([])`, newOpts().Skip1Pass(), ErrType)
+	expectErrIs(t, `uint([])`, newOpts().Skip1Pass(), ErrType)
+	expectErrIs(t, `char([])`, newOpts().Skip1Pass(), ErrType)
+	expectErrIs(t, `float([])`, newOpts().Skip1Pass(), ErrType)
+	expectErrIs(t, `chars([])`, newOpts().Skip1Pass(), ErrType)
+	expectErrIs(t, `bytes(1, 2, "")`, newOpts().Skip1Pass(), ErrType)
 
 	type trueValues []string
 	type falseValues []string
@@ -1158,12 +1172,12 @@ func TestVMBuiltinFunction(t *testing.T) {
 		if isfunc.f != "isError" {
 			t.Run(fmt.Sprintf("%s#%d 2args", isfunc.f, i), func(t *testing.T) {
 				expectErrIs(t, fmt.Sprintf(`%s(undefined, undefined)`, isfunc.f),
-					nil, ErrWrongNumArguments)
+					newOpts().Skip1Pass(), ErrWrongNumArguments)
 			})
 		} else {
 			t.Run(fmt.Sprintf("%s#%d 3args", isfunc.f, i), func(t *testing.T) {
 				expectErrIs(t, fmt.Sprintf(`%s(undefined, undefined, undefined)`, isfunc.f),
-					nil, ErrWrongNumArguments)
+					newOpts().Skip1Pass(), ErrWrongNumArguments)
 			})
 		}
 	}
@@ -1224,8 +1238,8 @@ func TestVMBuiltinFunction(t *testing.T) {
 	expectRun(t, `return sprintf("test %d %t", 1, true)`,
 		newOpts().Skip2Pass(), String("test 1 true"))
 
-	expectErrIs(t, `printf()`, nil, ErrWrongNumArguments)
-	expectErrIs(t, `sprintf()`, nil, ErrWrongNumArguments)
+	expectErrIs(t, `printf()`, newOpts().Skip1Pass(), ErrWrongNumArguments)
+	expectErrIs(t, `sprintf()`, newOpts().Skip1Pass(), ErrWrongNumArguments)
 }
 
 func TestBytes(t *testing.T) {
@@ -2593,8 +2607,9 @@ func TestVMUnary(t *testing.T) {
 	expectRun(t, `return -0.0`, nil, Float(0.0))
 	expectRun(t, `return +0.0`, nil, Float(0.0))
 
-	expectErrIs(t, `return ^1.0`, nil, ErrType)
-	expectErrHas(t, `return ^1.0`, nil, `TypeError: invalid type for unary '^': 'float'`)
+	expectErrIs(t, `return ^1.0`, newOpts().Skip2Pass().CompilerError(), ErrType)
+	expectErrIs(t, `return ^1.0`, newOpts().Skip1Pass(), ErrType)
+	expectErrHas(t, `return ^1.0`, newOpts().Skip1Pass(), `TypeError: invalid type for unary '^': 'float'`)
 }
 
 func TestVMScopes(t *testing.T) {
@@ -2909,25 +2924,33 @@ func TestVMString(t *testing.T) {
 	expectRun(t, `return "foo" + 1`, nil, String("foo1"))
 	// Float.String() returns the smallest number of digits
 	// necessary such that ParseFloat will return f exactly.
-	expectErrIs(t, `return 1 + "foo"`, nil, ErrType)
+	expectErrIs(t, `return 1 + "foo"`, newOpts().Skip2Pass().CompilerError(), ErrType)
+	expectErrIs(t, `return 1 + "foo"`, newOpts().Skip1Pass(), ErrType)
 	expectRun(t, `return "foo" + 1.0`, nil, String("foo1")) // <- note '1' instead of '1.0'
-	expectErrIs(t, `return 1.0 + "foo"`, nil, ErrType)
+	expectErrIs(t, `return 1.0 + "foo"`, newOpts().Skip2Pass().CompilerError(), ErrType)
+	expectErrIs(t, `return 1.0 + "foo"`, newOpts().Skip1Pass(), ErrType)
 	expectRun(t, `return "foo" + 1.5`, nil, String("foo1.5"))
-	expectErrIs(t, `return 1.5 + "foo"`, nil, ErrType)
+	expectErrIs(t, `return 1.5 + "foo"`, newOpts().Skip2Pass().CompilerError(), ErrType)
+	expectErrIs(t, `return 1.5 + "foo"`, newOpts().Skip1Pass(), ErrType)
 	expectRun(t, `return "foo" + true`, nil, String("footrue"))
-	expectErrIs(t, `return true + "foo"`, nil, ErrType)
+	expectErrIs(t, `return true + "foo"`,
+		newOpts().Skip2Pass().CompilerError(), ErrType)
+	expectErrIs(t, `return true + "foo"`, newOpts().Skip1Pass(), ErrType)
 	expectRun(t, `return "foo" + 'X'`, nil, String("fooX"))
 	expectRun(t, `return 'X' + "foo"`, nil, String("Xfoo"))
 	expectRun(t, `return "foo" + error(5)`, nil, String("fooerror: 5"))
 	expectRun(t, `return "foo" + undefined`, nil, String("fooundefined"))
-	expectErrIs(t, `return undefined + "foo"`, nil, ErrType)
+	expectErrIs(t, `return undefined + "foo"`, newOpts().Skip2Pass().CompilerError(), ErrType)
+	expectErrIs(t, `return undefined + "foo"`, newOpts().Skip1Pass(), ErrType)
 	// array adds rhs object to the array
 	expectRun(t, `return [1, 2, 3] + "foo"`,
 		nil, Array{Int(1), Int(2), Int(3), String("foo")})
 	// also works with "+=" operator
 	expectRun(t, `out := "foo"; out += 1.5; return out`, nil, String("foo1.5"))
-	expectErrHas(t, `"foo" - "bar"`,
-		nil, `TypeError: unsupported operand types for '-': 'string' and 'string'`)
+	expectErrHas(t, `"foo" - "bar"`, newOpts().Skip2Pass().CompilerError(),
+		`TypeError: unsupported operand types for '-': 'string' and 'string'`)
+	expectErrHas(t, `"foo" - "bar"`, newOpts().Skip1Pass(),
+		`TypeError: unsupported operand types for '-': 'string' and 'string'`)
 }
 
 func TestVMTailCall(t *testing.T) {
@@ -3199,68 +3222,6 @@ func TestVMCall(t *testing.T) {
 		nil, Map{"a": make(Bytes, 4096)})
 }
 
-func TestVMCallCompiledFunction(t *testing.T) {
-	script := `
-	var v = 0
-	return {
-		"add": func(x) {
-			v+=x
-			return v
-		},
-		"sub": func(x) {
-			v-=x
-			return v
-		},
-	}
-	`
-	c, err := Compile([]byte(script), CompilerOptions{})
-	if err != nil {
-		t.Fatal(err)
-	}
-	vm := NewVM(c)
-	f, err := vm.Run(nil, nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	//locals := vm.GetLocals(nil)
-	// t.Log(f)
-	require.Contains(t, f.(Map), "add")
-	require.Contains(t, f.(Map), "sub")
-	add := f.(Map)["add"].(*CompiledFunction)
-	ret, err := vm.RunCompiledFunction(add, nil, Int(10))
-	if err != nil {
-		t.Fatal(err)
-	}
-	// t.Log(ret)
-	require.Equal(t, Int(10), ret.(Int))
-
-	ret, err = vm.RunCompiledFunction(add, nil, Int(10))
-	if err != nil {
-		t.Fatal(err)
-	}
-	// t.Log(ret)
-	require.Equal(t, Int(20), ret.(Int))
-
-	sub := f.(Map)["sub"].(*CompiledFunction)
-	ret, err = vm.RunCompiledFunction(sub, nil, Int(1))
-	if err != nil {
-		t.Fatal(err)
-	}
-	// t.Log(ret)
-	require.Equal(t, Int(19), ret.(Int))
-
-	ret, err = vm.RunCompiledFunction(sub, nil, Int(1))
-	if err != nil {
-		t.Fatal(err)
-	}
-	// t.Log(ret)
-	require.Equal(t, Int(18), ret.(Int))
-	// for i := range locals {
-	// 	fmt.Printf("%#v\n", locals[i])
-	// 	fmt.Printf("%#v\n", *locals[i].(*ObjectPtr).Value)
-	// }
-}
-
 func TestVMClosure(t *testing.T) {
 	expectRun(t, `
 	param arg0
@@ -3322,6 +3283,7 @@ type testopts struct {
 	globals       Object
 	args          []Object
 	moduleMap     *ModuleMap
+	skip1pass     bool
 	skip2pass     bool
 	isCompilerErr bool
 	noPanic       bool
@@ -3341,6 +3303,11 @@ func (t *testopts) Args(args ...Object) *testopts {
 	return t
 }
 
+func (t *testopts) Skip1Pass() *testopts {
+	t.skip1pass = true
+	return t
+}
+
 func (t *testopts) Skip2Pass() *testopts {
 	t.skip2pass = true
 	return t
@@ -3356,7 +3323,7 @@ func (t *testopts) NoPanic() *testopts {
 	return t
 }
 
-func (t *testopts) Module(name string, module interface{}) *testopts {
+func (t *testopts) Module(name string, module any) *testopts {
 	if t.moduleMap == nil {
 		t.moduleMap = NewModuleMap()
 	}
@@ -3402,7 +3369,7 @@ func expectErrIs(t *testing.T, script string, opts *testopts, expectErr error) {
 	})
 }
 
-func expectErrAs(t *testing.T, script string, opts *testopts, asErr interface{}, eqErr interface{}) {
+func expectErrAs(t *testing.T, script string, opts *testopts, asErr any, eqErr any) {
 	t.Helper()
 	expectErrorGen(t, script, opts, func(t *testing.T, retErr error) {
 		t.Helper()
@@ -3437,7 +3404,6 @@ func expectErrorGen(
 			name: "default",
 			opts: CompilerOptions{
 				ModuleMap:      opts.moduleMap,
-				OptimizeConst:  true,
 				TraceParser:    true,
 				TraceOptimizer: true,
 				TraceCompiler:  true,
@@ -3450,11 +3416,17 @@ func expectErrorGen(
 				TraceParser:    true,
 				TraceOptimizer: true,
 				TraceCompiler:  true,
+				NoOptimize:     true,
 			},
 		},
 	}
+	if opts.skip1pass && opts.skip2pass {
+		panic("cannot skip both passes")
+	}
 	if opts.skip2pass {
 		testCases = testCases[:1]
+	} else if opts.skip1pass {
+		testCases = testCases[1:]
 	}
 	for _, tC := range testCases {
 		t.Run(tC.name, func(t *testing.T) {
@@ -3489,7 +3461,6 @@ func expectRun(t *testing.T, script string, opts *testopts, expect Object) {
 			name: "default",
 			opts: CompilerOptions{
 				ModuleMap:      opts.moduleMap,
-				OptimizeConst:  true,
 				TraceParser:    true,
 				TraceOptimizer: true,
 				TraceCompiler:  true,
@@ -3499,6 +3470,7 @@ func expectRun(t *testing.T, script string, opts *testopts, expect Object) {
 			name: "unoptimized",
 			opts: CompilerOptions{
 				ModuleMap:      opts.moduleMap,
+				NoOptimize:     true,
 				TraceParser:    true,
 				TraceOptimizer: true,
 				TraceCompiler:  true,

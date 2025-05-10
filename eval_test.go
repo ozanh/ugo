@@ -7,8 +7,9 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	. "github.com/ozanh/ugo"
 	ugotime "github.com/ozanh/ugo/stdlib/time"
+
+	. "github.com/ozanh/ugo"
 )
 
 func TestEval(t *testing.T) {
@@ -103,7 +104,7 @@ func TestEval(t *testing.T) {
 				},
 			},
 		}
-		eval := NewEval(DefaultCompilerOptions, globals)
+		eval := NewEval(CompilerOptions{}, globals)
 		ctx, cancel := context.WithCancel(context.Background())
 		cancel()
 		ret, bc, err := eval.Run(ctx, []byte(`
@@ -115,7 +116,7 @@ func TestEval(t *testing.T) {
 
 	// test error
 	t.Run("parser error", func(t *testing.T) {
-		eval := NewEval(DefaultCompilerOptions, nil)
+		eval := NewEval(CompilerOptions{}, nil)
 		ret, bc, err := eval.Run(context.Background(), []byte(`...`))
 		require.Nil(t, ret)
 		require.Nil(t, bc)

@@ -7,8 +7,9 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	. "github.com/ozanh/ugo"
 	. "github.com/ozanh/ugo/stdlib/json"
+
+	. "github.com/ozanh/ugo"
 )
 
 func TestModuleTypes(t *testing.T) {
@@ -25,7 +26,7 @@ func TestModuleTypes(t *testing.T) {
 }
 
 func TestScript(t *testing.T) {
-	catchf := func(s string, args ...interface{}) string {
+	catchf := func(s string, args ...any) string {
 		return fmt.Sprintf(`
 		json := import("json")
 		try {
@@ -35,7 +36,7 @@ func TestScript(t *testing.T) {
 		}
 		`, fmt.Sprintf(s, args...))
 	}
-	scriptf := func(s string, args ...interface{}) string {
+	scriptf := func(s string, args ...any) string {
 		return fmt.Sprintf(`
 		json := import("json")
 		return %s
@@ -173,7 +174,7 @@ func expectRun(t *testing.T, script string, opts *Opts, expected Object) {
 	}
 	mm := NewModuleMap()
 	mm.AddBuiltinModule("json", Module)
-	c := DefaultCompilerOptions
+	var c CompilerOptions
 	c.ModuleMap = mm
 	bc, err := Compile([]byte(script), c)
 	require.NoError(t, err)

@@ -9,9 +9,7 @@ As of now optimizer works on Abstract Syntax Tree (AST) like compiler but it
 replaces expressions, if applicable, with constant literals. Optimizer uses two
 techniques to modify AST, constant folding and dynamically evaluating
 expressions, which has no side effect. Optimizer greedily tries to modify AST
-until the given limit is reached. Constant propagation will be implemented in
-the future which may improve execution performance more than current
-implementation.
+until the given limit is reached.
 
 Following example shows how the optimizer works:
 
@@ -90,7 +88,7 @@ SourceMap:map[0:6 3:1 5:0]
 To see unoptimized bytecode start application like this
 
 ```sh
-./ugo -no-optimizer
+./ugo -no-optimize
 ```
 
 uGO's terminal application provides trace output for parser, optimizer and
@@ -101,7 +99,7 @@ of the application like below.
 ./ugo -h
 
 Usage of ugo:
-  -no-optimizer
+  -no-optimize
         disable optimization
   -trace string
         comma separated units: -trace parser,optimizer,compiler

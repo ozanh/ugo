@@ -1,4 +1,4 @@
-// Copyright (c) 2020-2023 Ozan Hacıbekiroğlu.
+// Copyright (c) 2020-2025 Ozan Hacıbekiroğlu.
 // Use of this source code is governed by a MIT License
 // that can be found in the LICENSE file.
 
@@ -11,7 +11,7 @@ import (
 // Importable interface represents importable module instance.
 type Importable interface {
 	// Import should return either an Object or module source code ([]byte).
-	Import(moduleName string) (interface{}, error)
+	Import(moduleName string) (any, error)
 }
 
 // ExtImporter wraps methods for a module which will be impored dynamically like
@@ -118,7 +118,7 @@ type SourceModule struct {
 }
 
 // Import returns a module source code.
-func (m *SourceModule) Import(_ string) (interface{}, error) {
+func (m *SourceModule) Import(_ string) (any, error) {
 	return m.Src, nil
 }
 
@@ -128,7 +128,7 @@ type BuiltinModule struct {
 }
 
 // Import returns an immutable map for the module.
-func (m *BuiltinModule) Import(moduleName string) (interface{}, error) {
+func (m *BuiltinModule) Import(moduleName string) (any, error) {
 	if m.Attrs == nil {
 		return nil, errors.New("module attributes not set")
 	}

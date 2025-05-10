@@ -1,4 +1,4 @@
-// Copyright (c) 2020-2023 Ozan Hacıbekiroğlu.
+// Copyright (c) 2020-2025 Ozan Hacıbekiroğlu.
 // Use of this source code is governed by a MIT License
 // that can be found in the LICENSE file.
 
@@ -7,19 +7,36 @@ package ugo
 import (
 	"errors"
 	"fmt"
-	"sort"
 )
 
 // SymbolScope represents a symbol scope.
-type SymbolScope string
+type SymbolScope int
 
 // List of symbol scopes
 const (
-	ScopeGlobal  SymbolScope = "GLOBAL"
-	ScopeLocal   SymbolScope = "LOCAL"
-	ScopeBuiltin SymbolScope = "BUILTIN"
-	ScopeFree    SymbolScope = "FREE"
+	ScopeGlobal SymbolScope = iota + 1
+	ScopeLocal
+	ScopeBuiltin
+	ScopeFree
+	ScopeConstLit
 )
+
+func (s SymbolScope) String() string {
+	switch s {
+	case ScopeGlobal:
+		return "GLOBAL"
+	case ScopeLocal:
+		return "LOCAL"
+	case ScopeBuiltin:
+		return "BUILTIN"
+	case ScopeFree:
+		return "FREE"
+	case ScopeConstLit:
+		return "CONSTLIT"
+	default:
+		panic("unknown symbol scope")
+	}
+}
 
 // Symbol represents a symbol in the symbol table.
 type Symbol struct {
@@ -29,26 +46,28 @@ type Symbol struct {
 	Assigned bool
 	Constant bool
 	Original *Symbol
+	constLit constLiteral
 }
 
 func (s *Symbol) String() string {
-	return fmt.Sprintf("Symbol{Name:%s Index:%d Scope:%s Assigned:%v "+
-		"Original:%s Constant:%t}",
-		s.Name, s.Index, s.Scope, s.Assigned, s.Original, s.Constant)
+	return fmt.Sprintf("Symbol{Name:%s Index:%d Scope:%s Assigned:%v Constant:%t Original:%s}",
+		s.Name, s.Index, s.Scope, s.Assigned, s.Constant, s.Original)
 }
 
 // SymbolTable represents a symbol table.
 type SymbolTable struct {
-	parent           *SymbolTable
-	maxDefinition    int
-	numDefinition    int
-	numParams        int
-	store            map[string]*Symbol
-	disabledBuiltins map[string]struct{}
-	frees            []*Symbol
-	block            bool
-	disableParams    bool
-	shadowedBuiltins []string
+	parent            *SymbolTable
+	maxDefinition     int
+	numDefinition     int
+	numParams         int
+	store             map[string]*Symbol
+	disabledBuiltins  map[string]struct{}
+	frees             []*Symbol
+	shadowedBuiltins  []string
+	block             bool
+	disableParams     bool
+	hasConstLit       bool
+	hasParentConstLit bool
 }
 
 // NewSymbolTable creates new symbol table object.
@@ -58,12 +77,31 @@ func NewSymbolTable() *SymbolTable {
 	}
 }
 
+func (st *SymbolTable) reset() {
+	*st = SymbolTable{
+		store:            st.store,
+		disabledBuiltins: st.disabledBuiltins,
+		frees:            st.frees[:0],
+		shadowedBuiltins: st.shadowedBuiltins[:0],
+	}
+
+	for k := range st.store {
+		delete(st.store, k)
+	}
+
+	for k := range st.disabledBuiltins {
+		delete(st.disabledBuiltins, k)
+	}
+
+}
+
 // Fork creates a new symbol table for a new scope.
 func (st *SymbolTable) Fork(block bool) *SymbolTable {
 	fork := NewSymbolTable()
 	fork.parent = st
 	fork.block = block
 	fork.disableParams = st.disableParams
+	fork.hasParentConstLit = st.hasConstLit || st.hasParentConstLit
 	return fork
 }
 
@@ -107,7 +145,7 @@ func (st *SymbolTable) SetParams(params ...string) error {
 		}
 		symbol := &Symbol{
 			Name:  param,
-			Index: st.NextIndex(),
+			Index: st.nextIndex(),
 			Scope: ScopeLocal,
 		}
 		st.numDefinition++
@@ -116,21 +154,6 @@ func (st *SymbolTable) SetParams(params ...string) error {
 		st.shadowBuiltin(param)
 	}
 	return nil
-}
-
-func (st *SymbolTable) find(name string, scopes ...SymbolScope) (*Symbol, bool) {
-	if symbol, ok := st.store[name]; ok {
-		if len(scopes) == 0 {
-			return symbol, ok
-		}
-
-		for _, s := range scopes {
-			if s == symbol.Scope {
-				return symbol, true
-			}
-		}
-	}
-	return nil, false
 }
 
 // Resolve resolves a symbol with a given name.
@@ -144,7 +167,8 @@ func (st *SymbolTable) Resolve(name string) (symbol *Symbol, ok bool) {
 
 		if !st.block &&
 			symbol.Scope != ScopeGlobal &&
-			symbol.Scope != ScopeBuiltin {
+			symbol.Scope != ScopeBuiltin &&
+			symbol.Scope != ScopeConstLit {
 			return st.defineFree(symbol), true
 		}
 	}
@@ -170,7 +194,7 @@ func (st *SymbolTable) DefineLocal(name string) (*Symbol, bool) {
 		return symbol, true
 	}
 
-	index := st.NextIndex()
+	index := st.nextIndex()
 
 	symbol = &Symbol{
 		Name:  name,
@@ -184,6 +208,24 @@ func (st *SymbolTable) DefineLocal(name string) (*Symbol, bool) {
 	st.updateMaxDefs(symbol.Index + 1)
 	st.shadowBuiltin(name)
 
+	return symbol, false
+}
+
+func (st *SymbolTable) defineConstLit(name string) (*Symbol, bool) {
+	symbol, ok := st.store[name]
+	if ok {
+		return symbol, true
+	}
+	st.hasConstLit = true
+	symbol = &Symbol{
+		Name:     name,
+		Index:    -1,
+		Scope:    ScopeConstLit,
+		Constant: true,
+	}
+
+	st.store[name] = symbol
+	st.shadowBuiltin(name)
 	return symbol, false
 }
 
@@ -214,10 +256,10 @@ func (st *SymbolTable) updateMaxDefs(numDefs int) {
 	}
 }
 
-// NextIndex returns the next symbol index.
-func (st *SymbolTable) NextIndex() int {
+// nextIndex returns the next symbol index.
+func (st *SymbolTable) nextIndex() int {
 	if st.block {
-		return st.parent.NextIndex() + st.numDefinition
+		return st.parent.nextIndex() + st.numDefinition
 	}
 	return st.numDefinition
 }
@@ -262,85 +304,190 @@ func (st *SymbolTable) FreeSymbols() []*Symbol {
 	return st.frees
 }
 
-// Symbols returns registered symbols for the scope.
-func (st *SymbolTable) Symbols() []*Symbol {
-	out := make([]*Symbol, 0, len(st.store))
-	for _, s := range st.store {
-		out = append(out, s)
+// Range iterates over all symbols in current symbol table, and visits
+// parent symbol tables if visitParent is true.
+// The visit function returns true to continue iteration, or false to stop.
+func (st *SymbolTable) Range(visitParent bool, fn func(*Symbol) bool) {
+	if !visitParent {
+		for _, sym := range st.store {
+			if !fn(sym) {
+				return
+			}
+		}
+		return
 	}
 
-	sort.Slice(out, func(i, j int) bool {
-		return out[i].Index < out[j].Index
-	})
-
-	return out
+	names := make(map[string]struct{})
+	ptr := st
+	for ptr != nil {
+		for name, sym := range ptr.store {
+			if _, ok := names[name]; !ok {
+				names[name] = struct{}{}
+				if !fn(sym) {
+					return
+				}
+			}
+		}
+		ptr = ptr.parent
+	}
 }
 
 // DisableBuiltin disables given builtin name(s).
 // Compiler returns `Compile Error: unresolved reference "builtin name"`
 // if a disabled builtin is used.
-func (st *SymbolTable) DisableBuiltin(names ...string) *SymbolTable {
+func (st *SymbolTable) DisableBuiltin(names ...string) {
 	if len(names) == 0 {
-		return st
+		return
 	}
 
-	if st.parent != nil {
-		return st.parent.DisableBuiltin(names...)
-	}
-
-	if st.disabledBuiltins == nil {
-		st.disabledBuiltins = make(map[string]struct{})
-	}
+	root := st.root()
+	root.initDisabledBuiltinsMap()
 
 	for _, n := range names {
-		st.disabledBuiltins[n] = struct{}{}
+		root.disabledBuiltins[n] = struct{}{}
 	}
-	return st
 }
 
 // DisabledBuiltins returns disabled builtin names.
 func (st *SymbolTable) DisabledBuiltins() []string {
-	if st.parent != nil {
-		return st.parent.DisabledBuiltins()
-	}
-
-	if st.disabledBuiltins == nil {
+	root := st.root()
+	if root.disabledBuiltins == nil {
 		return nil
 	}
 
-	names := make([]string, 0, len(st.disabledBuiltins))
-	for n := range st.disabledBuiltins {
+	names := make([]string, 0, len(root.disabledBuiltins))
+	for n := range root.disabledBuiltins {
 		names = append(names, n)
 	}
 	return names
 }
 
-// isBuiltinDisabled returns true if builtin name marked as disabled.
-func (st *SymbolTable) isBuiltinDisabled(name string) bool {
-	if st.parent != nil {
-		return st.parent.isBuiltinDisabled(name)
+func (st *SymbolTable) initDisabledBuiltinsMap() {
+	root := st.root()
+	if root.disabledBuiltins == nil {
+		root.disabledBuiltins = make(map[string]struct{})
 	}
-
-	_, ok := st.disabledBuiltins[name]
-	return ok
 }
 
-// ShadowedBuiltins returns all shadowed builtin names including parent symbol
-// tables'. Returing slice may contain duplicate names.
-func (st *SymbolTable) ShadowedBuiltins() []string {
-	var out []string
-	if len(st.shadowedBuiltins) > 0 {
-		out = append(out, st.shadowedBuiltins...)
+func (st *SymbolTable) root() *SymbolTable {
+	if st.parent == nil {
+		return st
 	}
+	return st.parent.root()
+}
 
-	if st.parent != nil {
-		out = append(out, st.parent.ShadowedBuiltins()...)
+func (st *SymbolTable) disabledBuiltinsMap() map[string]struct{} {
+	if st == nil {
+		return nil
 	}
-	return out
+	root := st.root()
+	return root.disabledBuiltins
+}
+
+func (st *SymbolTable) hasAnyShadowedBuiltins() bool {
+	if st == nil {
+		return false
+	}
+	if len(st.shadowedBuiltins) > 0 {
+		return true
+	}
+	if st.parent != nil {
+		return st.parent.hasAnyShadowedBuiltins()
+	}
+	return false
+}
+
+// isBuiltinDisabled returns true if builtin name marked as disabled.
+func (st *SymbolTable) isBuiltinDisabled(name string) bool {
+	root := st.root()
+	_, ok := root.disabledBuiltins[name]
+	return ok
 }
 
 func (st *SymbolTable) shadowBuiltin(name string) {
 	if _, ok := BuiltinsMap[name]; ok {
 		st.shadowedBuiltins = append(st.shadowedBuiltins, name)
+	}
+}
+
+// findByName searches for a symbol in the current symbol table and its parent
+// tables. If no symbol is found, it returns nil.
+func (st *SymbolTable) findByName(visitParent bool, name string) *Symbol {
+	ptr := st
+	for ptr != nil {
+		if sym, ok := ptr.store[name]; ok {
+			return sym
+		}
+		if !visitParent {
+			return nil
+		}
+		ptr = ptr.parent
+	}
+	return nil
+}
+
+// Helper functions for symbol table to use in Compiler and optimizer.
+
+func hasAnyConstLit(st *SymbolTable) bool {
+	return st.hasConstLit || st.hasParentConstLit
+}
+
+func findSymbolSelf(st *SymbolTable, name string) *Symbol {
+	const visitParent = false
+	return st.findByName(visitParent, name)
+}
+
+func findSymbolWithScope(st *SymbolTable, name string, scope SymbolScope) *Symbol {
+	const visitParent = true
+	s := st.findByName(visitParent, name)
+	if s != nil && s.Scope == scope {
+		return s
+	}
+	return nil
+}
+
+func copyMapStringSet(m map[string]struct{}) map[string]struct{} {
+	if m == nil {
+		return nil
+	}
+	n := make(map[string]struct{}, len(m))
+	for k, v := range m {
+		n[k] = v
+	}
+	return n
+}
+
+func optimCopyBuiltinStates(dest, src *SymbolTable) {
+	otherMap := src.disabledBuiltinsMap()
+	hasShadowed := src.hasAnyShadowedBuiltins()
+	if len(otherMap) == 0 && !hasShadowed {
+		return
+	}
+
+	root := dest.root()
+	root.initDisabledBuiltinsMap()
+
+	for name := range otherMap {
+		root.disabledBuiltins[name] = struct{}{}
+	}
+
+	ptr := src
+	for ptr != nil {
+		for _, name := range ptr.shadowedBuiltins {
+			root.disabledBuiltins[name] = struct{}{}
+		}
+		ptr = ptr.parent
+	}
+}
+
+func optimCopyBuiltinStatesFromScope(dest *SymbolTable, src *optimizerScope) {
+	root := dest.root()
+	ptr := src
+	for {
+		root.DisableBuiltin(ptr.shadowed...)
+		ptr = ptr.parent
+		if ptr == nil {
+			break
+		}
 	}
 }

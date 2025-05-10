@@ -5,8 +5,9 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	. "github.com/ozanh/ugo"
 	. "github.com/ozanh/ugo/stdlib/fmt"
+
+	. "github.com/ozanh/ugo"
 )
 
 func Example() {
@@ -318,9 +319,9 @@ func expectRun(t *testing.T, script string, expected Object) {
 
 	mm := NewModuleMap()
 	mm.AddBuiltinModule("fmt", Module)
-	c := DefaultCompilerOptions
-	c.ModuleMap = mm
-	bc, err := Compile([]byte(script), c)
+	var opts CompilerOptions
+	opts.ModuleMap = mm
+	bc, err := Compile([]byte(script), opts)
 	require.NoError(t, err, script)
 	ret, err := NewVM(bc).Run(nil)
 	require.NoError(t, err, script)
@@ -330,9 +331,9 @@ func expectRun(t *testing.T, script string, expected Object) {
 func exampleRun(script string) {
 	mm := NewModuleMap()
 	mm.AddBuiltinModule("fmt", Module)
-	c := DefaultCompilerOptions
-	c.ModuleMap = mm
-	bc, err := Compile([]byte(script), c)
+	var opts CompilerOptions
+	opts.ModuleMap = mm
+	bc, err := Compile([]byte(script), opts)
 	if err != nil {
 		panic(err)
 	}

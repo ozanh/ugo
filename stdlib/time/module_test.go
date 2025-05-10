@@ -9,8 +9,9 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	. "github.com/ozanh/ugo"
 	. "github.com/ozanh/ugo/stdlib/time"
+
+	. "github.com/ozanh/ugo"
 )
 
 func TestModuleTypes(t *testing.T) {
@@ -152,23 +153,23 @@ func TestModuleDuration(t *testing.T) {
 	require.Equal(t, Module["Minute"], Int(time.Minute))
 	require.Equal(t, Module["Hour"], Int(time.Hour))
 
-	goFnMap := map[string]func(time.Duration) interface{}{
-		"Nanoseconds": func(d time.Duration) interface{} {
+	goFnMap := map[string]func(time.Duration) any{
+		"Nanoseconds": func(d time.Duration) any {
 			return d.Nanoseconds()
 		},
-		"Microseconds": func(d time.Duration) interface{} {
+		"Microseconds": func(d time.Duration) any {
 			return d.Microseconds()
 		},
-		"Milliseconds": func(d time.Duration) interface{} {
+		"Milliseconds": func(d time.Duration) any {
 			return d.Milliseconds()
 		},
-		"Seconds": func(d time.Duration) interface{} {
+		"Seconds": func(d time.Duration) any {
 			return d.Seconds()
 		},
-		"Minutes": func(d time.Duration) interface{} {
+		"Minutes": func(d time.Duration) any {
 			return d.Minutes()
 		},
-		"Hours": func(d time.Duration) interface{} {
+		"Hours": func(d time.Duration) any {
 			return d.Hours()
 		},
 	}
@@ -496,9 +497,9 @@ func TestModuleTime(t *testing.T) {
 	y, m, d := now.Date()
 	testTimeSelector(t, &Time{Value: now}, "Date",
 		Map{"year": Int(y), "month": Int(m), "day": Int(d)})
-	h, min, s := now.Clock()
+	h, minVal, s := now.Clock()
 	testTimeSelector(t, &Time{Value: now}, "Clock",
-		Map{"hour": Int(h), "minute": Int(min), "second": Int(s)})
+		Map{"hour": Int(h), "minute": Int(minVal), "second": Int(s)})
 	testTimeSelector(t, &Time{Value: now}, "UTC", &Time{Value: now.UTC()})
 	testTimeSelector(t, &Time{Value: now}, "Unix", Int(now.Unix()))
 	testTimeSelector(t, &Time{Value: now}, "UnixNano", Int(now.UnixNano()))
@@ -870,7 +871,7 @@ func expectRun(t *testing.T, script string, opts *Opts, expected Object) {
 	}
 	mm := NewModuleMap()
 	mm.AddBuiltinModule("time", Module)
-	c := DefaultCompilerOptions
+	var c CompilerOptions
 	c.ModuleMap = mm
 	bc, err := Compile([]byte(script), c)
 	require.NoError(t, err)

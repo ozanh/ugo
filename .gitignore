@@ -21,3 +21,4 @@
 *.prof
 
 /TODO*
+.github/copilot-instructions.md

@@ -1,4 +1,4 @@
-// Copyright (c) 2022-2023 Ozan Hacıbekiroğlu.
+// Copyright (c) 2022-2025 Ozan Hacıbekiroğlu.
 // Use of this source code is governed by a MIT License
 // that can be found in the LICENSE file.
 
@@ -18,7 +18,6 @@ import (
 	"go/parser"
 	"go/token"
 	"io"
-	"io/ioutil"
 	"log"
 	"os"
 	"sort"
@@ -34,7 +33,7 @@ const ugoDot = "ugo."
 
 type converterFunc func(index int, argsName string, p *Param, extended bool) string
 
-var converters = map[string]interface{}{
+var converters = map[string]any{
 	"string":       "ugo.ToGoString",
 	"[]byte":       "ugo.ToGoByteSlice",
 	"int":          "ugo.ToGoInt",
@@ -187,7 +186,7 @@ func main() {
 	if *filename == "" {
 		_, err = os.Stdout.Write(data)
 	} else {
-		err = ioutil.WriteFile(*filename, data, 0644)
+		err = os.WriteFile(*filename, data, 0644)
 	}
 	if err != nil {
 		log.Fatal(err)

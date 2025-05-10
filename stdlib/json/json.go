@@ -1,4 +1,4 @@
-// Copyright (c) 2022-2023 Ozan Hacıbekiroğlu.
+// Copyright (c) 2022-2025 Ozan Hacıbekiroğlu.
 // Use of this source code is governed by a MIT License
 // that can be found in the LICENSE file.
 
@@ -15,7 +15,7 @@ import (
 
 func init() {
 	registry.RegisterObjectConverter(reflect.TypeOf(json.RawMessage(nil)),
-		func(in interface{}) (interface{}, bool) {
+		func(in any) (any, bool) {
 			rm := in.(json.RawMessage)
 			if rm == nil {
 				return &RawMessage{Value: ugo.Bytes{}}, true
@@ -25,7 +25,7 @@ func init() {
 	)
 
 	registry.RegisterAnyConverter(reflect.TypeOf((*RawMessage)(nil)),
-		func(in interface{}) (interface{}, bool) {
+		func(in any) (any, bool) {
 			rm := in.(*RawMessage)
 			return json.RawMessage(rm.Value), true
 		},

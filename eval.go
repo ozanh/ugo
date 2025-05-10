@@ -1,4 +1,4 @@
-// Copyright (c) 2020-2023 Ozan Hacıbekiroğlu.
+// Copyright (c) 2020-2025 Ozan Hacıbekiroğlu.
 // Use of this source code is governed by a MIT License
 // that can be found in the LICENSE file.
 
@@ -18,6 +18,7 @@ type Eval struct {
 	Opts         CompilerOptions
 	VM           *VM
 	ModulesCache []Object
+	moduleStore  moduleStore
 }
 
 // NewEval returns new Eval object.
@@ -27,9 +28,6 @@ func NewEval(opts CompilerOptions, globals Object, args ...Object) *Eval {
 	}
 	if opts.SymbolTable == nil {
 		opts.SymbolTable = NewSymbolTable()
-	}
-	if opts.moduleStore == nil {
-		opts.moduleStore = newModuleStore()
 	}
 
 	return &Eval{
@@ -42,7 +40,7 @@ func NewEval(opts CompilerOptions, globals Object, args ...Object) *Eval {
 
 // Run compiles, runs given script and returns last value on stack.
 func (r *Eval) Run(ctx context.Context, script []byte) (Object, *Bytecode, error) {
-	bytecode, err := Compile(script, r.Opts)
+	bytecode, err := compileScript(script, &r.Opts, &r.moduleStore)
 	if err != nil {
 		return nil, nil, err
 	}

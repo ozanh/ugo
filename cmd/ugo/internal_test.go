@@ -7,7 +7,8 @@ import (
 	"bytes"
 	"context"
 	"flag"
-	"io/ioutil"
+	"io"
+	"os"
 	"strings"
 	"testing"
 
@@ -126,9 +127,9 @@ func TestREPL(t *testing.T) {
 		symout := string(cw.consume())
 		testHasPrefix(t, symout, "[Symbol{Name:")
 		require.Contains(t, symout,
-			"Symbol{Name:Gosched Index:0 Scope:GLOBAL Assigned:false Original:<nil> Constant:false}")
+			"Symbol{Name:Gosched Index:0 Scope:GLOBAL Assigned:false Constant:false Original:<nil>}")
 		require.Contains(t, symout,
-			"Symbol{Name:test Index:0 Scope:LOCAL Assigned:true Original:<nil> Constant:false}")
+			"Symbol{Name:test Index:0 Scope:LOCAL Assigned:true Constant:false Original:<nil>}")
 	})
 	t.Run("modules_cache", func(t *testing.T) {
 		r := newREPL(ctx, cw)
@@ -239,7 +240,7 @@ func TestFlags(t *testing.T) {
 }
 
 func resetGlobals() {
-	noOptimizer = false
+	noOptimize = false
 	traceEnabled = false
 	traceParser = false
 	traceOptimizer = false
@@ -251,12 +252,12 @@ func TestExecuteScript(t *testing.T) {
 	defer cancel()
 
 	const workdir = "./testdata"
-	scr, err := ioutil.ReadFile("./testdata/fibtc.ugo")
+	scr, err := os.ReadFile("./testdata/fibtc.ugo")
 	require.NoError(t, err)
 	require.NoError(t, executeScript(ctx, "(test1)", workdir, scr, nil))
 
 	traceEnabled = true
-	require.NoError(t, executeScript(ctx, "(test2)", workdir, scr, ioutil.Discard))
+	require.NoError(t, executeScript(ctx, "(test2)", workdir, scr, io.Discard))
 	resetGlobals()
 
 	// FIXME: Following is a flaky test which compromise CI

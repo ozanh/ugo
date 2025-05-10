@@ -3,7 +3,12 @@
 package ugo_test
 
 import (
+	"bytes"
 	"testing"
+
+	"github.com/stretchr/testify/require"
+
+	"github.com/ozanh/ugo/internal/tests"
 
 	. "github.com/ozanh/ugo"
 )
@@ -12,7 +17,7 @@ func TestVMDestructuring(t *testing.T) {
 	expectErrHas(t, `x, y = undefined; return x`,
 		newOpts().CompilerError(), `Compile Error: unresolved reference "x"`)
 	expectErrHas(t, `var (x, y); x, y := undefined; return x`,
-		newOpts().CompilerError(), `Compile Error: no new variable on left side`)
+		newOpts().CompilerError(), `Compile Error: no new variable on the left side`)
 	expectErrHas(t, `x, y = 1, 2`, newOpts().CompilerError(),
 		`Compile Error: multiple expressions on the right side not supported`)
 
@@ -486,7 +491,7 @@ func TestVMConst(t *testing.T) {
 	expectRun(t, `
 	const x = 1
 	if true {
-		
+
 	} else {
 		// block is not compiled
 		x = 2
@@ -1205,4 +1210,121 @@ return [object.add1(10), object.sub1(10)]
 			})
 		})
 	}
+}
+
+func Test_jumps(t *testing.T) {
+	tests.SkipIfNotLongTestsEnabled(t)
+
+	// Create a long script to test jumps
+
+	scriptBuf := bytes.NewBuffer(make([]byte, 0, 64*1024))
+
+	// This script tests OpJump, OpOrJump, OpSetupTry
+	scriptBuf.WriteString(
+		`
+a:=false
+b:=true
+try {
+  return `,
+	)
+
+	for i := 0; i < 10_000; i++ {
+		scriptBuf.WriteString("a || ")
+	}
+	scriptBuf.WriteString("b;")
+	scriptBuf.WriteString(`
+} catch err {
+  throw err
+} finally {}
+`)
+
+	bc, err := Compile(scriptBuf.Bytes(), CompilerOptions{NoOptimize: true})
+	require.NoError(t, err)
+
+	// bc.Fprint(os.Stdout)
+	// return
+
+	vm := NewVM(bc)
+
+	obj, err := vm.Run(Map{})
+	require.NoError(t, err)
+	require.Equal(t, True, obj)
+
+	// This script tests OpJump, OpAndJump, OpSetupTry, OpJumpFalsy
+	scriptBuf.Reset()
+	scriptBuf.WriteString(
+		`
+cond:=true
+a:=true
+b:=false
+if cond {
+  try {
+    return `)
+
+	for i := 0; i < 10_000; i++ {
+		scriptBuf.WriteString("a && ")
+	}
+	scriptBuf.WriteString("b;")
+	scriptBuf.WriteString(`
+} catch err {
+  throw err
+} finally {}
+} else {
+ throw "unreachable"
+}
+`)
+
+	bc, err = Compile(scriptBuf.Bytes(), CompilerOptions{NoOptimize: true})
+	require.NoError(t, err)
+
+	vm = NewVM(bc)
+	obj, err = vm.Run(Map{})
+	require.NoError(t, err)
+	require.Equal(t, False, obj)
+}
+
+func Test_constants(t *testing.T) {
+	expectRun(t, `
+	const x = 1
+	return x
+	`, nil, Int(1))
+
+	expectRun(t, `
+	const x = 1
+	return func() {
+		return x
+	}()
+	`, nil, Int(1))
+
+	expectRun(t, `
+	const x = 1
+	const y = 10
+	return x + y
+	`, nil, Int(11))
+
+	expectRun(t, `
+	const x = 1
+	const y = 10
+	return func() { return x + y }()
+	`, nil, Int(11))
+
+	expectRun(t, `
+	const x = 1
+	y:= 10
+	if y {
+		const z = 2
+		return x + z + y
+	}
+	throw "unreachable"
+	`, nil, Int(13))
+
+	expectRun(t, `
+	const x = "x"
+	y := "y"
+	if y {
+		const z = "z"
+		return x + z + y
+	}
+	throw "unreachable"
+	`, nil, String("xzy"))
 }

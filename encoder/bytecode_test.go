@@ -3,18 +3,18 @@ package encoder_test
 import (
 	"bytes"
 	"io"
-	"io/ioutil"
+	"os"
 	"testing"
 	gotime "time"
 
 	"github.com/stretchr/testify/require"
 
 	"github.com/ozanh/ugo"
+	"github.com/ozanh/ugo/internal/tests"
 	"github.com/ozanh/ugo/stdlib/fmt"
 	"github.com/ozanh/ugo/stdlib/json"
 	"github.com/ozanh/ugo/stdlib/strings"
 	"github.com/ozanh/ugo/stdlib/time"
-	"github.com/ozanh/ugo/tests"
 
 	. "github.com/ozanh/ugo/encoder"
 )
@@ -64,7 +64,8 @@ func TestBytecode_file(t *testing.T) {
 			withSourceMap(map[int]int{0: 1, 1: 2}),
 		),
 	}
-	f, err := ioutil.TempFile(temp, "mod.ugoc")
+
+	f, err := os.CreateTemp(temp, "mod.ugoc")
 	require.NoError(t, err)
 	defer f.Close()
 
@@ -95,7 +96,7 @@ v = int(fmt.Sprintf("%d", v))
 return v*time.Second/time.Second // 1
 `
 
-	opts := ugo.DefaultCompilerOptions
+	var opts ugo.CompilerOptions
 	opts.ModuleMap = ugo.NewModuleMap().
 		AddBuiltinModule("fmt", fmt.Module).
 		AddBuiltinModule("strings", strings.Module).
@@ -118,7 +119,7 @@ return {
 	require.Equal(t, ugo.Int(1), wantRet)
 
 	temp := t.TempDir()
-	f, err := ioutil.TempFile(temp, "program.ugoc")
+	f, err := os.CreateTemp(temp, "program.ugoc")
 	require.NoError(t, err)
 	defer f.Close()
 

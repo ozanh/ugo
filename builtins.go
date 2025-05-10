@@ -1,4 +1,4 @@
-// Copyright (c) 2020-2023 Ozan Hacıbekiroğlu.
+// Copyright (c) 2020-2025 Ozan Hacıbekiroğlu.
 // Use of this source code is governed by a MIT License
 // that can be found in the LICENSE file.
 
@@ -734,7 +734,7 @@ func builtinPrintfFunc(c Call) (ret Object, err error) {
 		_, err = fmt.Fprint(PrintWriter, c.Get(0).String())
 	default:
 		format, _ := c.shift()
-		vargs := make([]interface{}, 0, size-1)
+		vargs := make([]any, 0, size-1)
 		for i := 0; i < size-1; i++ {
 			vargs = append(vargs, c.Get(i))
 		}
@@ -751,7 +751,7 @@ func builtinPrintlnFunc(c Call) (ret Object, err error) {
 	case 1:
 		_, err = fmt.Fprintln(PrintWriter, c.Get(0))
 	default:
-		vargs := make([]interface{}, 0, size)
+		vargs := make([]any, 0, size)
 		for i := 0; i < size; i++ {
 			vargs = append(vargs, c.Get(i))
 		}
@@ -769,7 +769,7 @@ func builtinSprintfFunc(c Call) (ret Object, err error) {
 		ret = String(c.Get(0).String())
 	default:
 		format, _ := c.shift()
-		vargs := make([]interface{}, 0, size-1)
+		vargs := make([]any, 0, size-1)
 		for i := 0; i < size-1; i++ {
 			vargs = append(vargs, c.Get(i))
 		}
